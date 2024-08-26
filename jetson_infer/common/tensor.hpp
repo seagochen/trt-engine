@@ -29,15 +29,26 @@ struct TensorDimensions {
     size_t mem_size;  // 数据所占内存大小
     tensor_type type;
 
-    TensorDimensions() : mem_size(0), type(FLOAT32) {} // Default constructor
+    /**
+     * @brief 默认构造函数
+     */
+    TensorDimensions() : mem_size(0), type(FLOAT32) {}
 
+    /**
+     * @brief 构造函数
+     * @param dims
+     * @param type
+     */
     TensorDimensions(std::vector<int> dims, tensor_type type)
             : dims(std::move(dims)), type(type) {
         mem_size = calculateMemSize();
     }
 
-    // 计算数据所占的内存大小
-    size_t calculateMemSize() const {
+    /**
+     * @brief 计算数据所占内存大小
+     * @return
+     */
+    [[nodiscard]] size_t calculateMemSize() const {
         static const std::unordered_map<tensor_type, size_t> type_size_map = {
                 {FLOAT32, sizeof(float)},
                 {FLOAT64, sizeof(double)},
@@ -52,8 +63,7 @@ struct TensorDimensions {
         }
 
         size_t elementSize = it->second;
-        size_t totalElements = std::accumulate(dims.begin(), dims.end(), 1, std::multiplies<size_t>());
-
+        size_t totalElements = std::accumulate(dims.begin(), dims.end(), 1, std::multiplies<>());
         return totalElements * elementSize;
     }
 };
@@ -66,12 +76,45 @@ protected:
     TensorDimensions dims;
 
 public:
+    /**
+     * @brief 默认构造函数
+     */
     TensorBase() = default;
+
+    /**
+     * @brief 通过TensorDimensions构造
+     * @param dims
+     */
     explicit TensorBase(TensorDimensions dims) : dims(std::move(dims)) {}
-    virtual ~TensorBase() = default;  // 虚析构函数
+
+    /**
+     * @brief 虚析构函数
+     */
+    virtual ~TensorBase() = default;
+
+    /**
+     * @brief 获取数据维度信息
+     * @return
+     */
     [[nodiscard]] const TensorDimensions& getDims() const { return dims; }
+
+    /**
+     * @brief 获取数据类型
+     * @return
+     */
     [[nodiscard]] size_t getMemSize() const { return dims.mem_size; }
+
+    /**
+     * @brief 获取数据元素个数
+     * @return
+     */
     [[nodiscard]] size_t getElementCount() const { return dims.mem_size / sizeof(T); }
+
+    /**
+     * 纯虚函数，用于暴露数据指针，子类需要实现
+     * @return
+     */
+    virtual void* ptr() = 0;
 };
 
 ////////////////////////////////////// Forward Declaration //////////////////////////////////////
@@ -88,10 +131,15 @@ private:
 
 public:
 
-    // 默认构造函数
+    /**
+     * @brief 默认构造函数
+     */
     CudaTensor() : TensorBase<T>(), data(nullptr, cudaFree) {}
 
-    // 通过TensorDimensions构造
+    /**
+     * @brief 通过TensorDimensions构造
+     * @param dims
+     */
     explicit CudaTensor(const TensorDimensions& dims) : TensorBase<T>(dims), data(nullptr, cudaFree) {
         T* buffer;
         cudaError_t err = cudaMalloc(&buffer, dims.mem_size);
@@ -101,8 +149,10 @@ public:
         data.reset(buffer);
     }
 
-
-    // 从std::vector中拷贝数据
+    /**
+     * @brief 实现copyFrom方法，从std::vector中拷贝数据
+     * @param inputData
+     */
     void copyFrom(const std::vector<T>& inputData) {
         if (inputData.size() * sizeof(T) != this->dims.mem_size) {
             throw std::runtime_error("Tensor sizes do not match.");
@@ -113,78 +163,89 @@ public:
         }
     }
 
-
-    // 从另一个CudaTensor中拷贝数据
+    /**
+     * @brief 从另一个CudaTensor中拷贝数据
+     * @param other
+     */
     void copyFrom(const CudaTensor& other) {
         if (this->dims.mem_size != other.getMemSize()) {
             throw std::runtime_error("Tensor sizes do not match.");
         }
-        cudaError_t err = cudaMemcpy(this->data.get(), other.getData().data(), this->dims.mem_size, cudaMemcpyDeviceToDevice);
+        cudaError_t err = cudaMemcpy(this->data.get(), other.ptr(), this->dims.mem_size, cudaMemcpyDeviceToDevice);
         if (err != cudaSuccess) {
             throw std::runtime_error("CUDA memcpy failed");
         }
     }
 
-
-    // 从CpuTensor中拷贝数据
+    /**
+     * @brief 从CpuTensor中拷贝数据
+     * @param cpuTensor
+     */
     void copyFrom(const CpuTensor<T>& cpuTensor) {
         if (this->dims.mem_size != cpuTensor.getMemSize()) {
             throw std::runtime_error("Tensor sizes do not match.");
         }
-        cudaError_t err = cudaMemcpy(this->data.get(), cpuTensor.getData().data(), this->dims.mem_size, cudaMemcpyHostToDevice);
+        cudaError_t err = cudaMemcpy(this->data.get(), cpuTensor.ptr(), this->dims.mem_size, cudaMemcpyHostToDevice);
         if (err != cudaSuccess) {
             throw std::runtime_error("CUDA memcpy failed");
         }
     }
 
-
-    // 将数据拷贝到std::vector中
+    /**
+     * @brief 将数据拷贝到std::vector中
+     * @param outputData
+     */
     void copyTo(std::vector<T>& outputData) {
-
-        // 如果cpuData数据长度和dims.mem_size不一致，需要重新分配内存
         if (outputData.size() * sizeof(T) != this->dims.mem_size) {
             outputData.resize(this->dims.mem_size / sizeof(T));
         }
-
-        // 拷贝数据到cpuData
         cudaError_t err = cudaMemcpy(outputData.data(), data.get(), this->dims.mem_size, cudaMemcpyDeviceToHost);
         if (err != cudaSuccess) {
             throw std::runtime_error("CUDA memcpy failed");
         }
     }
 
-
-    // 将数据拷贝到另一个CudaTensor中
+    /**
+     * @brief 将数据拷贝到另一个CudaTensor中
+     * @param other
+     */
     void copyTo(CudaTensor& other) {
         if (this->dims.mem_size != other.getMemSize()) {
             throw std::runtime_error("Tensor sizes do not match.");
         }
-        cudaError_t err = cudaMemcpy(other.getData().get(), data.get(), this->dims.mem_size, cudaMemcpyDeviceToDevice);
+        cudaError_t err = cudaMemcpy(other.ptr(), data.get(), this->dims.mem_size, cudaMemcpyDeviceToDevice);
         if (err != cudaSuccess) {
             throw std::runtime_error("CUDA memcpy failed");
         }
     }
 
-
-    // 将数据拷贝到CpuTensor中
+    /**
+     * @brief 将数据拷贝到CpuTensor中
+     * @param cpuTensor
+     */
     void copyTo(CpuTensor<T>& cpuTensor) {
         if (this->dims.mem_size != cpuTensor.getMemSize()) {
             throw std::runtime_error("Tensor sizes do not match.");
         }
-        cudaError_t err = cudaMemcpy(cpuTensor.getData().data(), data.get(), this->dims.mem_size, cudaMemcpyDeviceToHost);
+        cudaError_t err = cudaMemcpy(cpuTensor.ptr(), data.get(), this->dims.mem_size, cudaMemcpyDeviceToHost);
         if (err != cudaSuccess) {
             throw std::runtime_error("CUDA memcpy failed");
         }
     }
 
-
-    // 暴露数据指针，方便引擎直接调用
-    void* ptr() {
+    /**
+     * @brief 暴露数据指针，方便其他模块直接调用
+     * @return
+     */
+    void* ptr() override {
         return data.get();
     }
 
-
-    // 添加显式的移动赋值操作符，并确保与默认的异常规范一致
+    /**
+     * @brief 移动赋值运算符
+     * @param other
+     * @return
+     */
     CudaTensor& operator=(CudaTensor&& other) noexcept {
         if (this != &other) {
             data = std::move(other.data);
@@ -193,8 +254,10 @@ public:
         return *this;
     }
 
-
-    // 移动构造函数
+    /**
+     * @brief 移动构造函数
+     * @param other
+     */
     CudaTensor(CudaTensor&& other) noexcept = default;
 };
 
@@ -207,14 +270,22 @@ private:
 
 public:
 
-    // 默认构造函数
+    /**
+     * @brief 默认构造函数
+     */
     CpuTensor() = default;
 
-    // 通过TensorDimensions构造
+    /**
+     * @brief 通过TensorDimensions构造
+     * @param dims
+     */
     explicit CpuTensor(const TensorDimensions& dims)
             : TensorBase<T>(dims), data(dims.mem_size / sizeof(T)) {}
 
-    // 实现copyFrom方法
+    /**
+     * @brief 从std::vector中拷贝数据
+     * @param inputData
+     */
     void copyFrom(const std::vector<T>& inputData) {
         if (inputData.size() * sizeof(T) != this->dims.mem_size) {
             throw std::runtime_error("Tensor sizes do not match.");
@@ -222,42 +293,57 @@ public:
         data = inputData;
     }
 
-    // 从另一个CudaTensor中拷贝数据
+    /**
+     * @brief 从另一个CudaTensor中拷贝数据
+     * @param cudaTensor
+     */
     void copyFrom(const CudaTensor<T>& cudaTensor) {
         if (this->dims.mem_size != cudaTensor.getMemSize()) {
             throw std::runtime_error("Tensor sizes do not match.");
         }
-        cudaError_t err = cudaMemcpy(data.data(), cudaTensor.getData().data(), this->dims.mem_size, cudaMemcpyDeviceToHost);
+        cudaError_t err = cudaMemcpy(data.data(), cudaTensor.ptr(), this->dims.mem_size, cudaMemcpyDeviceToHost);
         if (err != cudaSuccess) {
             throw std::runtime_error("CUDA memcpy failed");
         }
     }
 
-    // 从CpuTensor中拷贝数据
+    /**
+     * @brief 从另一个CpuTensor中拷贝数据
+     * @param other
+     */
     void copyFrom(const CpuTensor& other) {
         if (this->dims.mem_size != other.getMemSize()) {
             throw std::runtime_error("Tensor sizes do not match.");
         }
-        data = other.getData();
+        data = other.data;
     }
 
-    // 将数据拷贝到std::vector中
+    /**
+     * @brief 将数据拷贝到std::vector中
+     * @param outputData
+     */
     void copyTo(std::vector<T>& outputData) {
         outputData = data;
     }
 
-    // 将数据拷贝到另一个CudaTensor中
+    /**
+     * @brief 将数据拷贝到另一个CudaTensor中
+     * @param cudaTensor
+     */
     void copyTo(CudaTensor<T>& cudaTensor) {
         if (this->dims.mem_size != cudaTensor.getMemSize()) {
             throw std::runtime_error("Tensor sizes do not match.");
         }
-        cudaError_t err = cudaMemcpy(cudaTensor.getData().get(), data.data(), this->dims.mem_size, cudaMemcpyHostToDevice);
+        cudaError_t err = cudaMemcpy(cudaTensor.ptr(), data.data(), this->dims.mem_size, cudaMemcpyHostToDevice);
         if (err != cudaSuccess) {
             throw std::runtime_error("CUDA memcpy failed");
         }
     }
 
-    // 将数据拷贝到CpuTensor中
+    /**
+     * @brief 将数据拷贝到CpuTensor中
+     * @param other
+     */
     void copyTo(CpuTensor& other) {
         if (this->dims.mem_size != other.getMemSize()) {
             throw std::runtime_error("Tensor sizes do not match.");
@@ -265,7 +351,19 @@ public:
         other.copyFrom(data);
     }
 
-    // 添加显式的移动赋值操作符，并确保与默认的异常规范一致
+    /**
+     * @brief 暴露数据指针，方便其他模块直接调用
+     * @return
+     */
+    void* ptr() override {
+        return data.data();
+    }
+
+    /**
+     * @brief 移动赋值运算符
+     * @param other
+     * @return
+     */
     CpuTensor& operator=(CpuTensor&& other) noexcept {
         if (this != &other) {
             data = std::move(other.data);
@@ -274,7 +372,10 @@ public:
         return *this;
     }
 
-    // 移动构造函数
+    /**
+     * @brief 移动构造函数
+     * @param other
+     */
     CpuTensor(CpuTensor&& other) noexcept = default;
 };
 
