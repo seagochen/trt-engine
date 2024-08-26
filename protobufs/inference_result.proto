@@ -1,8 +1,8 @@
 syntax = "proto3";
 
 message InferenceResult {
-    int64 timestamp = 1;            // 数据发送时间
-    string delivered_from = 2;      // 数据来源方
-    string infered_by = 3;          // 推理处理方
+    uint64 frame_number = 1;       // 数据帧的编号
+    string publish_by = 2;          // 数据帧发布方
+    string model_name = 3;          // 使用的推理模型的名称
     string results = 4;             // 检测结果
 }

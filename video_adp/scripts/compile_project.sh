@@ -7,14 +7,12 @@ else
   rm -rf cmake-build-debug/*
 fi
 
-PROJECT_NAME=jetson_infer
-
 # cmake-build-debug ディレクトリに移動
 cd ./cmake-build-debug || { echo "cmake-build-debug ディレクトリへの移動に失敗しました"; exit 1; }
 cmake .. || { echo "CMake の設定に失敗しました"; exit 1; }
 make || { echo "プロジェクトのビルドに失敗しました"; exit 1; }
 
-# 生成された jetson_infer を一つ上のディレクトリにコピー
-cp $PROJECT_NAME ../ || { echo "jetson_infer のコピーに失敗しました"; exit 1; }
+# 生成された video_adp を一つ上のディレクトリにコピー
+cp adapter ../ || { echo "jetson_infer のコピーに失敗しました"; exit 1; }
 
 echo "ビルドとコピーが正常に完了しました。"

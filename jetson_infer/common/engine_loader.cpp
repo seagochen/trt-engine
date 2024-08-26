@@ -1,7 +1,12 @@
-#include "engine_loader.h"
+#include "common/engine_loader.h"
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <vector>
+#include <cassert>
+
+// Load ONNX headers if user uses ONNX models
+#include <NvOnnxParser.h>
 
 #if NV_TENSORRT_MAJOR >= 10
 #define TENSORRT_VERSION_10
@@ -11,10 +16,12 @@
 #error "Unsupported TensorRT version"
 #endif
 
+
 using namespace nvinfer1;
+using namespace nvonnxparser;  // Add this for ONNX parser
 
 
-// Logger class for inference engine
+// Logger class for inference common
 class Logger : public nvinfer1::ILogger {
     void log(Severity severity, const char* msg) noexcept override {
         if (severity != Severity::kINFO) {
@@ -24,10 +31,10 @@ class Logger : public nvinfer1::ILogger {
 } gLogger;
 
 
-std::unique_ptr<ICudaEngine, void(*)(ICudaEngine*)> loadEngine(const std::string& engineFile) {
+std::unique_ptr<ICudaEngine, void(*)(ICudaEngine*)> loadEngineFromFile(const std::string& engineFile) {
     std::ifstream file(engineFile, std::ios::binary);
     if (!file.good()) {
-        std::cerr << "Error opening engine file: " << engineFile << std::endl;
+        std::cerr << "Error opening common file: " << engineFile << std::endl;
         exit(-1);
     }
 
@@ -43,7 +50,7 @@ std::unique_ptr<ICudaEngine, void(*)(ICudaEngine*)> loadEngine(const std::string
     std::vector<char> data(static_cast<std::streamsize>(length));
     file.read(data.data(), static_cast<std::streamsize>(length));
     if (!file) {
-        std::cerr << "Error reading engine file: " << engineFile << std::endl;
+        std::cerr << "Error reading common file: " << engineFile << std::endl;
         exit(-1);
     }
 
@@ -55,8 +62,47 @@ std::unique_ptr<ICudaEngine, void(*)(ICudaEngine*)> loadEngine(const std::string
 
     std::unique_ptr<ICudaEngine, void(*)(ICudaEngine*)> engine(runtime->deserializeCudaEngine(data.data(), length), [](ICudaEngine* e) { delete e; });
     if (!engine) {
-        std::cerr << "Failed to deserialize engine" << std::endl;
+        std::cerr << "Failed to deserialize common" << std::endl;
         exit(-1);
+    }
+
+    return engine;
+}
+
+std::unique_ptr<ICudaEngine, void(*)(ICudaEngine*)> loadEngineFromONNX(const std::string& onnxFilePath) {
+    // Initialize TensorRT components
+    nvinfer1::IBuilder* builder = nvinfer1::createInferBuilder(gLogger);
+    nvinfer1::INetworkDefinition* network = builder->createNetworkV2(1U << (int)NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
+    auto parser = nvonnxparser::createParser(*network, gLogger);
+
+    std::cout << "Parsing ONNX model..." << std::endl;
+
+    // Parse ONNX model
+    std::ifstream file(onnxFilePath, std::ios::binary);
+    if (!file) {
+        throw std::runtime_error("Error opening ONNX file: " + onnxFilePath);
+    }
+
+    std::cout << "Reading ONNX file..." << std::endl;
+
+    std::string data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    if (!parser->parse(data.data(), data.size())) {
+        throw std::runtime_error("Failed to parse ONNX model.");
+    }
+
+    std::cout << "Building TensorRT common..." << std::endl;
+
+    // Build the common
+    nvinfer1::IBuilderConfig* config = builder->createBuilderConfig();
+    std::unique_ptr<nvinfer1::ICudaEngine, void(*)(nvinfer1::ICudaEngine*)> engine(
+        builder->buildEngineWithConfig(*network, *config),
+        [](nvinfer1::ICudaEngine* e) { e->destroy(); }
+    );
+
+    std::cout << "Engine built successfully." << std::endl;
+
+    if (!engine) {
+        throw std::runtime_error("Failed to build TensorRT common.");
     }
 
     return engine;
@@ -67,8 +113,8 @@ std::vector<std::string> getTensorNamesFromModel(ICudaEngine* engine) {
     std::vector<std::string> tensor_names;
 
 #ifdef TENSORRT_VERSION_10
-    for (int i = 0, e = engine->getNbIOTensors(); i < e; i++) {
-        auto const name = engine->getIOTensorName(i);
+    for (int i = 0, e = common->getNbIOTensors(); i < e; i++) {
+        auto const name = common->getIOTensorName(i);
         tensor_names.emplace_back(name);
     }
 #elif defined(TENSORRT_VERSION_8)
@@ -87,7 +133,7 @@ TensorDimensions getTensorDimsByName(ICudaEngine* engine, const std::string& ten
     TensorDimensions tensor_dims;
 
 #ifdef TENSORRT_VERSION_10
-    auto const dims = engine->getTensorShape(tensor_name.c_str());
+    auto const dims = common->getTensorShape(tensor_name.c_str());
     int nbDims = dims.nbDims;
 
     std::vector<int> dim_sizes;
@@ -124,7 +170,7 @@ TensorDimensions getTensorDimsByName(ICudaEngine* engine, const std::string& ten
 
 std::unique_ptr<IExecutionContext, void(*)(IExecutionContext*)> createExecutionContext(ICudaEngine* engine) {
     if (!engine) {
-        std::cerr << "Invalid engine pointer." << std::endl;
+        std::cerr << "Invalid common pointer." << std::endl;
         exit(-1);
     }
 
@@ -136,3 +182,14 @@ std::unique_ptr<IExecutionContext, void(*)(IExecutionContext*)> createExecutionC
 
     return {context, [](IExecutionContext* c) { delete c; }};
 }
+
+
+void inference(std::unique_ptr<nvinfer1::IExecutionContext, void(*)(nvinfer1::IExecutionContext*)>& context,
+               void* ptr_input, void* ptr_output) {
+
+    // Set the input tensor
+    void* buffers[2] = {ptr_input, ptr_output};
+
+    // Execute the inference
+    context->executeV2(buffers);
+};

@@ -1,0 +1,19 @@
+mqtt:
+  broker:
+    host: "localhost" # The host of the broker
+    port: 1883 # The port to connect to the broker
+    client_id: "yolov8"  # The client ID to use when connecting to the broker
+    inference_topic: "inference/yolov8"  # Use the topic to receive the image for inference
+    publish_topic: "inference/result"  # Use the topic to publish the inference result
+
+
+model:
+  model_path: "models/yolov8n.engine"  # Path to the model file
+  model_type: "yolov8"  # The type of the model
+  labels_path: "models/labels.txt"  # Path to the labels file
+  input_width: 640  # The width of the input image
+  input_height: 640  # The height of the input image
+  input_channels: 3  # The number of channels in the input image
+  confidence: 0.1 # The confidence threshold for the model
+
+debug_mode: False  # Set to True to enable debug mode

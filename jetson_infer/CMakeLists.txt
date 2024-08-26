@@ -1,5 +1,6 @@
-cmake_minimum_required(VERSION 3.14)
-project(jetson_infer)
+cmake_minimum_required(VERSION 3.16)
+
+project(jetson_infer LANGUAGES CXX)
 
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 20)
@@ -9,6 +10,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # 统一设置 CUDA 路径
 set(CUDA_INCLUDE_DIRS /usr/local/cuda/include)
 set(CUDA_LIBRARIES /usr/local/cuda/lib64/libcudart.so)
+
+# 设置SimpleCudaToolkits的路径
+set(SIMPLE_CUDA_TOOLKITS_PATH /opt/SimpleCudaToolkits)
+set(SIMPLE_CUDA_TOOLKITS_INC ${SIMPLE_CUDA_TOOLKITS_PATH}/include)
+set(SIMPLE_CUDA_TOOLKITS_LIB ${SIMPLE_CUDA_TOOLKITS_PATH}/lib)
 
 # 检查系统架构以区分 TensorRT 的设置
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")  # Jetson 平台（ARM64 架构）
@@ -52,28 +58,41 @@ endif()
 # 查找 OpenCV
 find_package(OpenCV REQUIRED)
 
+# 查找 MQTT (Mosquitto)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(MOSQUITTO REQUIRED libmosquitto)
+
+# 查找 YAML
+find_package(yaml-cpp REQUIRED)
+
+# 查找 Protobuf
+find_package(Protobuf REQUIRED)
+
 # 指定源文件, common, utils
-file(GLOB SOURCE_FILES "common/*.cpp" "utils/*.cpp")
+file(GLOB SOURCE_FILES "common/*.cpp" "utils/*.cpp" "yolo/*.cpp" "protobufs/*.pb.cc")
 
 # 添加可执行文件
 add_executable(jetson_infer main.cpp ${SOURCE_FILES})
 
 # 包含目录设置
 target_include_directories(jetson_infer PRIVATE
-        ${PROJECT_SOURCE_DIR}/common
-        ${PROJECT_SOURCE_DIR}/utils
-        ${PROJECT_SOURCE_DIR}/cumatrix
-        ${PROJECT_SOURCE_DIR}/cnn_toolkits
         ${CUDA_INCLUDE_DIRS}
-        ${TENSORRT_INCLUDE_DIRS}  # 注意这里使用的是架构区分后的路径
+        ${PROJECT_SOURCE_DIR}/include
+        ${SIMPLE_CUDA_TOOLKITS_INC}
+        ${TENSORRT_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
+        ${MOSQUITTO_INCLUDE_DIRS}
+        ${YAML_CPP_INCLUDE_DIRS}
+        ${Protobuf_INCLUDE_DIRS}
 )
 
 # 链接库
 target_link_libraries(jetson_infer PRIVATE
-        ${CUDA_LIBRARIES}
         ${OpenCV_LIBRARIES}
-        ${TENSORRT_LIBS}  # 同样，这里根据架构区分后的库进行链接
-        ${PROJECT_SOURCE_DIR}/cumatrix/libcumatrix.a  # Integrate CUDA component: cumatrix
-        ${PROJECT_SOURCE_DIR}/cnn_toolkits/libcnn_toolkits.a  # Integrate CUDA component: cnn_toolkits
+        ${TENSORRT_LIBS}
+        ${SIMPLE_CUDA_TOOLKITS_LIB}/libsimplecuda.a
+        ${CUDA_LIBRARIES}
+        ${MOSQUITTO_LIBRARIES}
+        yaml-cpp
+        ${Protobuf_LIBRARIES}
 )

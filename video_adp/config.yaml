@@ -1,0 +1,26 @@
+mqtt:
+  broker:
+    host: "localhost"
+    port: 1883
+    client_id: "vehicle_camera_02" # The name of the client
+    inference_topic: "inference/yolov8"  # Use the topic to send the image for inference
+
+camera:
+  source:
+    url: "videos/vehicle_camera_02.mp4"
+    width: 400
+    height: 400
+    fps: 20
+
+  record:
+    enable: False
+    filename: "record"
+  
+  preprocess:
+    enable: False
+    gamma: 1.0
+    contrast: 1.0
+    brightness: 0.0
+    colorspace: "rgb"
+  
+debug_mode: False # If True, the image will be displayed in the window
