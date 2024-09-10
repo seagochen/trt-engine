@@ -11,7 +11,7 @@ struct BrokerConfig {
     std::string broker_host;
     int broker_port;
     std::string client_id;
-    std::string inference_topic;
+    std::string infer_before_topic;
 };
 
 struct CameraConfig {

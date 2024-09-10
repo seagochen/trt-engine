@@ -30,7 +30,7 @@ JetsonInference::JetsonInference(const std::string& config_path):
         throw std::runtime_error("Failed to connect to the MQTT broker");
     }
 
-    mqtt.subscribe(config.broker.inference_topic);
+    mqtt.subscribe(config.broker.infer_before_topic);
     mqtt.setMessageCallback([this](const std::string& topic, const void* payload, size_t len) {
         this->processMessage(payload, len);
     });
@@ -113,7 +113,7 @@ void JetsonInference::sendResults(const std::vector<YoloResult> &_results) {
     }
 
     // Publish the serialized result to the MQTT broker
-    if (!mqtt.publish(config.broker.publish_topic, serialized_result.c_str(), serialized_result.size())) {
+    if (!mqtt.publish(config.broker.infer_result_topic, serialized_result.c_str(), serialized_result.size())) {
         std::cerr << "Failed to publish the inference result" << std::endl;
     }
 }

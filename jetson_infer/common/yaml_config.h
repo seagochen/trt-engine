@@ -12,14 +12,13 @@ struct BrokerConfig {
     std::string broker_host;
     int broker_port;
     std::string client_id;
-    std::string inference_topic;
-    std::string publish_topic;
+    std::string infer_before_topic;
+    std::string infer_result_topic;
 };
 
 struct ModelConfig {
     std::string model_path;
     std::string model_type;
-    std::string label_path;
     int input_width;
     int input_height;
     int input_channels;

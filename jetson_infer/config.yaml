@@ -1,19 +1,18 @@
 mqtt:
   broker:
-    host: "localhost" # The host of the broker
-    port: 1883 # The port to connect to the broker
-    client_id: "yolov8"  # The client ID to use when connecting to the broker
-    inference_topic: "inference/yolov8"  # Use the topic to receive the image for inference
-    publish_topic: "inference/result"  # Use the topic to publish the inference result
+    host: "localhost"                       # MQTTサーバーのアドレス
+    port: 1883                              # MQTTサーバーのポート番号
+    client_id: "yolov8"                     # アプリの名称、MQTTを区別できるように、名称は異なるが必要
+    infer_before_topic: "inference/yolov8"  # 推論必要なデータはここで貰える
+    infer_result_topic: "inference/result"  # 推論結果をここで送信する
 
 
 model:
-  model_path: "models/yolov8n.engine"  # Path to the model file
-  model_type: "yolov8"  # The type of the model
-  labels_path: "models/labels.txt"  # Path to the labels file
-  input_width: 640  # The width of the input image
-  input_height: 640  # The height of the input image
-  input_channels: 3  # The number of channels in the input image
-  confidence: 0.1 # The confidence threshold for the model
+  model_path: "models/yolov8n.engine"       # 推論用のモデルファイルのパス
+  model_type: "yolov8"                      # モデルのタイプ
+  input_width: 640                          # モデルの入力サイズ、幅さ
+  input_height: 640                         # モデルの入力サイズ、高さ
+  input_channels: 3                         # モデルの入力サイズ、チャンネル数
+  confidence: 0.1                           # 信頼度
 
-debug_mode: False  # Set to True to enable debug mode
+debug_mode: False                           # Set to True to enable debug mode

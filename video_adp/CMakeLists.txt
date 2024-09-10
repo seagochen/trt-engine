@@ -32,8 +32,7 @@ file(GLOB_RECURSE SRC_FILES common/*.cpp protobufs/*.pb.cc)
 add_executable(${PROJECT_NAME} main.cpp ${SRC_FILES})
 
 # Add common, protobufs headers
-target_include_directories(${PROJECT_NAME} PUBLIC common)
-target_include_directories(${PROJECT_NAME} PUBLIC protobufs)
+target_include_directories(adapter PRIVATE ${PROJECT_SOURCE_DIR})
 
 # Link libraries
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})

@@ -14,7 +14,7 @@ YamlConfig loadYamlConfig(const std::string &config_file) {
     frame_config.broker.broker_host = config["mqtt"]["broker"]["host"].as<std::string>();
     frame_config.broker.broker_port = config["mqtt"]["broker"]["port"].as<int>();
     frame_config.broker.client_id = config["mqtt"]["broker"]["client_id"].as<std::string>();
-    frame_config.broker.inference_topic = config["mqtt"]["broker"]["inference_topic"].as<std::string>();
+    frame_config.broker.infer_before_topic = config["mqtt"]["broker"]["infer_before_topic"].as<std::string>();
 
     // Set camera configuration
     frame_config.camera.source_url = config["camera"]["source"]["url"].as<std::string>();

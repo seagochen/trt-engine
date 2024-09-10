@@ -77,5 +77,5 @@ images
 videos
 models
 
-# Protobufs
+# Ignore folders
 protobufs/

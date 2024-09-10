@@ -47,8 +47,8 @@ else()  # x86 平台
     message(STATUS "Configuring for x86 platform")
 
     # 设置TensorRT的路径, 使用相对路径
-    set(TENSORRT_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/tensorrt/include)
-    set(TENSORRT_LIBRARIES ${PROJECT_SOURCE_DIR}/tensorrt/lib)
+    set(TENSORRT_INCLUDE_DIRS /opt/tensorrt/include)
+    set(TENSORRT_LIBRARIES /opt/tensorrt/lib)
     set(TENSORRT_LIBS
             ${TENSORRT_LIBRARIES}/libnvinfer.so
             ${TENSORRT_LIBRARIES}/libnvonnxparser.so
@@ -77,7 +77,7 @@ add_executable(jetson_infer main.cpp ${SOURCE_FILES})
 # 包含目录设置
 target_include_directories(jetson_infer PRIVATE
         ${CUDA_INCLUDE_DIRS}
-        ${PROJECT_SOURCE_DIR}/include
+        ${PROJECT_SOURCE_DIR}
         ${SIMPLE_CUDA_TOOLKITS_INC}
         ${TENSORRT_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}

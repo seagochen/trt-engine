@@ -3,11 +3,9 @@
 # もし build ディレクトリが存在しなければ作成し、存在する場合は内容をクリア
 if [ ! -d cmake-build-debug ]; then
   mkdir cmake-build-debug
-else
-  rm -rf cmake-build-debug/*
 fi
 
-PROJECT_NAME=jetson_infer
+EXE_FILE="jetson_infer"
 
 # cmake-build-debug ディレクトリに移動
 cd ./cmake-build-debug || { echo "cmake-build-debug ディレクトリへの移動に失敗しました"; exit 1; }
@@ -15,6 +13,6 @@ cmake .. || { echo "CMake の設定に失敗しました"; exit 1; }
 make || { echo "プロジェクトのビルドに失敗しました"; exit 1; }
 
 # 生成された jetson_infer を一つ上のディレクトリにコピー
-cp $PROJECT_NAME ../ || { echo "jetson_infer のコピーに失敗しました"; exit 1; }
+cp $EXE_FILE ../ || { echo "jetson_infer のコピーに失敗しました"; exit 1; }
 
 echo "ビルドとコピーが正常に完了しました。"
