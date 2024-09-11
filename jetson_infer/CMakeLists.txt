@@ -68,11 +68,11 @@ find_package(yaml-cpp REQUIRED)
 # 查找 Protobuf
 find_package(Protobuf REQUIRED)
 
-# 指定源文件, common, utils
-file(GLOB SOURCE_FILES "common/*.cpp" "utils/*.cpp" "yolo/*.cpp" "protobufs/*.pb.cc")
+# 查找所有 common 目录下的子目录源文件
+file(GLOB_RECURSE SOURCE_FILES "common/*.cpp" "yolo/*.cpp" "common/protobufs/*.pb.cc")
 
 # 添加可执行文件
-add_executable(jetson_infer main.cpp ${SOURCE_FILES})
+add_executable(jetson_infer local.cpp ${SOURCE_FILES})
 
 # 包含目录设置
 target_include_directories(jetson_infer PRIVATE

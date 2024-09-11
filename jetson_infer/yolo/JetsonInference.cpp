@@ -3,7 +3,7 @@
 //
 
 #include "yolo/JetsonInference.h"
-#include "yolo/yolov8_str.h"
+#include "common/infer/yolov8.h"
 
 #include <iostream>
 #include <csignal>
@@ -16,8 +16,8 @@ cv::Mat JetsonInference::resized_frame;
 JetsonInference::JetsonInference(const std::string& config_path):
         config(loadYamlConfig(config_path)),
         engine(loadEngineFromFile(config.model.model_path)),
-        context(createExecutionContext(engine.get())),
-        gpu_tensors(loadTensorsFromModel(engine.get())),
+        context(createExecutionContext(engine)),
+        gpu_tensors(loadTensorsFromModel(engine)),
         mqtt(config.broker.broker_host, config.broker.broker_port, config.broker.client_id) {
 
     if (!engine) {
@@ -58,8 +58,8 @@ void JetsonInference::processMessage(const void* payload, size_t len) {
 
     receiveDataFrame(proto_frame, resized_frame);
     preprocess(resized_frame, gpu_tensors["images"]);
-    inference(context, gpu_tensors["images"].ptr(), gpu_tensors["output0"].ptr());
-    postprocess(results);
+    inference(context, gpu_tensors["images"], gpu_tensors["output0"]);
+    postprocess_(results);
     sendResults(results);
 
     if (config.debug) {
@@ -77,15 +77,17 @@ void JetsonInference::receiveDataFrame(const VideoFrame& frame, cv::Mat &resized
     cv::resize(frame_mat, resized, cv::Size(config.model.input_width, config.model.input_height));
 }
 
-void JetsonInference::postprocess(std::vector<YoloResult>& _results) {
-    _results.clear();
-    if (config.model.model_type == "yolov8") {
-        obj_postprocess(gpu_tensors["output0"], config.model.confidence, _results);
-    } else if (config.model.model_type == "yolov8-pose") {
-        pose_postprocess(gpu_tensors["output0"], config.model.confidence, _results);
-    } else {
-        throw std::runtime_error("Unsupported model type: " + config.model.model_type);
-    }
+void JetsonInference::postprocess_(std::vector<YoloResult>& _results) {
+
+    postprocess(gpu_tensors["output0"], _results, config.model.confidence, config.model.model_type);
+
+//    if (config.model.model_type == "yolov8") {
+//        obj_postprocess(, config.model.confidence, _results);
+//    } else if (config.model.model_type == "yolov8-pose") {
+//        pose_postprocess(gpu_tensors["output0"], config.model.confidence, _results);
+//    } else {
+//        throw std::runtime_error("Unsupported model type: " + config.model.model_type);
+//    }
 }
 
 void JetsonInference::displayResults(cv::Mat &mat, std::vector<YoloResult> _results) {

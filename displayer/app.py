@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import sys
+import time
 
 from common.image.DisplayHandler import DisplayHandler
 from common.mqtt.MQTTClient import MQTTClient
@@ -84,10 +85,11 @@ def main():
                         break
 
                 # Check if there are any ready items in the cache
-                ready_item = shared_cache.pop_when_ready()
-                if ready_item:
-                    bounding_boxes = parse_yolo_str(ready_item.results)
-                    display_handler.display_frame(ready_item.frame_data, bounding_boxes)
+                if shared_cache.count() > 10:
+                    ready_item = shared_cache.pop_when_ready()
+                    if ready_item:
+                        bounding_boxes = parse_yolo_str(ready_item.results)
+                        display_handler.display_frame(ready_item.frame_data, bounding_boxes)
 
                 if display_handler.check_for_exit():
                     logging.info("ESC key pressed. Exiting...")

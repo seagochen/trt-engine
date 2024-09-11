@@ -1,0 +1,18 @@
+mqtt:
+  broker:
+    host: "localhost"                       # MQTTサーバーのアドレス
+    port: 1883                              # MQTTサーバーのポート番号
+    client_id: "yolov8_02"                  # アプリの名称、MQTTを区別できるように、名称は異なるが必要
+    infer_before_topic: "infer_yolov8_02"   # 推論必要なデータはここで貰える
+    infer_result_topic: "infer_result_02"   # 推論結果をここで送信する
+
+
+model:
+  model_path: "models/yolov8n.engine"       # 推論用のモデルファイルのパス
+  model_type: "yolov8"                      # モデルのタイプ
+  input_width: 640                          # モデルの入力サイズ、幅さ
+  input_height: 640                         # モデルの入力サイズ、高さ
+  input_channels: 3                         # モデルの入力サイズ、チャンネル数
+  confidence: 0.1                           # 信頼度
+
+debug_mode: False                           # Set to True to enable debug mode

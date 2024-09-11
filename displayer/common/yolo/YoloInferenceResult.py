@@ -13,6 +13,9 @@ class YoloInferenceResults:
         self.results = None
         self.results_ready = False
 
+    def __lt__(self, other):
+        return self.frame_number < other.frame_number
+
     def is_ready(self):
         return self.frame_ready and self.results_ready
 

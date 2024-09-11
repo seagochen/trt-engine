@@ -2,9 +2,9 @@ mqtt:
   broker:
     host: "localhost"                       # MQTTサーバーのアドレス
     port: 1883                              # MQTTサーバーのポート番号
-    client_id: "yolov8"                     # アプリの名称、MQTTを区別できるように、名称は異なるが必要
-    infer_before_topic: "inference/yolov8"  # 推論必要なデータはここで貰える
-    infer_result_topic: "inference/result"  # 推論結果をここで送信する
+    client_id: "yolov8_01"                  # アプリの名称、MQTTを区別できるように、名称は異なるが必要
+    infer_before_topic: "infer_yolov8_01"   # 推論必要なデータはここで貰える
+    infer_result_topic: "infer_result_01"   # 推論結果をここで送信する
 
 
 model:

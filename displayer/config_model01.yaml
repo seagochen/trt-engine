@@ -1,0 +1,27 @@
+mqtt:
+  broker:
+    host: "localhost"                       # MQTTサーバーのアドレス
+    port: 1883                              # MQTTサーバーのポート番号
+    client_id: "display1"                   # アプリの名称、MQTTを区別できるように、名称は異なるが必要
+    infer_before_topic: "infer_yolov8_01"   # 推論必要なデータはここで貰える
+    infer_result_topic: "infer_result_01"   # 推論結果をここで送信する
+  
+
+visualization:
+  display_width: 800                        # 表示画面の幅
+  display_height: 600                       # 表示画面の高さ
+  display_colorspace: "bgr"                 # 表示画面の色空間
+  auto_resize: True                         # 表示画面の自動リサイズ                 
+  show_fps: True                            # FPSを表示するかどうか
+  show_localtime: True                      # ローカル時間を表示するかどうか
+
+
+inference:
+  inference_width: 640                      # 推論画像の入力の幅
+  inference_height: 640                     # 推論画像の入力の高さ
+  inference_labels: "labels/coco.txt"       # 推論ラベルのファイル
+  inference_stakeholder: "family_01"        # 推論のステークホルダー
+
+record:
+  enable: False                             # レコードを有効にするかどうか
+  filename: "inference"                     # レコードファイルの名前

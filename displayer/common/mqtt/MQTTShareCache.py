@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 from queue import PriorityQueue
+
+from common.utils.FPSCountingProcess import FPSCountingProcess
 from common.yaml.YamlConfig import YamlConfig
 from common.yolo.YoloInferenceResult import YoloInferenceResults
 from protobufs import video_frame_pb2, inference_result_pb2
@@ -14,6 +16,10 @@ class MQTTShareCache:
         self.infer_config = config.get_inference_config()
         self.mqtt_config = config.get_mqtt_config()
 
+        # Initialize the FPS counting process
+        self.fps_process = FPSCountingProcess()
+        self.fps_process.start()
+
     def has_id(self, frame_id):
         return any(frame_id == item[1].frame_number for item in self.cache.queue)
 
@@ -26,10 +32,6 @@ class MQTTShareCache:
     def pop_when_ready(self):
         if self.cache.empty():
             return None
-
-        # If the length of the cache is bigger than 10, remove the oldest item
-        if self.cache.qsize() > 10:
-            self.cache.get()
 
         item = self.cache.get()
         if item[1].is_ready():
@@ -51,7 +53,19 @@ class MQTTShareCache:
         if video_frame.publish_by != self.infer_config['inference_stakeholder']:
             return
 
+        # Parse the video frame
         cv_image = self._parse_video_frame(video_frame)
+
+        # Increment the FPS counter
+        self.fps_process.increment_frame_count()
+
+        # Get the current FPS
+        fps = self.fps_process.get_fps()
+
+        # Draw the FPS on the frame
+        cv2.putText(cv_image, f"FPS: {fps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+        # Update the cache
         self._update_cache(video_frame.frame_number, frame=cv_image)
 
     def _handle_inference_result(self, payload):

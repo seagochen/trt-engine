@@ -2,8 +2,8 @@
 // Created by ubuntu on 9/9/24.
 //
 
-#ifndef JETSON_INFER_YAML_CONFIG_H
-#define JETSON_INFER_YAML_CONFIG_H
+#ifndef JETSON_INFER_CONFIG_H
+#define JETSON_INFER_CONFIG_H
 
 #include <string>
 #include <vector>
@@ -39,4 +39,4 @@ struct YamlConfig {
 // Load YAML configuration file
 YamlConfig loadYamlConfig(const std::string &config_file);
 
-#endif //JETSON_INFER_YAML_CONFIG_H
+#endif //JETSON_INFER_CONFIG_H

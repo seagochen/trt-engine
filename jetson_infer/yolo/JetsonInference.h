@@ -13,14 +13,12 @@
 #include <stdexcept>
 #include <memory>
 
-#include "common/engine_loader.h"
-#include "common/framework.h"
-#include "common/MQTTClient.h"
-#include "common/yaml_config.h"
-#include "yolo/yolov8_utils.h"
-#include "yolo/yolov8_str.h"
-#include "protobufs/video_frame.pb.h"
-#include "protobufs/inference_result.pb.h"
+#include "common/engine/engine_loader.h"
+#include "common/network/MQTTClient.h"
+#include "common/YAML/config.h"
+#include "common/protobufs/video_frame.pb.h"
+#include "common/protobufs/inference_result.pb.h"
+#include "common/infer/yolov8.h"
 
 class JetsonInference {
 public:
@@ -31,7 +29,7 @@ public:
 private:
     void receiveDataFrame(const VideoFrame& frame, cv::Mat &resized);
     void processMessage(const void* payload, size_t len);
-    void postprocess(std::vector<YoloResult>& _results);
+    void postprocess_(std::vector<YoloResult>& _results);
     void sendResults(const std::vector<YoloResult>& _results);
 
     YamlConfig config;

@@ -1,4 +1,4 @@
-#include "common/MQTTClient.h"
+#include "MQTTClient.h"
 #include <iostream>
 
 MQTTClient::MQTTClient(const std::string& address, int port, const std::string& clientId, const std::string& username, const std::string& password)

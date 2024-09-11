@@ -76,6 +76,3 @@ dkms.conf
 images
 videos
 models
-
-# Ignore folders
-protobufs/

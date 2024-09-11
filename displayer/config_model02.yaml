@@ -1,10 +1,10 @@
 mqtt:
   broker:
-    host: "192.168.1.45"                    # MQTTサーバーのアドレス
+    host: "localhost"                       # MQTTサーバーのアドレス
     port: 1883                              # MQTTサーバーのポート番号
-    client_id: "display1"                   # アプリの名称、MQTTを区別できるように、名称は異なるが必要
-    infer_before_topic: "inference/yolov8"  # 推論必要なデータはここで貰える
-    infer_result_topic: "inference/result"  # 推論結果をここで送信する
+    client_id: "display2"                   # アプリの名称、MQTTを区別できるように、名称は異なるが必要
+    infer_before_topic: "infer_yolov8_02"   # 推論必要なデータはここで貰える
+    infer_result_topic: "infer_result_02"   # 推論結果をここで送信する
   
 
 visualization:
@@ -17,11 +17,10 @@ visualization:
 
 
 inference:
-  inference_width: 640                      # 推論画像の入力の幅
-  inference_height: 640                     # 推論画像の入力の高さ
-  inference_labels: "labels/coco.txt"        # 推論ラベルのファイル
-#  inference_stakeholder: "vehicle_camera_01"  # 推論のステークホルダー
-  inference_stakeholder: "family_02"  # 推論のステークホルダー
+  inference_width: 640                        # 推論画像の入力の幅
+  inference_height: 640                       # 推論画像の入力の高さ
+  inference_labels: "labels/coco.txt"         # 推論ラベルのファイル
+  inference_stakeholder: "vehicle_camera_01"  # 推論のステークホルダー
 
 record:
   enable: False                             # レコードを有効にするかどうか

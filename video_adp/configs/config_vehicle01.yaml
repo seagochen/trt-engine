@@ -2,15 +2,15 @@ mqtt:
   broker:
     host: "localhost"                       # MQTTサーバーのアドレス
     port: 1883                              # MQTTサーバーのポート番号
-    client_id: "vehicle_camera_02"          # アプリの名称、MQTTを区別できるように、名称は異なるが必要
-    infer_before_topic: "inference/yolov8"  # 推論必要なデータはここで送信する
+    client_id: "vehicle_camera_01"          # アプリの名称、MQTTを区別できるように、名称は異なるが必要
+    infer_before_topic: "infer_yolov8_02"   # 推論必要なデータはここに送信する
 
 camera:
   source:
     url: "videos/vehicle_camera_02.mp4"   # ファイル名、またはRTSP、RTMP先
     width: 400                            # 送信された画像の幅さ
     height: 400                           # 送信された画像の高さ
-    fps: 20                               # 送信された画像のFPS
+    fps: 10                               # 送信された画像のFPS
 
   record:
     enable: False                         # ビデオを保存するかどうか
