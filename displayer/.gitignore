@@ -1,2 +1,5 @@
 # Ignore the idea folder
 \.idea/
+
+# Ignore the Protobuf folder
+protobufs/
