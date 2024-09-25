@@ -10,7 +10,7 @@
 #include <iostream>
 #include <unistd.h>
 
-std::map<std::string, std::string> parse_args_v1(int argc, char *argv[]) {
+inline std::map<std::string, std::string> parse_args_v1(int argc, char *argv[]) {
     std::map<std::string, std::string> args;
 
     // Use getopt to parse command line arguments
@@ -38,7 +38,7 @@ std::map<std::string, std::string> parse_args_v1(int argc, char *argv[]) {
     return args;
 }
 
-std::map<std::string, std::string> parse_args_v2(int argc, char *argv[]) {
+inline std::map<std::string, std::string> parse_args_v2(int argc, char *argv[]) {
     std::map<std::string, std::string> args;
 
     // Use getopt to parse command line arguments
@@ -74,5 +74,27 @@ std::map<std::string, std::string> parse_args_v2(int argc, char *argv[]) {
     return args;
 }
 
+
+inline std::map<std::string, std::string> parse_args_v3(int argc, char *argv[]) {
+    std::map<std::string, std::string> args;
+
+    // Use getopt to parse command line arguments
+    int opt;
+    while ((opt = getopt(argc, argv, "c:h")) != -1) {  // -h 不需要参数，去掉 ':'
+        switch (opt) {
+            case 'c': // -c is for config file
+                args["config"] = optarg;
+            break;
+            case 'h': // -h is for help
+                std::cout << "Usage: app -c config.yaml or app -v video.mp4 -l coco.txt -m models.engine" << std::endl;
+            exit(0);
+            default:
+                std::cerr << "Unknown option: -" << char(opt) << std::endl;
+            break;
+        }
+    }
+
+    return args;
+}
 
 #endif //PARSE_ARGS_HPP

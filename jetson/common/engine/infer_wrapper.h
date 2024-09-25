@@ -43,12 +43,14 @@ class InferWrapper {
 
     // Index for counting the preprocessed images and available output results
     int image_idx = 0;
-    int boxes;
+    int boxes = 0;
 
     // Ptr for CPU copying
     std::vector<float> raw_output;
 
 public:
+    InferWrapper();
+
     InferWrapper(const std::string &engine_path,            // File path for loading the engine file
         const std::map<std::string, std::string> &names,    // Names of input and output tensors
         const nvinfer1::Dims4 &input_dims,                  // Dimensions of input tensor
@@ -57,7 +59,13 @@ public:
 
     ~InferWrapper();
 
-    /**   
+    void update(const std::string &engine_path,
+        const std::map<std::string, std::string> &names,
+        const nvinfer1::Dims4 &input_dims,
+        const nvinfer1::Dims3 &output_dims,
+        int boxes);
+
+    /**
     * @brief Preprocess input image for inference
     * @param image Input image for inference
     */

@@ -22,8 +22,6 @@ public:
     void release();
 
 private:
-    std::string getCurrentTimestamp();
-
     cv::VideoCapture& cap;
     cv::VideoWriter video;
     std::string name;

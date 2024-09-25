@@ -1,0 +1,71 @@
+mqtt:
+  broker:
+    host: "localhost"
+    port: 1883
+
+  client_yolo:
+    client_id: "yolov8n"
+    in_topic: "yolov8n_in"
+    out_topic: "yolov8n_out"
+
+  client_pose:
+    client_id: "yolov8_pose"
+    in_topic: "pose_in"
+    out_topic: "pose_out"
+
+  client_stream:
+    client_id: "adapter"
+    out_topic: "yolov8n_in"
+
+  client_display:
+    client_id: "display"
+    in_topic: "yolov8n_out"
+
+
+
+model:
+  model_type: "yolov8n"
+  model_path: "/opt/models/yolov8n.dynamic.engine"
+  intput_name: "images"
+  input_shape: [1, 3, 640, 640]
+  output_name: "output"
+  output_shape: [1, 84, 8400]
+  max_detections: 1024
+  cls_threshold: 0.2
+  nms_threshold: 0.4
+  debug_mode: true
+
+
+
+stream:
+  source:
+    url: "videos/family_01.mp4"
+    width: 400
+    height: 400
+    fps: 10
+    format: "bgr"
+
+  record:
+    enable: false
+    filename: "raw_vid"
+
+  debug_mode: true
+
+
+
+display:
+  resolution:
+    width: 640
+    height: 640
+  
+  window:
+    enable_fullscreen: true
+    enable_inference_info: true
+    enable_fps_info: true
+    enable_local_time: true
+  
+  record:
+    enable: false
+    filename: "display_vid"
+
+  debug_mode: true

@@ -7,9 +7,9 @@
 
 #include <csignal>
 
-volatile sig_atomic_t signal_received = 0;
+inline volatile sig_atomic_t signal_received = 0;
 
-void signal_handler(int signal) {
+inline void signalHandler(int signal) {
 
     switch (signal) {
         case SIGINT:
@@ -40,24 +40,28 @@ void signal_handler(int signal) {
     signal_received = signal;
 }
 
-void register_sigint() {
-    signal(SIGINT, signal_handler);
+inline sig_atomic_t getSigStatus() {
+    return signal_received;
 }
 
-void register_sigtstp() {
-    signal(SIGTSTP, signal_handler);
+inline void registerSIGINT() {
+    signal(SIGINT, signalHandler);
 }
 
-void register_sigquit() {
-    signal(SIGQUIT, signal_handler);
+inline void registerSIGSTP() {
+    signal(SIGTSTP, signalHandler);
 }
 
-void register_sigterm() {
-    signal(SIGTERM, signal_handler);
+inline void registerSIGQUIT() {
+    signal(SIGQUIT, signalHandler);
 }
 
-void register_sigstop() {
-    signal(SIGSTOP, signal_handler);
+inline void registerSIGTERM() {
+    signal(SIGTERM, signalHandler);
+}
+
+inline void registerSIGSTOP() {
+    signal(SIGSTOP, signalHandler);
 }
 
 #endif //SYS_SIGNAL_HPP

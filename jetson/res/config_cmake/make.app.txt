@@ -71,11 +71,11 @@ find_package(Protobuf REQUIRED)
 # 查找所有 common 目录下的子目录源文件
 file(GLOB_RECURSE SOURCE_FILES
         "common/*.cpp"
-        "network/*.cpp"
-        "protobufs/*.pb.cc")
+        "extend/*.cpp"
+        "extend/protobufs/*.pb.cc")
 
 # 添加可执行文件
-add_executable(jetson_infer jetson_infer.cpp ${SOURCE_FILES})
+add_executable(jetson_infer jetson_infer_obj.cpp ${SOURCE_FILES})
 
 # 包含目录设置
 target_include_directories(jetson_infer PRIVATE

@@ -2,7 +2,7 @@
 // Created by orlando on 9/20/24.
 //
 
-#include "InferWrapper.h"
+#include "infer_wrapper.h"
 
 #include <simple_cuda_toolkits/vision/colorspace.h>
 #include <simple_cuda_toolkits/vision/normalization.h>
@@ -30,6 +30,8 @@ auto contextDeleter = [](nvinfer1::IExecutionContext* context) {
 };
 
 
+InferWrapper::InferWrapper():engine(nullptr, engineDeleter), context(nullptr, contextDeleter){}
+
 InferWrapper::InferWrapper(const std::string &engine_path,
             const std::map<std::string, std::string> &names,
             const nvinfer1::Dims4 &dims0, 
@@ -37,6 +39,17 @@ InferWrapper::InferWrapper(const std::string &engine_path,
             const int boxes):
         engine(nullptr, engineDeleter), context(nullptr, contextDeleter) {
             
+    // Update the wrapper
+    update(engine_path, names, dims0, dims1, boxes);
+}
+
+
+void InferWrapper::update(const std::string &engine_path,
+    const std::map<std::string, std::string> &names,
+    const nvinfer1::Dims4 &dims0,
+    const nvinfer1::Dims3 &dims1,
+    int boxes) {
+
     // Load the TensorRT engine from the serialized engine file
     engine = loadEngineFromFile(engine_path);
     if (!engine) {
@@ -66,7 +79,7 @@ InferWrapper::InferWrapper(const std::string &engine_path,
     cuda_output_buffers[0] = createZerosTensor<TensorType::FLOAT32>(output_dims[1] * output_dims[2]);
     cuda_output_buffers[1] = createZerosTensor<TensorType::FLOAT32>(output_dims[1] * output_dims[2]);
     std::cout << "[InferWrapper/CUDABuffer] VERBOSE: Temporary buffers for CUDA are ready." << std::endl;
-    std::cout << "[InferWrapper/CUDABuffer] VERBOSE: The shape of input temporary buffers is: " 
+    std::cout << "[InferWrapper/CUDABuffer] VERBOSE: The shape of input temporary buffers is: "
         << input_dims[0] << "x" << input_dims[1] << "x" << input_dims[2] << "x" << input_dims[3];
     std::cout << " (" << cuda_input_buffers.size() << ")" << std::endl;
     std::cout << "[InferWrapper] VERBOSE: The shape of output temporary buffers is: "

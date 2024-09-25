@@ -8,35 +8,98 @@
 #include <string>
 #include <vector>
 
-struct BrokerConfig {
-    std::string broker_host;
-    int broker_port;
-    std::string client_id;
-    std::string infer_before_topic;
-    std::string infer_result_topic;
+struct Broker {
+    std::string host;
+    int port;
+};
+
+struct HiddenClient {
+    std::string id;
+    std::string in_topic;
+    std::string out_topic;
+};
+
+struct InputClient {
+    std::string id;
+    std::string out_topic;
+};
+
+struct OutputClient {
+    std::string id;
+    std::string in_topic;
+};
+
+struct MQTTConfig {
+    Broker broker;
+    HiddenClient hidden;
+    InputClient input;
+    OutputClient output;
+};
+
+////////////////////////////////////////////////////////////////////////////////////
+
+enum ModelType {
+    YOLOv8n = 1,
+    YOLOv8n_POSE = 2,
+};
+
+struct TensorInfo {
+    std::string name;
+    std::vector<int> dims;
 };
 
 struct ModelConfig {
-    std::string model_path;
-    std::string model_type;
-    int input_width;
-    int input_height;
-    int input_channels;
-    float confidence;
+    std::string path;
+    ModelType type;
+    TensorInfo input;
+    TensorInfo output;
+    int max_det;
+    float cls_threshold;
+    float nms_threshold;
+    bool enable_debug;
 };
 
-struct YamlConfig {
-    // MQTT Broker Config
-    BrokerConfig broker;
+////////////////////////////////////////////////////////////////////////////////////
 
-    // Model Config
-    ModelConfig model;
-
-    // Enable/Disable debug mode
-    bool debug{};
+struct RecordConfig {
+    bool enable;
+    std::string filename;
 };
 
-// Load yaml configuration file
-YamlConfig loadYamlConfig(const std::string &config_file);
+struct StreamConfig {
+    std::string url;
+    int width;
+    int height;
+    int fps;
+    bool is_bgr;
+    bool enable_debug;
+    RecordConfig record;
+};
+
+struct DisplayConfig {
+    int width{};
+    int height{};
+    int fps{};
+    bool enable_fullscreen{};
+    bool enable_inference_info{};
+    bool enable_fps_info{};
+    bool enable_local_time{};
+    bool enable_debug{};
+    RecordConfig record;
+};
+
+////////////////////////////////////////////////////////////////////////////////////
+
+// Load MQTT configuration
+MQTTConfig loadMQTTConfig(const std::string &yaml);
+
+// Load model configuration
+ModelConfig loadModelConfig(const std::string &yaml);
+
+// Load streamer configuration
+StreamConfig loadStreamConfig(const std::string &yaml);
+
+// Load display configuration
+DisplayConfig loadDisplayConfig(const std::string &yaml);
 
 #endif //INFER_CONFIG_H

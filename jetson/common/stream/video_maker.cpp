@@ -2,7 +2,17 @@
 // Created by orlando on 9/25/24.
 //
 
-#include "VideoMaker.h"
+#include "video_maker.h"
+
+std::string getCurrentTimestamp() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+    std::tm tm_now = *std::localtime(&now_time);
+
+    std::ostringstream oss;
+    oss << std::put_time(&tm_now, "%Y-%m-%d_%H-%M-%S");
+    return oss.str();
+}
 
 VideoMaker::VideoMaker(cv::VideoCapture& cap, const std::string& name, int fps, int width, int height)
         : cap(cap) {
@@ -52,16 +62,6 @@ void VideoMaker::addFrame(const cv::Mat& frame) {
 void VideoMaker::release() {
     std::cout << "Closing video file: " << this->name + ".mp4" << std::endl;
     this->video.release();
-}
-
-std::string VideoMaker::getCurrentTimestamp() {
-    auto now = std::chrono::system_clock::now();
-    std::time_t now_time = std::chrono::system_clock::to_time_t(now);
-    std::tm tm_now = *std::localtime(&now_time);
-
-    std::ostringstream oss;
-    oss << std::put_time(&tm_now, "%Y-%m-%d_%H-%M-%S");
-    return oss.str();
 }
 
 void VideoMaker::initializeVideoWriter() {

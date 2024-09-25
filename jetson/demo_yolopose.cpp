@@ -4,11 +4,11 @@
 #include <filesystem>
 #include <chrono>
 
-#include "common/engine/InferWrapper.h"
-#include "common/utils/FPSCounter.h"
+#include "common/engine/infer_wrapper.h"
+#include "common/utils/fps_counter.h"
 #include "common/yolo/yolo_def.h"
 #include "common/yolo/yolo_visualization.h"
-#include "common/stream/StreamReader.h"
+#include "common/stream/stream_reader.h"
 #include "common/args/parse_args.hpp"
 #include "common/args/sys_signal.hpp"
 #include "common/text/text_painter.h"
@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
     auto args = parse_args_v1(argc, argv);
 
     //　Register Ctrl+C signal handler
-    register_sigint();
+    registerSIGINT();
 
     // Load the TensorRT engine from the serialized engine file
     auto model_path = args.find("model") != args.end() ? args["model"] : MODEL_PATH;

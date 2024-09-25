@@ -2,7 +2,7 @@
 // Created by orlando on 9/25/24.
 //
 
-#include "StreamReader.h"
+#include "stream_reader.h"
 #include <iostream>
 #include <thread>
 
@@ -49,7 +49,7 @@ void StreamReader::closeStream() {
     if (cap.isOpened()) {
         cap.release();
     }
-    std::cout << "Camera stream closed." << std::endl;
+    std::cout << "[StreamReader/Close] VERBOSE: Camera stream closed." << std::endl;
 }
 
 cv::VideoCapture& StreamReader::getCapture() {
@@ -66,26 +66,26 @@ bool StreamReader::openStream(const std::string& url_link) {
     cv::VideoCapture temp_cap(url_link);  // Use a temporary object
 
     if (!temp_cap.isOpened()) {
-        std::cerr << "Error: Could not open camera stream." << std::endl;
+        std::cerr << "[StreamReader/Open] ERROR: Could not open camera stream." << std::endl;
         return false;  // Return false if unable to open stream
     }
 
     // If successful, assign the temporary capture object to the class member
     cap = std::move(temp_cap);  // Move temporary to member variable
-    std::cout << "Camera stream opened successfully." << std::endl;
+    std::cout << "[StreamReader/Open] VERBOSE: Camera stream opened successfully." << std::endl;
     return true;
 }
 
 void StreamReader::reconnect(const std::string& url_link) {
     int attempts = 0;
     while (attempts < max_retries) {
-        std::cout << "Attempting to reconnect (" << (attempts + 1) << "/" << max_retries << ")..." << std::endl;
+        std::cout << "[StreamReader/Reopen] VERBOSE: Attempting to reconnect (" << (attempts + 1) << "/" << max_retries << ")..." << std::endl;
 
         if (openStream(url_link)) {
             std::cout << "Successfully reconnected to the camera." << std::endl;
             return;  // If reconnection is successful, exit the function
         } else {
-            std::cout << "Reconnection attempt " << (attempts + 1) << " failed. Retrying in " << delay << " seconds..." << std::endl;
+            std::cout << "[StreamReader/Reopen] VERBOSE: Reconnection attempt " << (attempts + 1) << " failed. Retrying in " << delay << " seconds..." << std::endl;
         }
 
         // Wait for the specified delay before trying again
@@ -93,5 +93,5 @@ void StreamReader::reconnect(const std::string& url_link) {
         attempts++;
     }
 
-    std::cout << "Max retries reached. Could not reconnect to the camera." << std::endl;
+    std::cout << "[StreamReader/Reopen] VERBOSE: Max retries reached. Could not reconnect to the camera." << std::endl;
 }
