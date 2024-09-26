@@ -2,8 +2,8 @@
 // Created by ubuntu on 9/9/24.
 //
 
-#ifndef INFER_FPSCOUNTER_H
-#define INFER_FPSCOUNTER_H
+#ifndef INFER_FPSCOUNTER_HPP
+#define INFER_FPSCOUNTER_HPP
 
 #include <chrono>
 
@@ -31,4 +31,4 @@ private:
     std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
 };
 
-#endif //INFER_FPSCOUNTER_H
+#endif //INFER_FPSCOUNTER_HPP

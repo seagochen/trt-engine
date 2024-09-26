@@ -3,6 +3,7 @@
 //
 
 #include "infer_wrapper.h"
+#include "common/utils/logger.h"
 
 #include <simple_cuda_toolkits/vision/colorspace.h>
 #include <simple_cuda_toolkits/vision/normalization.h>
@@ -53,12 +54,14 @@ void InferWrapper::update(const std::string &engine_path,
     // Load the TensorRT engine from the serialized engine file
     engine = loadEngineFromFile(engine_path);
     if (!engine) {
-        throw std::runtime_error("Failed to load engine from file.");
+        // throw std::runtime_error("Failed to load engine from file.");
+        LOG_ERROR_TOPIC("InferWrapper", "Engine", "Failed to load engine from file.");
     }
 
     // Create a context for executing the engine
     context = createExecutionContext(engine, names.at("input"), dims0);
-    std::cout << "[InferWrapper/Engine] VERBOSE: Context created successfully." << std::endl;
+    // std::cout << "[InferWrapper/Engine] VERBOSE: Context created successfully." << std::endl;
+    LOG_VERBOSE_TOPIC("InferWrapper", "Engine", "Context created successfully.");
 
     // Dimensions of input and output tensors
     input_dims = {dims0.d[0], dims0.d[1], dims0.d[2], dims0.d[3]}; // batch, channels, height, width
@@ -71,36 +74,41 @@ void InferWrapper::update(const std::string &engine_path,
     trt_binding_dims[names.at("output")] = output_dims;
     trt_buffers = allocateCudaTensors(trt_binding_dims);
     tensor_names = names;
-    std::cout << "[InferWrapper/TRTBuffer] VERBOSE: Buffers for TensorRT engine are ready." << std::endl;
+    // std::cout << "[InferWrapper/TRTBuffer] VERBOSE: Buffers for TensorRT engine are ready." << std::endl;
+    LOG_VERBOSE_TOPIC("InferWrapper", "TRTBuffer", "Buffers for TensorRT engine are ready.");
 
     // Allocate input and output buffers for CUDA
     cuda_input_buffers[0] = createZerosTensor<TensorType::FLOAT32>(input_dims[1] * input_dims[2] * input_dims[3]);
     cuda_input_buffers[1] = createZerosTensor<TensorType::FLOAT32>(input_dims[1] * input_dims[2] * input_dims[3]);
     cuda_output_buffers[0] = createZerosTensor<TensorType::FLOAT32>(output_dims[1] * output_dims[2]);
     cuda_output_buffers[1] = createZerosTensor<TensorType::FLOAT32>(output_dims[1] * output_dims[2]);
-    std::cout << "[InferWrapper/CUDABuffer] VERBOSE: Temporary buffers for CUDA are ready." << std::endl;
-    std::cout << "[InferWrapper/CUDABuffer] VERBOSE: The shape of input temporary buffers is: "
-        << input_dims[0] << "x" << input_dims[1] << "x" << input_dims[2] << "x" << input_dims[3];
-    std::cout << " (" << cuda_input_buffers.size() << ")" << std::endl;
-    std::cout << "[InferWrapper] VERBOSE: The shape of output temporary buffers is: "
-        << output_dims[0] << "x" << output_dims[1] << "x" << output_dims[2];
-    std::cout << " (" << cuda_output_buffers.size() << ")" << std::endl;
+    // std::cout << "[InferWrapper/CUDABuffer] VERBOSE: Temporary buffers for CUDA are ready." << std::endl;
+    // std::cout << "[InferWrapper/CUDABuffer] VERBOSE: The shape of input temporary buffers is: "
+        // << input_dims[0] << "x" << input_dims[1] << "x" << input_dims[2] << "x" << input_dims[3];
+    // std::cout << " (" << cuda_input_buffers.size() << ")" << std::endl;
+    // std::cout << "[InferWrapper] VERBOSE: The shape of output temporary buffers is: "
+        // << output_dims[0] << "x" << output_dims[1] << "x" << output_dims[2];
+    // std::cout << " (" << cuda_output_buffers.size() << ")" << std::endl;
+    LOG_VERBOSE_TOPIC("InferWrapper", "CUDABuffer", "Temporary buffers for CUDA are ready.");
 
     // Allocate temporary images for OpenCV
     temp_images["floated"] = cv::Mat(input_dims[2], input_dims[3], CV_32FC3);
-    std::cout << "[InferWrapper/OpenCVBuffer] VERBOSE: Temporary images for OpenCV are ready." << std::endl;
+    // std::cout << "[InferWrapper/OpenCVBuffer] VERBOSE: Temporary images for OpenCV are ready." << std::endl;
+    LOG_VERBOSE_TOPIC("InferWrapper", "OpenCVBuffer", "Temporary images for OpenCV are ready.");
 
     // Allocate Bitmap for NMS
     sctAllocateNMSBitmap(this->boxes);
-    std::cout << "[InferWrapper/NMS] VERBOSE: Bitmap for NMS is ready." << std::endl;
+    // std::cout << "[InferWrapper/NMS] VERBOSE: Bitmap for NMS is ready." << std::endl;
+    LOG_VERBOSE_TOPIC("InferWrapper", "NMS", "Bitmap for NMS is ready.");
 
     // Allocate results buffer
     int batch_size = (output_dims[0] > MAX_BATCH_SIZE) ? MAX_BATCH_SIZE : output_dims[0];
     for (int i = 0; i < batch_size; ++i) {
         results.emplace_back(createZerosTensor<TensorType::FLOAT32>(output_dims[1] * output_dims[2]));
     }
-    std::cout << "[InferWrapper/Output] VERBOSE: reference batch size has been set to" <<
-        results.size() << " for every turn." << std::endl;
+    // std::cout << "[InferWrapper/Output] VERBOSE: reference batch size has been set to" <<
+        // results.size() << " for every turn." << std::endl;
+    LOG_VERBOSE_TOPIC("InferWrapper", "Output", "Reference batch size has been set.");
 }
 
 
@@ -120,7 +128,8 @@ InferWrapper::~InferWrapper() {
     // Release the results buffer
     sctFreeNMSBitmap();
 
-    std::cout << "[InferWrapper/End] VERBOSE: InferWrapper destructor called." << std::endl;
+    // std::cout << "[InferWrapper/End] VERBOSE: InferWrapper destructor called." << std::endl;
+    LOG_VERBOSE_TOPIC("InferWrapper", "End", "InferWrapper destructor called.");
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -132,12 +141,17 @@ InferWrapper::~InferWrapper() {
 void InferWrapper::addImage(const cv::Mat &image, bool isRGB) {
     // Check if the image index is within the batch size
     if (image_idx >= MAX_BATCH_SIZE) {
-        throw std::runtime_error("The batch size is exceeded.");
+        // throw std::runtime_error("The batch size is exceeded.");
+        LOG_ERROR_TOPIC("InferWrapper", "Preprocess", "The batch size is exceeded.");
+        exit(EXIT_FAILURE);
     }
 
     // If the image's width or height is not equal to the input tensor's width or height
     if (image.cols != input_dims[3] || image.rows != input_dims[2]) {
-        throw std::runtime_error("The input image's width or height is not equal to the input tensor's width or height.");
+        // throw std::runtime_error("The input image's width or height is not equal to the input tensor's width or height.");
+        LOG_ERROR_TOPIC("InferWrapper", "Preprocess",
+            "The input image's width or height is not equal to the input tensor's width or height.");
+        exit(EXIT_FAILURE);
     }
 
     // Convert the image the float
@@ -192,10 +206,14 @@ void InferWrapper::addImages(const std::vector<cv::Mat> &images, bool isRGB) {
 void InferWrapper::inferObjectDetection(float cls_threshold, float nms_threshold, float alpha, float beta) {
     // Check if the image index is within the batch size
     if (image_idx == 0) {
-        throw std::runtime_error("No image is preprocessed.");
+        // throw std::runtime_error("No image is preprocessed.");
+        LOG_ERROR_TOPIC("InferWrapper", "Inference", "No image is preprocessed.");
+        exit(EXIT_FAILURE);
     }
     if (image_idx > results.size()) {
-        throw std::runtime_error("The batch size is exceeded.");
+        // throw std::runtime_error("The batch size is exceeded.");
+        LOG_ERROR_TOPIC("InferWrapper", "Inference", "The batch size is exceeded.");
+        exit(EXIT_FAILURE);
     }
 
     // PTR for the output buffers 

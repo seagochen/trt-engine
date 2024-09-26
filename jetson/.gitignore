@@ -11,7 +11,9 @@ obsoleted/
 # Ignore generated files
 *.engine
 CMakeLists.txt
-jetson_infer
+jetson_infer_obj
+jetson_infer_pose
+jetson_adapter
 demo_yolopose
 demo_4channels
 

@@ -71,7 +71,7 @@ struct StreamConfig {
     int width;
     int height;
     int fps;
-    bool is_bgr;
+    int format;
     bool enable_debug;
     RecordConfig record;
 };

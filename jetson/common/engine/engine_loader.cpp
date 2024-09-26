@@ -12,30 +12,45 @@
 #include <NvOnnxParser.h>
 #include <simple_cuda_toolkits/tensor.hpp>
 
+#include "common/utils/logger.h"
+
 using namespace nvinfer1;
 using namespace nvonnxparser;
 
 // Custom logger class for TensorRT
-class Logger : public ILogger {
+class TensorLogger : public ILogger {
 public:
     // Override log function for custom handling of log messages
     void log(Severity severity, const char* msg) noexcept override {
         if (severity != Severity::kINFO) {  // Only log messages of severity higher than INFO
-            std::cout << "[TensorRT] " << severityString(severity) << ": " << msg << std::endl;
+            switch (severity) {
+                case Severity::kINTERNAL_ERROR:
+                    LOG_ERROR_TOPIC("TensorRT", "INTERNAL_ERROR", msg);
+                    break;
+                case Severity::kERROR:
+                    LOG_ERROR("TensorRT", msg);
+                    break;
+                case Severity::kWARNING:
+                    LOG_WARNING("TensorRT", msg);
+                    break;
+                default:
+                    LOG_VERBOSE("TensorRT", msg);
+                    break;
+            }
         }
     }
 
-private:
-    // Convert severity to string for easier logging
-    static const char* severityString(Severity severity) {
-        switch (severity) {
-            case Severity::kINTERNAL_ERROR: return "INTERNAL_ERROR";
-            case Severity::kERROR:          return "ERROR";
-            case Severity::kWARNING:        return "WARNING";
-            case Severity::kVERBOSE:        return "VERBOSE";
-            default:                        return "UNKNOWN";
-        }
-    }
+// private:
+//     // Convert severity to string for easier logging
+//     static const char* severityString(Severity severity) {
+//         switch (severity) {
+//             case Severity::kINTERNAL_ERROR: return "INTERNAL_ERROR";
+//             case Severity::kERROR:          return "ERROR";
+//             case Severity::kWARNING:        return "WARNING";
+//             case Severity::kVERBOSE:        return "VERBOSE";
+//             default:                        return "UNKNOWN";
+//         }
+//     }
 } gLogger;  // Global logger instance
 
 // Load TensorRT engine from a serialized engine file
@@ -43,7 +58,8 @@ ICudaEngineUniquePtr loadEngineFromFile(const std::string& engineFile) {
     // Open the engine file in binary mode
     std::ifstream file(engineFile, std::ios::binary);
     if (!file) {
-        throw std::runtime_error("Error opening engine file: " + engineFile);
+        LOG_ERROR("EngineLoader", "Error opening engine file: " + engineFile);
+        exit(EXIT_FAILURE);
     }
 
     // Read the engine file into a buffer
@@ -53,7 +69,8 @@ ICudaEngineUniquePtr loadEngineFromFile(const std::string& engineFile) {
     std::vector<char> data(length);
     file.read(data.data(), length);
     if (!file) {
-        throw std::runtime_error("Error reading engine file: " + engineFile);
+        LOG_ERROR("EngineLoader", "Error reading engine file: " + engineFile);
+        exit(EXIT_FAILURE);
     }
 
     // Create a runtime for deserialization
@@ -70,7 +87,8 @@ ICudaEngineUniquePtr loadEngineFromFile(const std::string& engineFile) {
 
     // Ensure engine is valid
     if (!engine) {
-        throw std::runtime_error("Failed to deserialize engine.");
+        LOG_ERROR("EngineLoader", "Failed to deserialize engine.");
+        exit(EXIT_FAILURE);
     }
 
     return engine;
@@ -99,19 +117,23 @@ ICudaEngineUniquePtr loadEngineFromONNX(const std::string& onnxFilePath) {
     // Open the ONNX file and read its contents
     std::ifstream file(onnxFilePath, std::ios::binary | std::ios::ate);
     if (!file) {
-        throw std::runtime_error("Error opening ONNX file: " + onnxFilePath);
+        LOG_ERROR("EngineLoader", "Error opening ONNX file: " + onnxFilePath);
+        exit(EXIT_FAILURE);
     }
 
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
     std::vector<char> buffer(size);
     if (!file.read(buffer.data(), size)) {
-        throw std::runtime_error("Error reading ONNX file: " + onnxFilePath);
+        LOG_ERROR("EngineLoader", "Error reading ONNX file: " + onnxFilePath);
+        exit(EXIT_FAILURE);
     }
 
     // Parse the ONNX model into the network
     if (!parser->parse(buffer.data(), buffer.size())) {
-        throw std::runtime_error("Failed to parse ONNX model.");
+        // throw std::runtime_error("Failed to parse ONNX model.");
+        LOG_ERROR("EngineLoader", "Failed to parse ONNX model.");
+        exit(EXIT_FAILURE);
     }
 
     // Create a configuration for building the engine
@@ -132,7 +154,9 @@ ICudaEngineUniquePtr loadEngineFromONNX(const std::string& onnxFilePath) {
 
     // Ensure the serialized model is valid
     if (!serializedModel) {
-        throw std::runtime_error("Failed to build serialized network.");
+        // throw std::runtime_error("Failed to build serialized network.");
+        LOG_ERROR("EngineLoader", "Failed to build serialized network.");
+        exit(EXIT_FAILURE);
     }
 
     // Deserialize the serialized engine to get the ICudaEngine
@@ -148,7 +172,9 @@ ICudaEngineUniquePtr loadEngineFromONNX(const std::string& onnxFilePath) {
 
     // Ensure engine is valid
     if (!engine) {
-        throw std::runtime_error("Failed to deserialize engine.");
+        // throw std::runtime_error("Failed to deserialize engine.");
+        LOG_ERROR("EngineLoader", "Failed to deserialize engine.");
+        exit(EXIT_FAILURE);
     }
 
     return engine;
@@ -173,7 +199,9 @@ IExecutionContextUniquePtr createExecutionContext(ICudaEngineUniquePtr &engine,
         const Dims4& input_dims) {
             
     if (!engine) {
-        throw std::runtime_error("Invalid engine pointer.");
+        // throw std::runtime_error("Invalid engine pointer.");
+        LOG_ERROR("EngineLoader", "Invalid engine pointer.");
+        exit(EXIT_FAILURE);
     }
 
     // Create the execution context from the engine
@@ -191,9 +219,12 @@ IExecutionContextUniquePtr createExecutionContext(ICudaEngineUniquePtr &engine,
     context->setInputShape(input_name.c_str(), input_dims);
 
     // Print out the information 
-    std::cout << "[EngineLoader] VERBOSE: Execution context created successfully." << std::endl;
-    std::cout << "[EngineLoader] VERBOSE: Input tensor shape set to: " 
-        << input_dims.d[0] << "x" << input_dims.d[1] << "x" << input_dims.d[2] << "x" << input_dims.d[3] << std::endl; 
+    // std::cout << "[EngineLoader] VERBOSE: Execution context created successfully." << std::endl;
+    // std::cout << "[EngineLoader] VERBOSE: Input tensor shape set to: " 
+        // << input_dims.d[0] << "x" << input_dims.d[1] << "x" << input_dims.d[2] << "x" << input_dims.d[3] << std::endl; 
+    LOG_VERBOSE("EngineLoader", "Execution context created successfully.");
+    LOG_VERBOSE("EngineLoader", std::to_string(input_dims.d[0]) + "x" + std::to_string(input_dims.d[1]) + "x" +
+        std::to_string(input_dims.d[2]) + "x" + std::to_string(input_dims.d[3]));
 
     return context;
 }
@@ -201,13 +232,17 @@ IExecutionContextUniquePtr createExecutionContext(ICudaEngineUniquePtr &engine,
 // Perform inference on input and output tensors using the execution context
 void inference(IExecutionContextUniquePtr& context, Tensor<float>& input, Tensor<float>& output) {
     if (!input.ptr() || !output.ptr()) {
-        throw std::runtime_error("Invalid input or output tensor.");
+        // throw std::runtime_error("Invalid input or output tensor.");
+        LOG_ERROR("EngineLoader", "Invalid input or output tensor.");
+        exit(EXIT_FAILURE);
     }
 
     // Bind the input and output tensors for inference
     void* buffers[2] = {input.ptr(), output.ptr()};
     if (!context->executeV2(buffers)) {
-        throw std::runtime_error("Failed to execute inference.");
+        // throw std::runtime_error("Failed to execute inference.");
+        LOG_ERROR("EngineLoader", "Failed to execute inference.");
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -222,8 +257,11 @@ std::map<std::string, Tensor<float>> allocateCudaTensors(const std::map<std::str
         Tensor<float> tensor = createZerosTensor<TensorType::FLOAT32>(dims);
 
         // Print out the information
-        std::cout << "[EngineLoader] VERBOSE: Allocated tensor " << tensor_name << " with dimensions: " 
-            << dims[0] << "x" << dims[1] << "x" << dims[2] << "x" << dims[3] << std::endl;
+        // std::cout << "[EngineLoader] VERBOSE: Allocated tensor " << tensor_name << " with dimensions: " 
+            // << dims[0] << "x" << dims[1] << "x" << dims[2] << "x" << dims[3] << std::endl;
+        LOG_VERBOSE("EngineLoader", "Allocated tensor " + tensor_name + " with dimensions: " +
+            std::to_string(dims[0]) + "x" + std::to_string(dims[1]) + "x" + 
+            std::to_string(dims[2]) + "x" + std::to_string(dims[3]));
 
         // Add the tensor to the map using its name as the key
         allocated_tensors.emplace(tensor_name, std::move(tensor));

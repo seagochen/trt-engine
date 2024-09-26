@@ -75,7 +75,7 @@ StreamConfig loadStreamConfig(const std::string &yaml) {
     stream_config.width = config["stream"]["source"]["width"].as<int>();
     stream_config.height = config["stream"]["source"]["height"].as<int>();
     stream_config.fps = config["stream"]["source"]["fps"].as<int>();
-    stream_config.is_bgr = (config["stream"]["source"]["format"].as<std::string>() == "bgr");
+    stream_config.format = config["stream"]["source"]["format"].as<int>();
 
     // Parse recording settings
     stream_config.record.enable = config["stream"]["record"]["enable"].as<bool>();

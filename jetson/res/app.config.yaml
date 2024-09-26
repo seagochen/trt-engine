@@ -43,7 +43,7 @@ stream:
     width: 400
     height: 400
     fps: 10
-    format: "bgr"
+    format: 2
 
   record:
     enable: false

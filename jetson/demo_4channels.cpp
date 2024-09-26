@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 #include "common/engine/infer_wrapper.h"
-#include "common/utils/fps_counter.h"
+#include "common/utils/fps_counter.hpp"
 #include "common/yolo/yolo_def.h"
 #include "common/yolo/yolo_visualization.h"
 #include "common/yolo/load_labels.h"

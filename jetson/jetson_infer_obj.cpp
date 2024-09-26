@@ -12,7 +12,7 @@
 #include <unistd.h>
 
 #include "common/engine/infer_wrapper.h"
-#include "common/utils/fps_counter.h"
+#include "common/utils/fps_counter.hpp"
 #include "common/yolo/yolo_def.h"
 #include "common/yolo/yolo_visualization.h"
 #include "common/yolo/load_labels.h"
@@ -33,8 +33,12 @@ void loadModelByConfig(ModelConfig& config, InferWrapper& infer) {
         {"output", config.output.name}
     };
 
-    // TODO update infer here
-    infer.update(config.path, ts_names,
+    // Define the input and output dims
+    nvinfer1::Dims4 input_dims = {config.input.dims[0], config.input.dims[1], config.input.dims[2], config.input.dims[3]};
+    nvinfer1::Dims3 output_dims = {config.output.dims[0], config.output.dims[1], config.output.dims[2]};
+
+    // Load the model with the configuration
+    infer.update(config.path, ts_names, input_dims, output_dims, config.max_det);
 }
 
 int main(int argc, char *argv[]) {
@@ -53,7 +57,6 @@ int main(int argc, char *argv[]) {
     // Use a shared pointer to manage the life cycle of the InferWrapper object
     InferWrapper infer;
     loadModelByConfig(model_config, infer);
-    std::cout << "Done" << std::endl;
 
     return 0;
 }

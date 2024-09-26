@@ -2,8 +2,8 @@
 // Created by ubuntu on 9/9/24.
 //
 
-#ifndef VIDEO_ADP_MQTTCLIENT_H
-#define VIDEO_ADP_MQTTCLIENT_H
+#ifndef MQTT_CLIENT_H
+#define MQTT_CLIENT_H
 
 #include <string>
 #include <iostream>
@@ -25,19 +25,17 @@ public:
     bool publish(const std::string& topic, const void* payload, size_t payloadlen);
     bool subscribe(const std::string& topic);
 
-    // 手动处理Mosquitto事件循环
-    bool listen(int timeout);
-
 private:
-    std::string address_;
-    std::string clientId_;
-    std::optional<std::string> username_;  // 使用 std::optional 来管理可选的用户名
-    std::optional<std::string> password_;  // 使用 std::optional 来管理可选的密码
-    mosquitto* mosq_;
-    int port_;
-    std::function<void(const std::string&, const void*, size_t)> messageCallback_;
+    std::string address;
+    std::string clientId;
+    std::optional<std::string> username;  // 使用 std::optional 来管理可选的用户名
+    std::optional<std::string> password;  // 使用 std::optional 来管理可选的密码
+    mosquitto* mosq;
+    int port;
+    std::function<void(const std::string&, const void*, size_t)> messageCallback;
 
-    std::atomic<bool> isConnected_;  // 标志位：表示是否连接上
+    std::atomic<bool> isConnected;  // 标志位：表示是否连接上
+
     static void on_message(struct mosquitto* mosq, void* obj, const struct mosquitto_message* msg);
     static void on_connect(struct mosquitto* mosq, void* obj, int rc);
     static void on_disconnect(struct mosquitto* mosq, void* obj, int rc);
@@ -46,5 +44,5 @@ private:
     static bool checkError(int resultCode, const std::string& operation);
 };
 
-#endif // VIDEO_ADP_MQTTCLIENT_H
+#endif // MQTT_CLIENT_H
 
