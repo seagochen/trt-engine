@@ -39,10 +39,10 @@ model:
 
 stream:
   source:
-    url: "videos/family_01.mp4"
+    url: "/opt/videos/vehicle_camera_02.mp4"
     width: 400
     height: 400
-    fps: 10
+    fps: 30
     format: 2
 
   record:

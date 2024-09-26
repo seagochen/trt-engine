@@ -6,6 +6,7 @@
 #define SYS_SIGNAL_HPP
 
 #include <csignal>
+#include "common/utils/logger.h"
 
 inline volatile sig_atomic_t signal_received = 0;
 
@@ -13,22 +14,28 @@ inline void signalHandler(int signal) {
 
     switch (signal) {
         case SIGINT:
-            std::cout << "Ctrl+C signal received" << std::endl;
+            // std::cout << "Ctrl+C signal received" << std::endl;
+            LOG_ERROR("Signal", "Ctrl+C signal received");
             break;
         case SIGTSTP:
-            std::cout << "Ctrl+Z signal received" << std::endl;
+            // std::cout << "Ctrl+Z signal received" << std::endl;
+            LOG_ERROR("Signal", "Ctrl+Z signal received");
             break;
         case SIGQUIT:
-            std::cout << "Ctrl+\\ signal received" << std::endl;
+            // std::cout << "Ctrl+\\ signal received" << std::endl;
+            LOG_ERROR("Signal", "Ctrl+\\ signal received");
             break;
         case SIGTERM:
-            std::cout << "Ctrl+D signal received" << std::endl;
+            // std::cout << "Ctrl+D signal received" << std::endl;
+            LOG_ERROR("Signal", "Ctrl+D signal received");
             break;
         case SIGSTOP:
-            std::cout << "Ctrl+Z signal received" << std::endl;
+            // std::cout << "Ctrl+Z signal received" << std::endl;
+            LOG_ERROR("Signal", "Ctrl+Z signal received");
             break;
         default:
-            std::cout << "Unknown signal received" << std::endl;
+            // std::cout << "Unknown signal received" << std::endl;
+            LOG_ERROR("Signal", "Unknown signal received");
             break;
     }
 

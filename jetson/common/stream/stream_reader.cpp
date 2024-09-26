@@ -6,6 +6,9 @@
 #include <iostream>
 #include <thread>
 
+#include "common/utils/logger.h"
+
+
 StreamReader::StreamReader(const std::string& url, int width, int height, int fps, int max_retries, int delay)
         : url(url), width(width), height(height), max_retries(max_retries), delay(delay) {
     openStream(url);
@@ -35,7 +38,9 @@ cv::Mat StreamReader::readFrame() {
             reconnect(url);
 
             if (!cap.isOpened()) { // 如果重新连接失败，抛出异常
-                throw std::runtime_error("Could not reconnect to the camera.");
+                // throw std::runtime_error("Could not reconnect to the camera.");
+                LOG_ERROR("StreamReader", "Could not reconnect to the camera.");
+                exit(EXIT_FAILURE);
             }
         }
     }
@@ -49,7 +54,8 @@ void StreamReader::closeStream() {
     if (cap.isOpened()) {
         cap.release();
     }
-    std::cout << "[StreamReader/Close] VERBOSE: Camera stream closed." << std::endl;
+    // std::cout << "[StreamReader/Close] VERBOSE: Camera stream closed." << std::endl;
+    LOG_VERBOSE_TOPIC("StreamReader", "Close", "Camera stream closed.");
 }
 
 cv::VideoCapture& StreamReader::getCapture() {
@@ -66,26 +72,33 @@ bool StreamReader::openStream(const std::string& url_link) {
     cv::VideoCapture temp_cap(url_link);  // Use a temporary object
 
     if (!temp_cap.isOpened()) {
-        std::cerr << "[StreamReader/Open] ERROR: Could not open camera stream." << std::endl;
+        // std::cerr << "[StreamReader/Open] ERROR: Could not open camera stream." << std::endl;
+        LOG_WARNING_TOPIC("StreamReader", "Open", "Could not open camera stream.");
         return false;  // Return false if unable to open stream
     }
 
     // If successful, assign the temporary capture object to the class member
     cap = std::move(temp_cap);  // Move temporary to member variable
-    std::cout << "[StreamReader/Open] VERBOSE: Camera stream opened successfully." << std::endl;
+    // std::cout << "[StreamReader/Open] VERBOSE: Camera stream opened successfully." << std::endl;
+    LOG_VERBOSE_TOPIC("StreamReader", "Open", "Camera stream opened successfully.");
     return true;
 }
 
 void StreamReader::reconnect(const std::string& url_link) {
     int attempts = 0;
     while (attempts < max_retries) {
-        std::cout << "[StreamReader/Reopen] VERBOSE: Attempting to reconnect (" << (attempts + 1) << "/" << max_retries << ")..." << std::endl;
+        // std::cout << "[StreamReader/Reopen] VERBOSE: Attempting to reconnect (" << (attempts + 1) << "/" << max_retries << ")..." << std::endl;
+        LOG_VERBOSE_TOPIC("StreamReader", "Reopen",
+            "Attempting to reconnect (" + std::to_string(attempts + 1) + "/" + std::to_string(max_retries) + ")...");
 
         if (openStream(url_link)) {
-            std::cout << "Successfully reconnected to the camera." << std::endl;
+            // std::cout << "Successfully reconnected to the camera." << std::endl;
+            LOG_VERBOSE_TOPIC("StreamReader", "Reopen", "Successfully reconnected to the camera.");
             return;  // If reconnection is successful, exit the function
         } else {
-            std::cout << "[StreamReader/Reopen] VERBOSE: Reconnection attempt " << (attempts + 1) << " failed. Retrying in " << delay << " seconds..." << std::endl;
+            // std::cout << "[StreamReader/Reopen] VERBOSE: Reconnection attempt " << (attempts + 1) << " failed. Retrying in " << delay << " seconds..." << std::endl;
+            LOG_VERBOSE_TOPIC("StreamReader", "Reopen",
+                "Reconnection attempt " + std::to_string(attempts + 1) + " failed. Retrying in " + std::to_string(delay) + " seconds...");
         }
 
         // Wait for the specified delay before trying again
@@ -93,5 +106,6 @@ void StreamReader::reconnect(const std::string& url_link) {
         attempts++;
     }
 
-    std::cout << "[StreamReader/Reopen] VERBOSE: Max retries reached. Could not reconnect to the camera." << std::endl;
+    // std::cout << "[StreamReader/Reopen] VERBOSE: Max retries reached. Could not reconnect to the camera." << std::endl;
+    LOG_WARNING_TOPIC("StreamReader", "Reopen", "Max retries reached. Could not reconnect to the camera.");
 }

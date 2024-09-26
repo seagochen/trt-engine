@@ -38,7 +38,7 @@ std::string Logger::formatLogMessage(LogLevel level, const std::string& module, 
         logStream << "/" << topic;
     }
 
-    logStream << "] " << logLevelStr << ": " << message << RESET << std::endl;  // 输出后重置颜色
+    logStream << "] " << logLevelStr << " " << timestamp << ": " << message << RESET << std::endl;  // 输出后重置颜色
     return logStream.str();
 }
 

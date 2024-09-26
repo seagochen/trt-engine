@@ -71,7 +71,9 @@ void processFrames(StreamReader& reader,
         // Display the frame if debug mode is enabled
         if (stream_config.enable_debug) {
             cv::imshow("Debug Mode", frame);
-            cv::waitKey(1);  // Allows OpenCV to process GUI events
+            if (cv::waitKey(1) == 27 || cv::waitKey(1) == 'q') { // Break on ESC or 'q'
+                break;
+            }
         }
 
         // Write frame to video if enabled

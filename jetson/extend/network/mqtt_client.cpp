@@ -5,6 +5,8 @@
 #include "mqtt_client.h"
 #include <iostream>
 
+#include "common/utils/logger.h"
+
 
 MQTTClient::MQTTClient(const std::string& address, int port, const std::string& clientId, const std::string& username, const std::string& password)
         : address(address), clientId(clientId), port(port), isConnected(false) {
@@ -12,7 +14,9 @@ MQTTClient::MQTTClient(const std::string& address, int port, const std::string& 
     mosquitto_lib_init();
     mosq = mosquitto_new(clientId.c_str(), true, this);
     if (!mosq) {
-        throw std::runtime_error("Failed to initialize Mosquitto client.");
+        // throw std::runtime_error("Failed to initialize Mosquitto client.");
+        LOG_ERROR("MQTTClient", "Failed to initialize Mosquitto client.");
+        exit(EXIT_FAILURE);
     }
 
     if (!username.empty() && !password.empty()) {
@@ -75,20 +79,24 @@ void MQTTClient::on_message(struct mosquitto* mosq, void* obj, const struct mosq
 
 void MQTTClient::on_connect(struct mosquitto* mosq, void* obj, int rc) {
     if (rc == 0) {
-        std::cout << "Connected to the MQTT broker successfully." << std::endl;
+        // std::cout << "Connected to the MQTT broker successfully." << std::endl;
+        LOG_INFO("MQTTClient", "Connected to the MQTT broker successfully.");
         auto* client = static_cast<MQTTClient*>(obj);
         client->isConnected = true;
     } else {
-        std::cerr << "Failed to connect: " << mosquitto_strerror(rc) << std::endl;
+        // std::cerr << "Failed to connect: " << mosquitto_strerror(rc) << std::endl;
+        LOG_ERROR("MQTTClient", "Failed to connect: " + std::string(mosquitto_strerror(rc)));
     }
 }
 
 void MQTTClient::on_disconnect(struct mosquitto* mosq, void* obj, int rc) {
     auto* client = static_cast<MQTTClient*>(obj);
     if (rc == 0) {
-        std::cout << "Disconnected from the MQTT broker gracefully." << std::endl;
+        // std::cout << "Disconnected from the MQTT broker gracefully." << std::endl;
+        LOG_INFO("MQTTClient", "Disconnected from the MQTT broker gracefully.");
     } else {
-        std::cerr << "Unexpected disconnection from the MQTT broker: " << mosquitto_strerror(rc) << std::endl;
+        // std::cerr << "Unexpected disconnection from the MQTT broker: " << mosquitto_strerror(rc) << std::endl;
+        LOG_ERROR("MQTTClient", "Unexpected disconnection from the MQTT broker: " + std::string(mosquitto_strerror(rc)));
     }
     client->isConnected = false;
 }
@@ -96,7 +104,8 @@ void MQTTClient::on_disconnect(struct mosquitto* mosq, void* obj, int rc) {
 // 统一错误检查和日志输出
 bool MQTTClient::checkError(int resultCode, const std::string& operation) {
     if (resultCode != MOSQ_ERR_SUCCESS) {
-        std::cerr << "Failed to " << operation << ": " << mosquitto_strerror(resultCode) << std::endl;
+        // std::cerr << "Failed to " << operation << ": " << mosquitto_strerror(resultCode) << std::endl;
+        LOG_ERROR("MQTTClient", "Failed to " + operation + ": " + std::string(mosquitto_strerror(resultCode)));
         return false;
     }
     return true;
