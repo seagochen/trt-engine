@@ -1,0 +1,69 @@
+mqtt:
+  broker:
+    host: "localhost"
+    port: 1883
+
+  client_infer:
+    client_id: "infer"
+    in_topic: "streaming"
+    out_topic: "inference"
+
+  client_stream:
+    client_id: "adapter"
+    out_topic: "streaming"
+
+  client_display:
+    client_id: "display"
+    in_topic: "inference"
+
+
+
+model:
+  model_type: "yolov8n_pose" # "yolov8n", "yolov8n_pose"
+  model_path: "/opt/models/yolov8n-pose.dynamic.engine" # "/opt/models/yolov8n.dynamic.engine", "/opt/models/yolov8n-pose.dynamic.engine"
+  intput_name: "images"
+  input_shape: [4, 3, 640, 640]
+  output_name: "output"
+  output_shape: [4, 56, 8400] # [4, 84, 8400] for "yolov8n", [4, 56, 8400] for "yolov8n_pose"
+  max_detections: 1024
+  cls_threshold: 0.2
+  nms_threshold: 0.4
+  debug_mode: true
+
+
+
+stream:
+  source:
+    url: "/opt/videos/football_01.mp4" # "/opt/videos/vehicle_camera_02.mp4", "/opt/videos/football_01.mp4"
+    width: 400
+    height: 400
+    fps: 20
+    format: 0  # 0: BGR, 1: RGB
+
+  record:
+    enable: false
+    filename: "raw_vid"
+
+  debug_mode: true
+
+
+
+display:
+  resolution:
+    width: 640
+    height: 640
+  
+  window:
+    enable_fullscreen: true
+    enable_inference_info: true
+    enable_fps_info: true
+    enable_local_time: true
+  
+  record:
+    enable: false
+    filename: "display_vid"
+  
+  inference:
+    label_path: "./labels/coco_labels.txt"
+
+  debug_mode: true

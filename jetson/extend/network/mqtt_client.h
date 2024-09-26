@@ -32,7 +32,7 @@ private:
     std::optional<std::string> password;  // 使用 std::optional 来管理可选的密码
     mosquitto* mosq;
     int port;
-    std::function<void(const std::string&, const void*, size_t)> messageCallback;
+    std::function<void(const std::string&, const void*, const size_t)> messageCallback;
 
     std::atomic<bool> isConnected;  // 标志位：表示是否连接上
 

@@ -77,14 +77,15 @@ struct StreamConfig {
 };
 
 struct DisplayConfig {
-    int width{};
-    int height{};
-    int fps{};
-    bool enable_fullscreen{};
-    bool enable_inference_info{};
-    bool enable_fps_info{};
-    bool enable_local_time{};
-    bool enable_debug{};
+    int width;
+    int height;
+    int fps;
+    bool enable_fullscreen;
+    bool enable_inference_info;
+    bool enable_fps_info;
+    bool enable_local_time;
+    bool enable_debug;
+    std::string label_path;
     RecordConfig record;
 };
 

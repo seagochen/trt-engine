@@ -9,7 +9,7 @@
 #define GREEN "\033[32m"
 #define YELLOW "\033[33m"
 #define CYAN "\033[36m"
-#define BLACK "\033[30m"
+#define GRAY "\033[90m"
 
 // 处理 module 和 message 的日志输出
 void Logger::log(LogLevel level, const std::string& module, const std::string& message) {
@@ -61,7 +61,7 @@ std::string Logger::getLogLevelColor(LogLevel level) {
         case INFO: return GREEN;        // 绿色
         case WARNING: return YELLOW;    // 黄色
         case ERROR: return RED;         // 红色
-        case DEBUG: return BLACK;       // 黑色
+        case DEBUG: return GRAY;       // 黑色
         default: return RESET;
     }
 }

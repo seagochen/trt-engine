@@ -15,14 +15,16 @@ MQTTConfig loadMQTTConfig(const std::string &yaml) {
     mqtt_config.broker.host = config["mqtt"]["broker"]["host"].as<std::string>();
     mqtt_config.broker.port = config["mqtt"]["broker"]["port"].as<int>();
 
-    // Parse clients
-    mqtt_config.hidden.id = config["mqtt"]["client_yolo"]["client_id"].as<std::string>();
-    mqtt_config.hidden.in_topic = config["mqtt"]["client_yolo"]["in_topic"].as<std::string>();
-    mqtt_config.hidden.out_topic = config["mqtt"]["client_yolo"]["out_topic"].as<std::string>();
-
+    // Input client
     mqtt_config.input.id = config["mqtt"]["client_stream"]["client_id"].as<std::string>();
     mqtt_config.input.out_topic = config["mqtt"]["client_stream"]["out_topic"].as<std::string>();
 
+    // Infer client
+    mqtt_config.hidden.id = config["mqtt"]["client_infer"]["client_id"].as<std::string>();
+    mqtt_config.hidden.in_topic = config["mqtt"]["client_infer"]["in_topic"].as<std::string>();
+    mqtt_config.hidden.out_topic = config["mqtt"]["client_infer"]["out_topic"].as<std::string>();
+
+    // Display client
     mqtt_config.output.id = config["mqtt"]["client_display"]["client_id"].as<std::string>();
     mqtt_config.output.in_topic = config["mqtt"]["client_display"]["in_topic"].as<std::string>();
 
@@ -106,6 +108,9 @@ DisplayConfig loadDisplayConfig(const std::string &yaml) {
     // Parse recording settings
     display_config.record.enable = config["display"]["record"]["enable"].as<bool>();
     display_config.record.filename = config["display"]["record"]["filename"].as<std::string>();
+
+    // Parse label path
+    display_config.label_path = config["display"]["inference"]["label_path"].as<std::string>();
 
     // Parse debug mode
     display_config.enable_debug = config["display"]["debug_mode"].as<bool>();
