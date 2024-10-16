@@ -6,6 +6,19 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+# If /root/.jetsonclocks_conf.txt is not present, create it
+if [ ! -f /root/.jetsonclocks_conf.txt ]; then
+    echo "Creating /root/.jetsonclocks_conf.txt..."
+    sudo  /usr/bin/jetson_clocks --store
+
+    if [ $? -ne 0 ]; then
+        echo "エラーが発生しました。"
+        exit 1
+    else
+        echo "設定ファイルを作成しました。"
+    fi
+fi
+
 # 检查当前的 nvpmodel 模式
 MODE=$(sudo nvpmodel -q | grep -oP '(?<=Power Mode: ).*')
 

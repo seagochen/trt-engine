@@ -13,7 +13,7 @@ from common.utils.fps_process import FPSCountingProcess
 from common.utils.load_labels import read_labels_from_file
 from common.utils.logger import Logger
 from common.yaml.yaml_reader import load_config
-from common.yolo.structs import YoloPose
+from common.yolo.simple_structs import YoloPose
 from common.yolo.visualization import draw_skeletons, draw_boxes_with_labels
 from protobufs.inference_result_pb2 import InferenceResult
 from protobufs.video_frame_pb2 import VideoFrame

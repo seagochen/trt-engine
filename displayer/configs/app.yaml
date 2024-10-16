@@ -11,7 +11,7 @@ topics:
   publish_by: "adapter"
 
 inference:
-  label_path: "./labels/coco_labels.txt"
+  label_path: "./configs/coco_labels.txt"
   width: 640
   height: 640
 

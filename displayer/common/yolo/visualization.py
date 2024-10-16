@@ -1,5 +1,5 @@
 import cv2
-from common.yolo.structs import Yolo, YoloPose, YoloPoint
+from common.yolo.simple_structs import Yolo, YoloPose, YoloPoint
 
 # 定义关键点结构
 class KeyPoint:
