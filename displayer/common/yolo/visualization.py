@@ -1,7 +1,8 @@
 import os
 import cv2
-from common.yolo.simple_structs import Yolo, YoloPose
+import numpy as np
 from common.utils.load_schema import KeyPoint, Skeleton
+
 
 # 定义关键点和骨骼映射
 kpt_color_map = {
@@ -71,7 +72,18 @@ def load_external_schema(schema_file: str):
     kpt_color_map, skeleton_map, bbox_colors = load_schema_from_json(schema_file)
 
 
-def draw_skeletons(image, results, different_bbox=False, show_pts=True, show_names=True):
+def draw_skeletons_with_bboxes(image, results: list, different_bbox=False, show_pts=True, show_names=True):
+    """
+    Draw skeletons on the image.
+
+    :param image: cv2 image
+    :param results: list of YoloPose objects
+    :param different_bbox: True if different bounding box colors are used
+    :param show_pts: True if key points are shown
+    :param show_names: True if key point names are shown
+    :return:
+    """
+
     for idx, pose in enumerate(results):
         # Draw the key points
         if show_pts:
@@ -120,7 +132,53 @@ def draw_skeletons(image, results, different_bbox=False, show_pts=True, show_nam
     return image
 
 
-def draw_boxes_with_labels(image, results, labels: list):
+def draw_skeletons_without_bboxes(image, results: list, show_pts=True, show_names=True):
+    """
+    Draw skeletons on the image without bounding boxes.
+
+    :param image: cv2 image
+    :param results: list of YoloPose objects
+    :param show_pts: True if key points are shown
+    :param show_names: True if key point names are shown
+    :return:
+    """
+
+    for pose in results:
+        # Draw the key points
+        if show_pts:
+            for i, pt in enumerate(pose.pts):
+                if pt.conf > 0.2 and i in kpt_color_map:
+                    kp = kpt_color_map[i]
+                    cv2.circle(image, (pt.x, pt.y), 3, kp.color, -1)
+
+                    if show_names:
+                        cv2.putText(image, kp.name, (pt.x, pt.y - 5), cv2.FONT_HERSHEY_SIMPLEX,
+                                    0.5, kp.color, 1)
+
+        # Draw the skeleton
+        for bone in skeleton_map:
+            # Easy debug
+            srt_kp = pose.pts[bone.srt_kpt_id]
+            dst_kp = pose.pts[bone.dst_kpt_id]
+
+            if srt_kp.conf > 0.2 and dst_kp.conf > 0.2 and \
+                srt_kp.x > 0 and srt_kp.y > 0 and \
+                    dst_kp.x > 0 and dst_kp.y > 0:
+                cv2.line(image, (srt_kp.x, srt_kp.y), (dst_kp.x, dst_kp.y), bone.color, 2)
+
+    return image
+
+
+def draw_bboxes_with_labels(image, results: list, labels: list):
+    """
+    Draw bounding boxes with labels on the image.
+
+    :param image: cv2 image
+    :param results: list of Yolo objects
+    :param labels: list of strings
+    :return:
+    """
+
     for yolo in results:
         lx, ly, rx, ry, cls, conf = yolo.lx, yolo.ly, yolo.rx, yolo.ry, yolo.cls, yolo.conf
 
@@ -142,4 +200,96 @@ def draw_boxes_with_labels(image, results, labels: list):
         # Put the label text on the image
         cv2.putText(image, label, (lx, ly - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
+    return image
+
+
+def draw_bboxes_without_labels(image, results: list):
+    """
+    Draw bounding boxes without labels on the image.
+
+    :param image: cv2 image
+    :param results: list of Yolo objects
+    :return:
+    """
+
+    for yolo in results:
+        lx, ly, rx, ry, cls, conf = yolo.lx, yolo.ly, yolo.rx, yolo.ry, yolo.cls, yolo.conf
+
+        # Select color based on class
+        box_color = bbox_colors[cls % len(bbox_colors)]
+
+        # Draw the bounding box
+        cv2.rectangle(image, (lx, ly), (rx, ry), box_color, 2)
+
+    return image
+
+
+def draw_facial_vectors_2d(frame, orientation_vectors: list, different_vectors=False, show_legend=False):
+    """
+    Draw facial orientation vectors on the image.
+
+    :param frame: cv2 image
+    :param orientation_vectors: list of FacialOrientation2D objects
+    :param different_vectors: True if different vectors are used
+    """
+
+    for idx, vector in enumerate(orientation_vectors):
+        # Determine the color of the vector
+        if different_vectors:
+            vector_color = bbox_colors[idx % len(bbox_colors)]
+        else:
+            vector_color = (255, 0, 0)
+
+        # Draw the orientation vector
+        cv2.arrowedLine(frame, (vector.origin_x, vector.origin_y), (vector.dest_x, vector.dest_y),
+                        vector_color, 2)
+        
+        # Draw the legend
+        if show_legend:
+            face_direction = str(vector)
+
+            # Put the legend text on the image
+            cv2.putText(frame, face_direction, (vector.lx + 5, vector.ly + 15),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, vector_color, 1)
+
+    return frame
+
+
+def draw_sort_bboxes(image, np_data: np.array, labels: list = None):
+    """
+    Draw bounding boxes with labels on the image.
+
+    :param image: cv2 image
+    :param np_data: Numpy array [id, lx, ly, rx, ry, conf, cls, ...], size [N, 58] or [N, 7]
+    :param labels: list of strings
+    :return:
+    """
+
+    # Iterate over each bounding box in np_data
+    for i in range(np_data.shape[0]):
+        # Get bounding box coordinates and convert them to integers
+        lx, ly, rx, ry = map(int, np_data[i, 1:5])
+
+        # Get the color for this bounding box based on its id
+        box_color = bbox_colors[int(np_data[i, 0]) % len(bbox_colors)]
+
+        # Determine the label text
+        if labels is not None:
+            label = f"{labels[int(np_data[i, 6])]}: {np_data[i, 5]:.2f}"
+        else:
+            label = f"ID: {int(np_data[i, 0])}: {np_data[i, 5]:.2f}"
+
+        # Draw the bounding box
+        cv2.rectangle(image, (lx, ly), (rx, ry), box_color, 2)
+
+        # Get text size for background size
+        text_size, baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+
+        # Draw a filled rectangle as background for text
+        cv2.rectangle(image, (lx, ly - text_size[1] - 5), (lx + text_size[0], ly), box_color, cv2.FILLED)
+
+        # Put the label text on the image
+        cv2.putText(image, label, (lx, ly - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+    # Return the image with bounding boxes drawn
     return image

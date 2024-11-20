@@ -12,11 +12,14 @@ from common.painter.asc_text import draw_text_with_opposite_color
 from common.utils.fps_process import FPSCountingProcess
 from common.utils.load_labels import read_labels_from_file
 from common.utils.logger import Logger
-from common.yaml.yaml_reader import load_config
-from common.yolo.simple_structs import YoloPose
-from common.yolo.visualization import draw_skeletons, draw_boxes_with_labels
+from common.yolo.yolo_results import YoloPose
+from common.yolo.visualization import draw_skeletons_with_bboxes, draw_bboxes_with_labels
+
 from protobufs.inference_result_pb2 import InferenceResult
 from protobufs.video_frame_pb2 import VideoFrame
+
+from plugins.yaml.yaml_reader import load_config
+
 
 # Logger
 logger = Logger()
@@ -104,9 +107,9 @@ def process_inference(image, inference, config):
         return image
 
     if model_name == "yolov8n":
-        return draw_boxes_with_labels(image, inference, labels)
+        return draw_bboxes_with_labels(image, inference, labels)
     elif model_name == "yolov8n_pose":
-        return draw_skeletons(image, inference, YoloPose, labels)
+        return draw_skeletons_with_bboxes(image, inference, YoloPose, labels)
     return image
 
 
