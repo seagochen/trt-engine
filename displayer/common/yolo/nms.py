@@ -17,7 +17,7 @@ def iou(box1, box2):
     return iou
 
 
-def nms_for_yolo(yolo_objects, iou_threshold=0.5, confidence_threshold=0.0):
+def for_yolo(yolo_objects, iou_threshold=0.5, confidence_threshold=0.0):
     """对Yolo对象列表执行非极大值抑制（NMS），根据类别进行抑制，并加入置信度过滤。"""
     # 首先过滤掉低于置信度阈值的目标
     yolo_objects = [obj for obj in yolo_objects if obj.conf >= confidence_threshold]
@@ -48,7 +48,7 @@ def nms_for_yolo(yolo_objects, iou_threshold=0.5, confidence_threshold=0.0):
     return suppressed
 
 
-def nms_for_yolo_pose(yolo_pose_objects, iou_threshold=0.5, confidence_threshold=0.0):
+def for_pose(yolo_pose_objects, iou_threshold=0.5, confidence_threshold=0.0):
     """对YoloPose对象列表执行非极大值抑制（NMS），不考虑类别，并加入置信度过滤。"""
     # 首先过滤掉低于置信度阈值的目标
     yolo_pose_objects = [obj for obj in yolo_pose_objects if obj.conf >= confidence_threshold]
@@ -74,4 +74,3 @@ def nms_for_yolo_pose(yolo_pose_objects, iou_threshold=0.5, confidence_threshold
         yolo_pose_objects = remaining_objects
 
     return suppressed
-
