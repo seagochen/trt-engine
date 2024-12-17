@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ビルドディレクトリを削除
 if [ -d build ]; then
@@ -8,20 +9,19 @@ else
   echo "build ディレクトリは存在しません。"
 fi
 
-# 不要な生成物を削除 (例: コピーされた jetson_infer)
-if [ -f jetson_infer ]; then
-  rm jetson_infer
-  echo "jetson_infer を削除しました。"
-fi
+# 不要な生成物を削除
+# 存在する場合のみメッセージを表示するために、チェック後に削除
+for file in jetson_infer jetson_adapter demo_4channels demo_yolopose demo_autoscaling; do
+  if [ -f "$file" ]; then
+    rm -f "$file"
+    echo "$file を削除しました。"
+  fi
+done
 
-if [ -f demo_4channels ]; then
-  rm demo_4channels
-  echo "demo_4channels を削除しました。"
-fi
-
-if [ -f demo_yolopose ]; then
-  rm demo_yolopose
-  echo "demo_yolopose を削除しました。"
+# 不要なCMakeLists.txtを削除
+if [ -f CMakeLists.txt ]; then
+  rm -f CMakeLists.txt
+  echo "CMakeLists.txtを削除しました。"
 fi
 
 echo "クリーンアップが完了しました。"

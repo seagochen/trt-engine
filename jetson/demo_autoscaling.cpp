@@ -14,7 +14,7 @@
 #include "common/text/text_painter.h"
 
 
-#define MODEL_PATH "/opt/models/yolov8n-pose.dynamic.engine"
+#define MODEL_PATH "/opt/models/yolo/yolov8n-pose.dynamic.engine"
 #define VIDEO_APTH "/opt/videos/football_01.mp4"
 
 

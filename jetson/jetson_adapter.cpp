@@ -23,7 +23,7 @@
 #include "extend/protobufs/video_frame.pb.h"
 #include "extend/protobufs/inference_result.pb.h"
 
-#define CONFIG_PATH "./res/app.config.yaml"
+#define CONFIG_PATH "./configs/app.config.yaml"
 
 // Function to handle protobuf frame creation
 VideoFrame createProtoFrame(const cv::Mat& frame, uint64 frame_no, const StreamConfig& stream_config, const MQTTConfig& mqtt_config) {

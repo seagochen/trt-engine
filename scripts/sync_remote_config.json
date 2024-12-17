@@ -1,0 +1,17 @@
+{
+  "REMOTE_USER": "ubuntu",
+  "SSH_KEY_PATH": null,
+  "LOCAL_PROJECT_DIR": "/home/orlando/Projects/ServerLite",
+  "FILES_TO_SYNC": [
+    "displayer/",
+    "jetson/",
+    "protobufs/",
+    "scripts/"
+  ],
+  "TARGETS": [
+    {
+      "REMOTE_HOST": "192.168.1.45",
+      "REMOTE_DIR": "/home/ubuntu/Projects/Serverlite2"
+    }
+  ]
+}

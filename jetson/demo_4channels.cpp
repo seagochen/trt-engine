@@ -16,7 +16,7 @@
 #include "common/text/text_painter.h"
 
 
-#define MODEL_PATH "/opt/models/yolov8n.dynamic.engine"
+#define MODEL_PATH "/opt/models/yolo/yolov8n.dynamic.engine"
 #define VIDEO_APTH "/opt/videos/pedestrian_normal_01.mp4"
 #define LABEL_FILE "./res/coco_labels.txt"
 
