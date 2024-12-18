@@ -4,13 +4,7 @@
 
 #ifndef INFER_HUMAN_ACTION_VIT_H
 #define INFER_HUMAN_ACTION_VIT_H
-
-
-
-class infer_human_action_vit {
-
-};
-
+#include "engine_loader.h"
 
 
 #endif //INFER_HUMAN_ACTION_VIT_H

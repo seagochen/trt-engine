@@ -2,8 +2,8 @@
 // Created by orlando on 9/20/24.
 //
 
-#ifndef INFER_WRAPPER_YOLO_H
-#define INFER_WRAPPER_YOLO_H
+#ifndef INFER_YOLO_V8_H
+#define INFER_YOLO_V8_H
 
 #include <string>
 #include <memory>
@@ -17,7 +17,7 @@
 
 #define MAX_BATCH_SIZE 4
 
-class InferYoloWrapper {
+class InferWrapper {
 
     // Engines and contexts for TensorRT
     ICudaEngineUniquePtr engine;
@@ -49,15 +49,15 @@ class InferYoloWrapper {
     std::vector<float> raw_output;
 
 public:
-    InferYoloWrapper();
+    InferWrapper();
 
-    InferYoloWrapper(const std::string &engine_path,            // File path for loading the engine file
+    InferWrapper(const std::string &engine_path,            // File path for loading the engine file
         const std::map<std::string, std::string> &names,    // Names of input and output tensors
         const nvinfer1::Dims4 &input_dims,                  // Dimensions of input tensor
         const nvinfer1::Dims3 &output_dims,                 // Dimensions of output tensor
         int boxes=1024);                                    // Number of boxes for detection
 
-    ~InferYoloWrapper();
+    ~InferWrapper();
 
     void update(const std::string &engine_path,
         const std::map<std::string, std::string> &names,
@@ -116,4 +116,4 @@ public:
     }
 };
 
-#endif //INFER_WRAPPER_YOLO_H
+#endif //INFER_YOLO_V8_H

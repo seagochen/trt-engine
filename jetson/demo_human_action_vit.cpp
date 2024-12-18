@@ -1,124 +1,110 @@
 #include <opencv2/opencv.hpp>
-#include <csignal>
 #include <iostream>
 #include <filesystem>
-#include <chrono>
 
-#include "common/engine/infer_wrapper.h"
+#include "common/engine/infer_yolo_v8.h"
 #include "common/utils/fps_counter.hpp"
-#include "common/yolo/yolo_def.h"
 #include "common/yolo/yolo_visualization.h"
-#include "common/stream/stream_reader.h"
 #include "common/args/parse_args.hpp"
-#include "common/args/sys_signal.hpp"
-#include "common/text/text_painter.h"
 
 
-#define MODEL_PATH "/opt/models/yolo/yolov8n-pose.dynamic.engine"
-#define VIDEO_APTH "/opt/videos/football_01.mp4"
+#include "common/yolo/load_labels.h"
 
+#define MODEL_PATH "/opt/models/yolo/yolov8n.dynamic.engine"
+#define VIDEO_PATH "/opt/videos/pedestrain_01.mp4"
+#define LABEL_FILE "/opt/labels/coco_labels.txt"
 
-std::vector<YoloPose> decode(float* raw, int boxes, int features) {
+// Function to decode the raw output from the model
+std::vector<Yolo> decode(float* raw, int boxes, int features) {
 
-    std::vector<YoloPose> results;
+    std::vector<Yolo> results;
 
     for (int i = 0; i < boxes; i++) {
         if (raw[i * features + 4] > 0.0) {
-            YoloPose result;
-            result.lx = raw[i * features + 0];
-            result.ly = raw[i * features + 1];
-            result.rx = raw[i * features + 2];
-            result.ry = raw[i * features + 3];
+            Yolo result;
+
+            result.lx = int(raw[i * features + 0]);
+            result.ly = int(raw[i * features + 1]);
+            result.rx = int(raw[i * features + 2]);
+            result.ry = int(raw[i * features + 3]);
             result.conf = raw[i * features + 4];
+            result.cls = int(raw[i * features + 5]);
 
-            for (int j = 0; j < 17; j++) { // YOLO-POSE can detect 17 pts
-                YoloPoint pt;
-
-                pt.x = raw[i * features + 5 + j * 3 + 0];
-                pt.y = raw[i * features + 5 + j * 3 + 1];
-                pt.conf = raw[i * features + 5 + j * 3 + 2];
-
-                result.pts.push_back(pt);
-            }
             results.push_back(result);
         }
     }
+
+    // Print the number of detected objects
+    std::cout << "Detected objects: " << results.size() << std::endl;
 
     return results;
 }
 
 
-int main(int argc, char *argv[]) {
+int main() {
 
-    // Parse command line arguments
-    auto args = parse_args_v1(argc, argv);
+    InferWrapper yolo_infer(MODEL_PATH,
+        {
+            {"input", "images"},
+            {"output", "output0"},
+        },
+        {4, 3, 640, 640},
+        {4, 84, 8400});
 
-    //　Register Ctrl+C signal handler
-    registerSIGINT();
+    // Load model
+    // yolo_infer.loadEngine(MODEL_PATH,
+    //     {{"input", "images"}, {"output", "output0"}},
+    //     {4, 3, 640, 640},
+    //     {4, 84, 8400});
 
-    // Load the TensorRT engine from the serialized engine file
-    auto model_path = args.find("model") != args.end() ? args["model"] : MODEL_PATH;
-    InferYoloWrapper infer(model_path,
-    {
-        {"input", "images"},
-        {"output", "output0"}
-    },
-    {1, 3, 640, 640},
-    {1, 56, 8400});
-
-    // Load the video file
-    auto video_path = args.find("video") != args.end() ? args["video"] : VIDEO_APTH;
-    StreamReader reader(video_path, 640, 640, 25);
-
-    // Create the FPS counter
-    FPSCounter counter;
-
-    cv::Mat frame;
-    while (signal_received != SIGINT) {
-
-        // Read frames from each video
-        frame = reader.readFrame();
-        if (frame.empty()) {
-            continue;   // Skip the empty frames
-        }
-
-        // Preprocess all frames before inference
-        infer.addImage(frame);
-
-        // Perform inference once for all preprocessed frames
-        infer.inferPoseEstimation(0.4, 0.2);
-
-        // Get the results for
-        auto results = infer.getResults(0, decode);
-
-        // Draw boxes on the corresponding frame
-        drawBoxes(frame, results);
-        drawSkeletons(frame, results, true, false);
-
-        // Draw skeletons on the corresponding frame
-        drawSkeletons(frame, results);
-
-        // Calculate FPS
-        counter.countFrames();
-
-        // Calculate FPS
-        std::string fps_text = "FPS: " + std::to_string(int(counter.getFPS()));
-        cv::putText(frame, fps_text, cv::Point(500, 30), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 191, 255), 2);
-
-        // Show the combined canvas
-        cv::imshow("Combined Video", frame);
-
-        // Break on ESC key press
-        if (cv::waitKey(10) == 27) {
-            signal_received = SIGINT;
-        }
+    // Open video
+    cv::VideoCapture cap(VIDEO_PATH);
+    if (!cap.isOpened()) {
+        std::cerr << "Error: Cannot open video file" << std::endl;
+        return 1;
     }
 
-    // Release the video captures
-    reader.closeStream();
+    // Load labels
+    auto labels = readLabelsFromFile(LABEL_FILE);
 
-    // Destroy all windows
+    FPSCounter fps_counter;
+    cv::Mat frame;
+    while (true) {
+        for (int i = 0; i < 4; ++i) {
+            cap >> frame;
+            if (frame.empty()) {
+                cap.set(cv::CAP_PROP_POS_FRAMES, 0); // Restart video
+                continue;
+            }
+
+            // Resize frame to 640x640 and add to batch
+            cv::resize(frame, frame, cv::Size(640, 640));
+            yolo_infer.addImage(frame);
+        }
+
+        // Run inference
+        yolo_infer.inferObjectDetection(0.4, 0.1);
+
+        // Postprocess results and visualize
+        for (int i = 0; i < 4; ++i) {
+            auto results = yolo_infer.getResults(i, decode);
+            drawBoxes(frame, results, labels);
+        }
+
+        // Display FPS
+        fps_counter.countFrames();
+
+        // Draw FPS on the image
+        cv::putText(frame, "FPS: " + std::to_string(fps_counter.getFPS()), cv::Point(10, 30),
+                    cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 255, 0), 2);
+
+        // Display the image
+        cv::imshow("YoloV8", frame);
+        if (cv::waitKey(1) == 27) break; // ESC key to exit
+    }
+
+    cap.release();
     cv::destroyAllWindows();
-
     return 0;
 }
+

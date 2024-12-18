@@ -2,7 +2,7 @@
 // Created by orlando on 9/20/24.
 //
 
-#include "infer_wrapper.h"
+#include "infer_yolo_v8.h"
 #include "common/utils/logger.h"
 
 #include <simple_cuda_toolkits/vision/colorspace.h>
@@ -31,21 +31,21 @@ auto contextDeleter = [](nvinfer1::IExecutionContext* context) {
 };
 
 
-InferYoloWrapper::InferYoloWrapper():engine(nullptr, engineDeleter), context(nullptr, contextDeleter){}
+InferWrapper::InferWrapper():engine(nullptr, engineDeleter), context(nullptr, contextDeleter){}
 
-InferYoloWrapper::InferYoloWrapper(const std::string &engine_path,
+InferWrapper::InferWrapper(const std::string &engine_path,
             const std::map<std::string, std::string> &names,
-            const nvinfer1::Dims4 &dims0, 
+            const nvinfer1::Dims4 &dims0,
             const nvinfer1::Dims3 &dims1,
             const int boxes):
         engine(nullptr, engineDeleter), context(nullptr, contextDeleter) {
-            
+
     // Update the wrapper
     update(engine_path, names, dims0, dims1, boxes);
 }
 
 
-void InferYoloWrapper::update(const std::string &engine_path,
+void InferWrapper::update(const std::string &engine_path,
     const std::map<std::string, std::string> &names,
     const nvinfer1::Dims4 &dims0,
     const nvinfer1::Dims3 &dims1,
@@ -112,7 +112,7 @@ void InferYoloWrapper::update(const std::string &engine_path,
 }
 
 
-InferYoloWrapper::~InferYoloWrapper() {
+InferWrapper::~InferWrapper() {
     // Release resources
     trt_buffers.clear();
     cuda_input_buffers.clear();
@@ -134,11 +134,11 @@ InferYoloWrapper::~InferYoloWrapper() {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/**   
+/**
 * @brief Preprocess input image for inference
 * @param image Input image for inference
 */
-void InferYoloWrapper::addImage(const cv::Mat &image, bool isRGB) {
+void InferWrapper::addImage(const cv::Mat &image, bool isRGB) {
     // Check if the image index is within the batch size
     if (image_idx >= MAX_BATCH_SIZE) {
         // throw std::runtime_error("The batch size is exceeded.");
@@ -167,7 +167,7 @@ void InferYoloWrapper::addImage(const cv::Mat &image, bool isRGB) {
     auto ptr1 = cuda_input_buffers[1].ptr();
 
     // Copy the image to the input buffer
-    cudaMemcpy(ptr0, temp_images["floated"].data, 
+    cudaMemcpy(ptr0, temp_images["floated"].data,
             channels * height * width * sizeof(float), cudaMemcpyHostToDevice);
 
     // If the image is in BGRA format, convert it to RGB
@@ -194,7 +194,7 @@ void InferYoloWrapper::addImage(const cv::Mat &image, bool isRGB) {
  * @brief Perform inference on the input images
  * @param images Vector of input images for inference
  */
-void InferYoloWrapper::addImages(const std::vector<cv::Mat> &images, bool isRGB) {
+void InferWrapper::addImages(const std::vector<cv::Mat> &images, bool isRGB) {
     for (const auto &image : images) {
         addImage(image, isRGB);
     }
@@ -203,7 +203,7 @@ void InferYoloWrapper::addImages(const std::vector<cv::Mat> &images, bool isRGB)
 /**
  * @brief Perform inference on the input images
  */
-void InferYoloWrapper::inferObjectDetection(float cls_threshold, float nms_threshold, float alpha, float beta) {
+void InferWrapper::inferObjectDetection(float cls_threshold, float nms_threshold, float alpha, float beta) {
     // Check if the image index is within the batch size
     if (image_idx == 0) {
         // throw std::runtime_error("No image is preprocessed.");
@@ -216,7 +216,7 @@ void InferYoloWrapper::inferObjectDetection(float cls_threshold, float nms_thres
         exit(EXIT_FAILURE);
     }
 
-    // PTR for the output buffers 
+    // PTR for the output buffers
     auto ptr0 = cuda_output_buffers[0].ptr();
     auto ptr1 = cuda_output_buffers[1].ptr();
 
@@ -231,7 +231,7 @@ void InferYoloWrapper::inferObjectDetection(float cls_threshold, float nms_thres
     for (int i = 0; i < image_idx; ++i) {
         // Copy the output tensor to the CUDA buffer
         checkCudaErrors(cudaMemcpy(ptr0, trt_buffers[tensor_names.at("output")].ptr() + i * features * samples,
-                features * samples * sizeof(float), cudaMemcpyDeviceToDevice), 
+                features * samples * sizeof(float), cudaMemcpyDeviceToDevice),
                 "CUDA cudaMemcpyDeviceToDevice failed.");
 
         // Transpose the output tensor
@@ -258,7 +258,7 @@ void InferYoloWrapper::inferObjectDetection(float cls_threshold, float nms_thres
 }
 
 
-void InferYoloWrapper::inferPoseEstimation(float cls_threshold, float nms_threshold, float alpha, float beta) {
+void InferWrapper::inferPoseEstimation(float cls_threshold, float nms_threshold, float alpha, float beta) {
     // Check if the image index is within the batch size
     if (image_idx == 0) {
         throw std::runtime_error("No image is preprocessed.");
@@ -309,6 +309,6 @@ void InferYoloWrapper::inferPoseEstimation(float cls_threshold, float nms_thresh
  * @brief Get the available slots count for storing preprocessed images
  * @return Number of available slots
  */
-int InferYoloWrapper::getAvailableSlot() const {
+int InferWrapper::getAvailableSlot() const {
     return results.size() - image_idx;
 }

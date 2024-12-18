@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <chrono>
 
-#include "common/engine/infer_wrapper.h"
+#include "common/engine/infer_yolo_v8.h"
 #include "common/utils/fps_counter.hpp"
 #include "common/yolo/yolo_def.h"
 #include "common/yolo/yolo_visualization.h"
