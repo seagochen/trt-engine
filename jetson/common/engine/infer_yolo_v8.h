@@ -17,7 +17,7 @@
 
 #define MAX_BATCH_SIZE 4
 
-class InferWrapper {
+class InferYoloV8 {
 
     // Engines and contexts for TensorRT
     ICudaEngineUniquePtr engine;
@@ -49,15 +49,15 @@ class InferWrapper {
     std::vector<float> raw_output;
 
 public:
-    InferWrapper();
+    InferYoloV8();
 
-    InferWrapper(const std::string &engine_path,            // File path for loading the engine file
+    InferYoloV8(const std::string &engine_path,            // File path for loading the engine file
         const std::map<std::string, std::string> &names,    // Names of input and output tensors
         const nvinfer1::Dims4 &input_dims,                  // Dimensions of input tensor
         const nvinfer1::Dims3 &output_dims,                 // Dimensions of output tensor
         int boxes=1024);                                    // Number of boxes for detection
 
-    ~InferWrapper();
+    ~InferYoloV8();
 
     void update(const std::string &engine_path,
         const std::map<std::string, std::string> &names,
@@ -70,12 +70,6 @@ public:
     * @param image Input image for inference
     */
     void addImage(const cv::Mat &image, bool isRGB=false);
-
-    /**
-     * @brief Perform inference on the input images
-     * @param images Vector of input images for inference
-     */
-    void addImages(const std::vector<cv::Mat> &images, bool isRGB=false);
 
     /**
      * @brief Perform inference on the input images

@@ -16,7 +16,7 @@
 
 
 // Custom deleter for ICudaEngine
-auto engineDeleter = [](nvinfer1::ICudaEngine* engine) {
+auto engineDeleter0 = [](nvinfer1::ICudaEngine* engine) {
     if (engine) {
         engine->destroy();
     }
@@ -24,28 +24,28 @@ auto engineDeleter = [](nvinfer1::ICudaEngine* engine) {
 
 
 // Custom deleter for IExecutionContext
-auto contextDeleter = [](nvinfer1::IExecutionContext* context) {
+auto contextDeleter0 = [](nvinfer1::IExecutionContext* context) {
     if (context) {
         context->destroy();
     }
 };
 
 
-InferWrapper::InferWrapper():engine(nullptr, engineDeleter), context(nullptr, contextDeleter){}
+InferYoloV8::InferYoloV8():engine(nullptr, engineDeleter0), context(nullptr, contextDeleter0){}
 
-InferWrapper::InferWrapper(const std::string &engine_path,
+InferYoloV8::InferYoloV8(const std::string &engine_path,
             const std::map<std::string, std::string> &names,
             const nvinfer1::Dims4 &dims0,
             const nvinfer1::Dims3 &dims1,
             const int boxes):
-        engine(nullptr, engineDeleter), context(nullptr, contextDeleter) {
+        engine(nullptr, engineDeleter0), context(nullptr, contextDeleter0) {
 
     // Update the wrapper
     update(engine_path, names, dims0, dims1, boxes);
 }
 
 
-void InferWrapper::update(const std::string &engine_path,
+void InferYoloV8::update(const std::string &engine_path,
     const std::map<std::string, std::string> &names,
     const nvinfer1::Dims4 &dims0,
     const nvinfer1::Dims3 &dims1,
@@ -54,13 +54,12 @@ void InferWrapper::update(const std::string &engine_path,
     // Load the TensorRT engine from the serialized engine file
     engine = loadEngineFromFile(engine_path);
     if (!engine) {
-        // throw std::runtime_error("Failed to load engine from file.");
         LOG_ERROR_TOPIC("InferWrapper", "Engine", "Failed to load engine from file.");
+        exit(EXIT_FAILURE);
     }
 
     // Create a context for executing the engine
     context = createExecutionContext(engine, names.at("input"), dims0);
-    // std::cout << "[InferWrapper/Engine] VERBOSE: Context created successfully." << std::endl;
     LOG_VERBOSE_TOPIC("InferWrapper", "Engine", "Context created successfully.");
 
     // Dimensions of input and output tensors
@@ -74,7 +73,6 @@ void InferWrapper::update(const std::string &engine_path,
     trt_binding_dims[names.at("output")] = output_dims;
     trt_buffers = allocateCudaTensors(trt_binding_dims);
     tensor_names = names;
-    // std::cout << "[InferWrapper/TRTBuffer] VERBOSE: Buffers for TensorRT engine are ready." << std::endl;
     LOG_VERBOSE_TOPIC("InferWrapper", "TRTBuffer", "Buffers for TensorRT engine are ready.");
 
     // Allocate input and output buffers for CUDA
@@ -82,23 +80,14 @@ void InferWrapper::update(const std::string &engine_path,
     cuda_input_buffers[1] = createZerosTensor<TensorType::FLOAT32>(input_dims[1] * input_dims[2] * input_dims[3]);
     cuda_output_buffers[0] = createZerosTensor<TensorType::FLOAT32>(output_dims[1] * output_dims[2]);
     cuda_output_buffers[1] = createZerosTensor<TensorType::FLOAT32>(output_dims[1] * output_dims[2]);
-    // std::cout << "[InferWrapper/CUDABuffer] VERBOSE: Temporary buffers for CUDA are ready." << std::endl;
-    // std::cout << "[InferWrapper/CUDABuffer] VERBOSE: The shape of input temporary buffers is: "
-        // << input_dims[0] << "x" << input_dims[1] << "x" << input_dims[2] << "x" << input_dims[3];
-    // std::cout << " (" << cuda_input_buffers.size() << ")" << std::endl;
-    // std::cout << "[InferWrapper] VERBOSE: The shape of output temporary buffers is: "
-        // << output_dims[0] << "x" << output_dims[1] << "x" << output_dims[2];
-    // std::cout << " (" << cuda_output_buffers.size() << ")" << std::endl;
     LOG_VERBOSE_TOPIC("InferWrapper", "CUDABuffer", "Temporary buffers for CUDA are ready.");
 
     // Allocate temporary images for OpenCV
     temp_images["floated"] = cv::Mat(input_dims[2], input_dims[3], CV_32FC3);
-    // std::cout << "[InferWrapper/OpenCVBuffer] VERBOSE: Temporary images for OpenCV are ready." << std::endl;
     LOG_VERBOSE_TOPIC("InferWrapper", "OpenCVBuffer", "Temporary images for OpenCV are ready.");
 
     // Allocate Bitmap for NMS
     sctAllocateNMSBitmap(this->boxes);
-    // std::cout << "[InferWrapper/NMS] VERBOSE: Bitmap for NMS is ready." << std::endl;
     LOG_VERBOSE_TOPIC("InferWrapper", "NMS", "Bitmap for NMS is ready.");
 
     // Allocate results buffer
@@ -106,13 +95,11 @@ void InferWrapper::update(const std::string &engine_path,
     for (int i = 0; i < batch_size; ++i) {
         results.emplace_back(createZerosTensor<TensorType::FLOAT32>(output_dims[1] * output_dims[2]));
     }
-    // std::cout << "[InferWrapper/Output] VERBOSE: reference batch size has been set to" <<
-        // results.size() << " for every turn." << std::endl;
     LOG_VERBOSE_TOPIC("InferWrapper", "Output", "Reference batch size has been set.");
 }
 
 
-InferWrapper::~InferWrapper() {
+InferYoloV8::~InferYoloV8() {
     // Release resources
     trt_buffers.clear();
     cuda_input_buffers.clear();
@@ -138,7 +125,7 @@ InferWrapper::~InferWrapper() {
 * @brief Preprocess input image for inference
 * @param image Input image for inference
 */
-void InferWrapper::addImage(const cv::Mat &image, bool isRGB) {
+void InferYoloV8::addImage(const cv::Mat &image, bool isRGB) {
     // Check if the image index is within the batch size
     if (image_idx >= MAX_BATCH_SIZE) {
         // throw std::runtime_error("The batch size is exceeded.");
@@ -192,18 +179,8 @@ void InferWrapper::addImage(const cv::Mat &image, bool isRGB) {
 
 /**
  * @brief Perform inference on the input images
- * @param images Vector of input images for inference
  */
-void InferWrapper::addImages(const std::vector<cv::Mat> &images, bool isRGB) {
-    for (const auto &image : images) {
-        addImage(image, isRGB);
-    }
-}
-
-/**
- * @brief Perform inference on the input images
- */
-void InferWrapper::inferObjectDetection(float cls_threshold, float nms_threshold, float alpha, float beta) {
+void InferYoloV8::inferObjectDetection(float cls_threshold, float nms_threshold, float alpha, float beta) {
     // Check if the image index is within the batch size
     if (image_idx == 0) {
         // throw std::runtime_error("No image is preprocessed.");
@@ -258,7 +235,7 @@ void InferWrapper::inferObjectDetection(float cls_threshold, float nms_threshold
 }
 
 
-void InferWrapper::inferPoseEstimation(float cls_threshold, float nms_threshold, float alpha, float beta) {
+void InferYoloV8::inferPoseEstimation(float cls_threshold, float nms_threshold, float alpha, float beta) {
     // Check if the image index is within the batch size
     if (image_idx == 0) {
         throw std::runtime_error("No image is preprocessed.");
@@ -309,6 +286,6 @@ void InferWrapper::inferPoseEstimation(float cls_threshold, float nms_threshold,
  * @brief Get the available slots count for storing preprocessed images
  * @return Number of available slots
  */
-int InferWrapper::getAvailableSlot() const {
+int InferYoloV8::getAvailableSlot() const {
     return results.size() - image_idx;
 }

@@ -53,6 +53,7 @@ public:
 //     }
 } gLogger;  // Global logger instance
 
+
 // Load TensorRT engine from a serialized engine file
 ICudaEngineUniquePtr loadEngineFromFile(const std::string& engineFile) {
     // Open the engine file in binary mode
@@ -93,6 +94,7 @@ ICudaEngineUniquePtr loadEngineFromFile(const std::string& engineFile) {
 
     return engine;
 }
+
 
 // Load TensorRT engine from an ONNX model file
 ICudaEngineUniquePtr loadEngineFromONNX(const std::string& onnxFilePath) {
@@ -193,6 +195,7 @@ std::vector<std::string> getTensorNamesFromModel(ICudaEngineUniquePtr& engine) {
     return tensor_names;
 }
 
+
 // Create an execution context for inference
 IExecutionContextUniquePtr createExecutionContext(ICudaEngineUniquePtr &engine, 
         const std::string& input_name, 
@@ -219,15 +222,13 @@ IExecutionContextUniquePtr createExecutionContext(ICudaEngineUniquePtr &engine,
     context->setInputShape(input_name.c_str(), input_dims);
 
     // Print out the information 
-    // std::cout << "[EngineLoader] VERBOSE: Execution context created successfully." << std::endl;
-    // std::cout << "[EngineLoader] VERBOSE: Input tensor shape set to: " 
-        // << input_dims.d[0] << "x" << input_dims.d[1] << "x" << input_dims.d[2] << "x" << input_dims.d[3] << std::endl; 
     LOG_VERBOSE("EngineLoader", "Execution context created successfully.");
     LOG_VERBOSE("EngineLoader", std::to_string(input_dims.d[0]) + "x" + std::to_string(input_dims.d[1]) + "x" +
         std::to_string(input_dims.d[2]) + "x" + std::to_string(input_dims.d[3]));
 
     return context;
 }
+
 
 // Perform inference on input and output tensors using the execution context
 void inference(IExecutionContextUniquePtr& context, Tensor<float>& input, Tensor<float>& output) {
@@ -247,6 +248,18 @@ void inference(IExecutionContextUniquePtr& context, Tensor<float>& input, Tensor
 }
 
 
+std::string formatDims(const std::vector<int>& dims) {
+    std::string result;
+    for (size_t i = 0; i < dims.size(); ++i) {
+        result += std::to_string(dims[i]);
+        if (i < dims.size() - 1) {
+            result += "x"; // Add 'x' between dimensions
+        }
+    }
+    return result;
+}
+
+
 std::map<std::string, Tensor<float>> allocateCudaTensors(const std::map<std::string, std::vector<int>>& tensor_info) {
     std::map<std::string, Tensor<float>> allocated_tensors;
 
@@ -257,11 +270,7 @@ std::map<std::string, Tensor<float>> allocateCudaTensors(const std::map<std::str
         Tensor<float> tensor = createZerosTensor<TensorType::FLOAT32>(dims);
 
         // Print out the information
-        // std::cout << "[EngineLoader] VERBOSE: Allocated tensor " << tensor_name << " with dimensions: " 
-            // << dims[0] << "x" << dims[1] << "x" << dims[2] << "x" << dims[3] << std::endl;
-        LOG_VERBOSE("EngineLoader", "Allocated tensor " + tensor_name + " with dimensions: " +
-            std::to_string(dims[0]) + "x" + std::to_string(dims[1]) + "x" + 
-            std::to_string(dims[2]) + "x" + std::to_string(dims[3]));
+        LOG_VERBOSE("EngineLoader", "Allocated tensor " + tensor_name + " with dimensions: " + formatDims(dims));
 
         // Add the tensor to the map using its name as the key
         allocated_tensors.emplace(tensor_name, std::move(tensor));
