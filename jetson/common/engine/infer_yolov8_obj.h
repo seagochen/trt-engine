@@ -52,6 +52,4 @@ private:
     std::vector<std::vector<Yolo>> postprocess(float cls=0.5, float nms=0.5,  float alpha=0.f, float beta=640.f);
 };
 
-
-
 #endif //INFER_DEPTH_ANYTHING_V2_H

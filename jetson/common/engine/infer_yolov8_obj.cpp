@@ -1,5 +1,5 @@
-#include "infer_yolov8.h"
 #include "common/utils/logger.h"
+#include "common/engine/infer_yolov8_obj.h"
 
 
 InferYoloObjectv8::InferYoloObjectv8(const std::string& engine_path,
@@ -93,7 +93,7 @@ void InferYoloObjectv8::preprocess(const cv::Mat& image) {
 
     // Copy the normalized data to the tensorrt engine buffer
     int offset = batch_idx * total_size;
-    loadDataToEngine(cuda_input_buffers[0], total_size * sizeof(float), offset);
+    copyDataToEngine(cuda_input_buffers[0], total_size * sizeof(float), offset);
 }
 
 
@@ -133,7 +133,7 @@ std::vector<std::vector<Yolo>> InferYoloObjectv8::postprocess(float cls, float n
     // Copy the output data from the tensorrt engine
     for (int i = 0; i < batch_idx; i++) {
         int offset = i * features * samples;
-        loadDataFromEngine(cuda_output_buffers[0], features * samples * sizeof(float), offset);
+        copyDataFromEngine(cuda_output_buffers[0], features * samples * sizeof(float), offset);
 
         // Transpose the output tensor to [batch, targets, features]
         sctMatrixTranspose(cuda_output_buffers[0].ptr(), cuda_output_buffers[1].ptr(), features, samples);

@@ -41,7 +41,7 @@ install_dependencies() {
         python3-numpy \
         libtbb2 \
         libtbb-dev \
-        libdc1394-22-dev
+        libdc1394-dev
 }
 
 # Function to install OpenCV
@@ -68,10 +68,9 @@ install_mosquitto() {
     sudo apt install -y mosquitto mosquitto-clients libmosquitto-dev
 }
 
-# Function to install Jetson Stats
-install_jetson_stats() {
-    print_message "Installing jetson-stats..."
-    sudo apt update
+# Function to install Jetson-specific packages
+install_jetson_packages() {
+    print_message "Installing Jetson-specific packages..."
     sudo apt install -y jetson-stats
 }
 
@@ -96,7 +95,7 @@ check_versions() {
     fi
 
     # YAML
-    yaml_version=$(dpkg -s libyaml-cpp-dev 2>/dev/null | grep '^Version:')
+    yaml_version=$(dpkg -s libyaml-cpp-dev 2>/dev/null | grep '^Version: ')
     if [ -n "$yaml_version" ]; then
         echo "YAML version: $yaml_version"
     else
@@ -108,18 +107,54 @@ check_versions() {
     echo "Mosquitto version: $mosquitto_version"
 }
 
-# Main execution flow
-main() {
+# Function to handle x86 installation
+x86_installation() {
+    print_message "Starting x86 installation..."
     update_packages
     install_dependencies
     install_opencv
     install_protobuf
     install_yaml
     install_mosquitto
-    install_jetson_stats
     check_versions
 
-    print_message "Installation and setup complete!"
+    print_message "x86 Installation and setup complete!"
+}
+
+# Function to handle Jetson Nano installation
+jetson_installation() {
+    print_message "Starting Jetson Nano installation..."
+    update_packages
+    install_dependencies
+    install_opencv
+    install_protobuf
+    install_yaml
+    install_mosquitto
+    install_jetson_packages
+    check_versions
+
+    print_message "Jetson Nano Installation and setup complete!"
+}
+
+# Main execution flow
+main() {
+    print_message "Select your installation target:"
+    echo "1) x86"
+    echo "2) Jetson Nano"
+    read -p "Enter your choice (1 or 2): " choice
+
+    case $choice in
+        1)
+            x86_installation
+            ;;
+        2)
+            jetson_installation
+            ;;
+        *)
+            echo "Invalid choice. Exiting..."
+            exit 1
+            ;;
+    esac
 }
 
 # Run the main function
