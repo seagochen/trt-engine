@@ -1,8 +1,0 @@
-syntax = "proto3";
-
-message InferenceResult {
-    uint64 frame_number = 1;       // 数据帧的编号
-    string publish_by = 2;          // 数据帧发布方(与videoframe同)
-    string model_name = 3;          // 使用的推理模型的名称
-    string results = 4;             // 检测结果
-}

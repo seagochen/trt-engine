@@ -1,6 +1,0 @@
-numpy==2.1.3
-opencv-python==4.10.0.84
-paho-mqtt==2.1.0
-pillow==11.0.0
-protobuf==3.20.0
-pyyaml==6.0.2

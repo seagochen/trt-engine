@@ -1,17 +1,24 @@
 {
   "REMOTE_USER": "ubuntu",
   "SSH_KEY_PATH": null,
-  "LOCAL_PROJECT_DIR": "/home/orlando/Projects/ServerLite",
+  "LOCAL_PROJECT_DIR": "/home/orlando/Projects/Serverlet",
   "FILES_TO_SYNC": [
     "displayer/",
-    "jetson/",
+    "jetson/cmakes/",
+    "jetson/common/",
+    "jetson/configs/",
+    "jetson/extend/",
+    "jetson/labels/",
+    "jetson/scripts/",
+    "jetson/demo_test.cpp",
+    "jetson/CMakeLists.txt",
     "protobufs/",
     "scripts/"
   ],
   "TARGETS": [
     {
-      "REMOTE_HOST": "192.168.1.45",
-      "REMOTE_DIR": "/home/ubuntu/Projects/Serverlite2"
+      "REMOTE_HOST": "192.168.1.44",
+      "REMOTE_DIR": "/home/ubuntu/Projects/Serverlet"
     }
   ]
 }
