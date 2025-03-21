@@ -43,7 +43,7 @@ install_dependencies() {
         libatlas-base-dev \
         python3-dev \
         python3-numpy \
-        libtbb2 \
+        libtbbmalloc2 \
         libtbb-dev \
         libdc1394-dev
 }

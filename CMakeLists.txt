@@ -69,40 +69,8 @@ file(GLOB_RECURSE COMMON_SOURCE_FILES
     "${PROJECT_SOURCE_DIR}/src/*.cpp"
 )
 
-# 1) jetson_test 的源文件（额外包含 jetson_test.cpp 与 jetson_apis.cpp）
-set(JETSON_TEST_SOURCE_FILES
-    ${COMMON_SOURCE_FILES}
-    "${PROJECT_SOURCE_DIR}/jetson_apis.cpp"
-    "${PROJECT_SOURCE_DIR}/jetson_test.cpp"
-)
-
-# 2) jetson_apis 的源文件（额外包含 jetson_apis.cpp）
-set(JETSON_APIS_SOURCE_FILES
-    ${COMMON_SOURCE_FILES}
-    "${PROJECT_SOURCE_DIR}/jetson_apis.cpp"
-)
-
-# ------------------ 生成目标：jetson_test (可执行文件) ------------------
-add_executable(jetson_test ${JETSON_TEST_SOURCE_FILES})
-
-target_include_directories(jetson_test PRIVATE
-    ${CUDA_INCLUDE_DIRS}
-    ${SIMPLE_CUDA_TOOLKITS_INC}
-    ${TENSORRT_INCLUDE_DIRS}
-    ${OpenCV_INCLUDE_DIRS}
-    "${PROJECT_SOURCE_DIR}/include"
-)
-
-target_link_libraries(jetson_test PRIVATE
-    ${CUDA_LIBRARIES}
-    # 建议将库文件路径用引号括起来，防止路径中出现空格问题
-    "${SIMPLE_CUDA_TOOLKITS_LIB}/libsimplecuda.a"
-    ${TENSORRT_LIBS}
-    ${OpenCV_LIBRARIES}
-)
-
 # ------------------ 生成目标：jetson_shared (共享库) ------------------
-add_library(jetson_shared SHARED ${JETSON_APIS_SOURCE_FILES})
+add_library(jetson_shared SHARED ${COMMON_SOURCE_FILES})
 set_target_properties(jetson_shared PROPERTIES
     OUTPUT_NAME "jetson"
     # 默认在 Linux 下共享库后缀为 .so，可省略 SUFFIX 设置
@@ -124,7 +92,7 @@ target_link_libraries(jetson_shared PRIVATE
 )
 
 # ------------------ 生成目标：jetson_static (静态库) ------------------
-add_library(jetson_static STATIC ${JETSON_APIS_SOURCE_FILES})
+add_library(jetson_static STATIC ${COMMON_SOURCE_FILES})
 set_target_properties(jetson_static PROPERTIES
     OUTPUT_NAME "jetson"
     # 默认在 Linux 下静态库后缀为 .a，可省略 SUFFIX 设置
@@ -152,10 +120,6 @@ install(TARGETS
     RUNTIME DESTINATION bin        # 针对可执行文件
     LIBRARY DESTINATION lib        # 针对动态库
     ARCHIVE DESTINATION lib        # 针对静态库
-)
-
-install(TARGETS jetson_test
-    RUNTIME DESTINATION bin
 )
 
 install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/"

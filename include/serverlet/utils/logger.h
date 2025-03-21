@@ -1,9 +1,9 @@
 //
-// Created by orlando on 9/26/24.
+// Created by user on 3/21/25.
 //
 
-#ifndef LOGGER_H
-#define LOGGER_H
+#ifndef COMBINEDPROJECT_LOGGER_H
+#define COMBINEDPROJECT_LOGGER_H
 
 #include <string>
 
@@ -47,4 +47,4 @@ private:
 #define LOG_DEBUG(module, message) Logger::log(DEBUG, module, message)
 #define LOG_DEBUG_TOPIC(module, topic, message) Logger::log(DEBUG, module, topic, message)
 
-#endif // LOGGER_H
+#endif //COMBINEDPROJECT_LOGGER_H

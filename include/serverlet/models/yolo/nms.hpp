@@ -1,11 +1,14 @@
-#ifndef NMS_H
-#define NMS_H
+//
+// Created by user on 3/21/25.
+//
 
-#include <vector>
+#ifndef COMBINEDPROJECT_NMS_HPP
+#define COMBINEDPROJECT_NMS_HPP
+
+
 #include <algorithm>
-
-#include "serverlet/models/yolo/yolo_def.h"
-
+#include <vector>
+#include "yolo_def.h"
 
 // 快速计算IoU
 template<typename T>
@@ -83,5 +86,4 @@ inline std::vector<YoloPose> NMS(const std::vector<YoloPose>& poses, float iouTh
     return result;
 }
 
-
-#endif
+#endif //COMBINEDPROJECT_NMS_HPP
