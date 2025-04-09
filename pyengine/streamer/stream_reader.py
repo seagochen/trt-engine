@@ -1,7 +1,7 @@
 import cv2
 import time
 import os
-from common.utils.logger import logger
+from pyengine.utils.logger import logger
 
 
 class StreamReader:

@@ -1,7 +1,7 @@
 import time
 import threading
 from typing import Callable
-from common.utils.logger import logger
+from pyengine.utils.logger import logger
 
 
 class PeriodicTask:
