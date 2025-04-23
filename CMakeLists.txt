@@ -64,25 +64,23 @@ add_compile_options(-fvisibility=default)
 
 # ------------------ 源文件收集 ------------------
 # 使用 CONFIGURE_DEPENDS 使 CMake 在源文件改变时能自动重新生成构建系统
-file(GLOB_RECURSE COMMON_SOURCE_FILES
+file(GLOB_RECURSE
+        COMMON_SOURCE_FILES
         CONFIGURE_DEPENDS
         "${PROJECT_SOURCE_DIR}/src/*.cpp"
 )
 
 # ------------------ 生成目标：c_api_test (可执行文件) ------------------
-# 明确指定 c_api_test 的源文件
-set(C_TEST_API_SOURCE_FILES
+# 1) 测试专用的两个源
+set(TEST_SPECIAL_SOURCES
         "${PROJECT_SOURCE_DIR}/c_api_test.cpp"
-        "${PROJECT_SOURCE_DIR}/src/c_yolo_v8_apis.cpp"
-        "${PROJECT_SOURCE_DIR}/src/models/infer_model.cpp"
-        "${PROJECT_SOURCE_DIR}/src/models/yolo/infer_yolo_v8_obj.cpp"
-        "${PROJECT_SOURCE_DIR}/src/models/yolo/infer_yolo_v8_pose.cpp"
-        "${PROJECT_SOURCE_DIR}/src/trt_engine/trt_engine.cpp"
-        "${PROJECT_SOURCE_DIR}/src/utils/logger.cpp"
 )
 
-# 定义可执行文件目标
-add_executable(c_api_test ${C_TEST_API_SOURCE_FILES})
+# 2) 合并公共源和测试专用源
+list(APPEND TEST_SPECIAL_SOURCES ${COMMON_SOURCE_FILES})
+
+# 3) 生成可执行文件
+add_executable(c_api_test ${TEST_SPECIAL_SOURCES})
 
 # 设置目标属性
 set_target_properties(c_api_test PROPERTIES
@@ -109,56 +107,36 @@ target_link_libraries(c_api_test PRIVATE
 # ------------------ 生成目标：jetson_shared (共享库) ------------------
 add_library(jetson_shared SHARED ${COMMON_SOURCE_FILES})
 set_target_properties(jetson_shared PROPERTIES
-    OUTPUT_NAME "jetson"
-    # 默认在 Linux 下共享库后缀为 .so，可省略 SUFFIX 设置
+        OUTPUT_NAME "jetson"
 )
-
 target_include_directories(jetson_shared PRIVATE
-    ${CUDA_INCLUDE_DIRS}
-    ${SIMPLE_CUDA_TOOLKITS_INC}
-    ${TENSORRT_INCLUDE_DIRS}
-    ${OpenCV_INCLUDE_DIRS}
-    "${PROJECT_SOURCE_DIR}/include"
+        ${CUDA_INCLUDE_DIRS}
+        ${SIMPLE_CUDA_TOOLKITS_INC}
+        ${TENSORRT_INCLUDE_DIRS}
+        ${OpenCV_INCLUDE_DIRS}
+        "${PROJECT_SOURCE_DIR}/include"
 )
-
 target_link_libraries(jetson_shared PRIVATE
-    ${CUDA_LIBRARIES}
-    "${SIMPLE_CUDA_TOOLKITS_LIB}/libsimplecuda.a"
-    ${TENSORRT_LIBS}
-    ${OpenCV_LIBRARIES}
+        ${CUDA_LIBRARIES}
+        "${SIMPLE_CUDA_TOOLKITS_LIB}/libsimplecuda.a"
+        ${TENSORRT_LIBS}
+        ${OpenCV_LIBRARIES}
 )
-
 # ------------------ 生成目标：jetson_static (静态库) ------------------
 add_library(jetson_static STATIC ${COMMON_SOURCE_FILES})
 set_target_properties(jetson_static PROPERTIES
-    OUTPUT_NAME "jetson"
-    # 默认在 Linux 下静态库后缀为 .a，可省略 SUFFIX 设置
+        OUTPUT_NAME "jetson"
 )
-
 target_include_directories(jetson_static PRIVATE
-    ${CUDA_INCLUDE_DIRS}
-    ${SIMPLE_CUDA_TOOLKITS_INC}
-    ${TENSORRT_INCLUDE_DIRS}
-    ${OpenCV_INCLUDE_DIRS}
-    "${PROJECT_SOURCE_DIR}/include"
+        ${CUDA_INCLUDE_DIRS}
+        ${SIMPLE_CUDA_TOOLKITS_INC}
+        ${TENSORRT_INCLUDE_DIRS}
+        ${OpenCV_INCLUDE_DIRS}
+        "${PROJECT_SOURCE_DIR}/include"
 )
-
 target_link_libraries(jetson_static PRIVATE
-    ${CUDA_LIBRARIES}
-    "${SIMPLE_CUDA_TOOLKITS_LIB}/libsimplecuda.a"
-    ${TENSORRT_LIBS}
-    ${OpenCV_LIBRARIES}
-)
-
-# ------------------ 安装规则 (可选) ------------------
-install(TARGETS
-    jetson_shared
-    jetson_static
-    RUNTIME DESTINATION bin        # 针对可执行文件
-    LIBRARY DESTINATION lib        # 针对动态库
-    ARCHIVE DESTINATION lib        # 针对静态库
-)
-
-install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/"
-    DESTINATION include
+        ${CUDA_LIBRARIES}
+        "${SIMPLE_CUDA_TOOLKITS_LIB}/libsimplecuda.a"
+        ${TENSORRT_LIBS}
+        ${OpenCV_LIBRARIES}
 )

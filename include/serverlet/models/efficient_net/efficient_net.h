@@ -6,17 +6,12 @@
 #define COMBINEDPROJECT_EFFICIENTNET_H
 
 #include <opencv2/opencv.hpp>
+#include "serverlet/models/infer_model_multi.h"
 
-#include "serverlet/models/infer_model.h"
-#include "serverlet/models/efficient_net/efficient_def.h"
 
-class EfficientNet final: public InferModelBase {
+class EfficientNetForFeatAndClassification final: public InferModelBaseMulti {
 
     int m_int_maximumBatch;     // Maximum number of batch
-
-    int m_int_inputWidth;       // Input width
-    int m_int_inputHeight;      // Input height
-    int m_int_inputChannels;    // Input channels
 
     cv::Mat m_cv_resizedImg;    // Resized image for normalization
     cv::Mat m_cv_floatImg;      // Float data for normalization
@@ -34,25 +29,22 @@ class EfficientNet final: public InferModelBase {
 
 public:
     // Constructor
-    explicit EfficientNet(const std::string& engine_path,
-                          const std::string& input_name,
-                          const std::vector<int>& input_shape,
-                          const std::string& output_feat_name,
-                          const std::vector<int>& output_feat_shape,
-                          const std::string& output_class_name,
-                          const std::vector<int>& output_class_shape);
+    explicit EfficientNetForFeatAndClassification(const std::string& engine_path,
+                          const std::vector<TensorDefinition>& input_ts_def,
+                          const std::vector<TensorDefinition>& output_ts_def,
+                          const int maximum_batch = 1);
 
     // Destructor
-    ~EfficientNet() override;
+    ~EfficientNetForFeatAndClassification() override;
 
     // Preprocess the input image
     void preprocess(const cv::Mat& image, int batchIdx) override;
 
     // Postprocess the output data
-    std::vector<EfficientNetOutput> postprocess(int batchIdx);
+    std::vector<float> postprocess(int batchIdx);
 
 private:
-    static std::vector<EfficientNetOutput> decode(const std::vector<float>& vec_feat, const std::vector<float>& vec_class);
+    static std::vector<float> decode(const std::vector<float>& vec_feat, const std::vector<float>& vec_class);
 };
 
 
