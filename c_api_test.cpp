@@ -49,13 +49,13 @@ int c_yolo_api_test() {
 int infer_model_multi_test() {
 
     // 使用C++11的特性，直接用 aggregate-init + initializer_list 创建 engine 所需要的参数
-    std::vector<TensorDefinition> input_ts = {
-            { "input", {1, 3, 224, 224}}
-    };
-    std::vector<TensorDefinition> output_ts = {
-            {"logits", {1, 2}},
-            {"feat", {1, 256}}
-    };
+    // std::vector<TensorDefinition> input_ts = {
+    //         { "input", {1, 3, 224, 224}}
+    // };
+    // std::vector<TensorDefinition> output_ts = {
+    //         {"logits", {1, 2}},
+    //         {"feat", {1, 256}}
+    // };
 
     // Load the engine from file
     EfficientNetForFeatAndClassification efficient_net("/opt/models/efficientnet_b0_feat_logits.engine", 2);

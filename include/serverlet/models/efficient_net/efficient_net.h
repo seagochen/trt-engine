@@ -2,8 +2,8 @@
 // Created by user on 4/22/25.
 //
 
-#ifndef COMBINEDPROJECT_EFFICIENTNET_H
-#define COMBINEDPROJECT_EFFICIENTNET_H
+#ifndef INFER_EFFICIENTNET_H
+#define INFER_EFFICIENTNET_H
 
 #include <vector>
 #include <string>
@@ -44,4 +44,4 @@ private:
 };
 
 
-#endif //COMBINEDPROJECT_EFFICIENTNET_H
+#endif //INFER_EFFICIENTNET_H

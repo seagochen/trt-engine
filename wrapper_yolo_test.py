@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from pyengine import YoloWrapper
+from pyengine.inference.yolo import YoloWrapper
 from pyengine.inference.yolo.infer_drawer import InferenceDrawer
 from pyengine.inference.yolo.schema_loader import SchemaLoader
 from pyengine.utils.load_labels import read_labels_from_file
