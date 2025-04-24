@@ -25,6 +25,14 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")  # Jetson 平台（ARM64 架构）
               HINTS /usr/include /usr/local/include
     )
 
+    # 如果找到了 TensorRT 的头文件路径，则输出
+    if(TENSORRT_INCLUDE_DIRS)
+        message(STATUS "Found TensorRT include directory: ${TENSORRT_INCLUDE_DIRS}")
+    else()
+        message(FATAL_ERROR "TensorRT include directory NOT found. Check HINTS in find_path.")
+    endif()
+
+    # 查找 TensorRT 的库文件
     find_library(NVINFER_LIB nvinfer
                  HINTS /usr/lib/aarch64-linux-gnu /usr/local/lib
     )

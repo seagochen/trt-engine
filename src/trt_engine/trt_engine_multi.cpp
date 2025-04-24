@@ -5,7 +5,15 @@
 #include "serverlet/trt_engine/trt_engine_multi.h"
 #include "serverlet/utils/logger.h"
 
+#include "NvInferVersion.h"  // 一定要包含这个头，才能拿到 NV_TENSORRT_MAJOR 宏
+
 #include <fstream>
+
+// Temporary debugging - Check macro values
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+#pragma message("TRT Version Check: MAJOR=" TOSTRING(NV_TENSORRT_MAJOR) ", MINOR=" TOSTRING(NV_TENSORRT_MINOR))
+
 
 // --------------------------------------
 // NvLogger
@@ -262,16 +270,11 @@ bool TrtEngineMultiTs::createContext(
 // - 用 setInputTensorAddress/setOutputTensorAddress 绑定内存  :contentReference[oaicite:1]{index=1}
 // - 使用 enqueueV3 执行推理（V2/V1 都已弃用）    :contentReference[oaicite:2]{index=2}
 //-----------------------------------------------------------------------------
-//bool TrtEngineMultiTs::infer(
-//        const std::vector<Tensor<float>>& inputs,
-//        const std::vector<Tensor<float>>& outputs,
-//        cudaStream_t                      stream) const
-
 bool TrtEngineMultiTs::infer(
-            const std::vector<Tensor<float>*>& inputs,
-            const std::vector<Tensor<float>*>& outputs,
-            cudaStream_t stream
-          ) const
+        const std::vector<Tensor<float>*>& inputs,
+        const std::vector<Tensor<float>*>& outputs,
+        cudaStream_t stream
+      ) const
 {
     if (!g_ptr_context) {
         LOG_ERROR("TrtEngine::infer", "ExecutionContext 未初始化");
@@ -283,37 +286,63 @@ bool TrtEngineMultiTs::infer(
         return false;
     }
 
-    // 绑定所有输入 buffer
+    // 这里假设只有在 TRT > 8.5 时，才有 setInput/OutputTensorAddress + enqueueV3
+#if (NV_TENSORRT_MAJOR > 8) || (NV_TENSORRT_MAJOR == 8 && NV_TENSORRT_MINOR > 5)
+    // ---- TensorRT 8.5+ 新 API 路径 ----
     for (size_t i = 0; i < inputs.size(); ++i) {
-        const auto& name = m_inputNames[i];
         if (!g_ptr_context->setInputTensorAddress(
-                name.c_str(), inputs[i]->ptr())) {
-            LOG_ERROR("TrtEngine::infer",
-                      "setInputTensorAddress 失败: " + name);
+                m_inputNames[i].c_str(),
+                inputs[i]->ptr()))
+        {
+            LOG_ERROR("TrtEngine::infer", "setInputTensorAddress 失败: " + m_inputNames[i]);
             return false;
         }
     }
-
-    // 绑定所有输出 buffer
     for (size_t i = 0; i < outputs.size(); ++i) {
-        const auto& name = m_outputNames[i];
-
-        // outputs[i].ptr()返回的是一个智能指针，因此需要做一些转换
-        auto ptr = static_cast<void*>(const_cast<float*>(outputs[i]->ptr()));
-
-        // 绑定输出 buffer
+        void* outPtr = static_cast<void*>(
+            const_cast<float*>(outputs[i]->ptr()));
         if (!g_ptr_context->setOutputTensorAddress(
-                name.c_str(), ptr)) {
-            LOG_ERROR("TrtEngine::infer",
-                      "setOutputTensorAddress 失败: " + name);
+                m_outputNames[i].c_str(),
+                outPtr))
+        {
+            LOG_ERROR("TrtEngine::infer", "setOutputTensorAddress 失败: " + m_outputNames[i]);
             return false;
         }
     }
-
-    // 启动推理（显式 batch 网络使用 enqueueV3）
     if (!g_ptr_context->enqueueV3(stream)) {
         LOG_ERROR("TrtEngine::infer", "enqueueV3 失败");
         return false;
     }
+
+#else
+    // ---- TensorRT 8.5 及以下老 API 路径 ----
+    int nb = g_ptr_engine->getNbBindings();
+    std::vector<void*> bindings(nb, nullptr);
+
+    // inputs
+    for (size_t i = 0; i < inputs.size(); ++i) {
+        int idx = g_ptr_engine->getBindingIndex(m_inputNames[i].c_str());
+        if (idx < 0 || idx >= nb) {
+            LOG_ERROR("TrtEngine::infer", "Invalid input binding: " + m_inputNames[i]);
+            return false;
+        }
+        bindings[idx] = const_cast<float*>(inputs[i]->ptr());
+    }
+    // outputs
+    for (size_t i = 0; i < outputs.size(); ++i) {
+        int idx = g_ptr_engine->getBindingIndex(m_outputNames[i].c_str());
+        if (idx < 0 || idx >= nb) {
+            LOG_ERROR("TrtEngine::infer", "Invalid output binding: " + m_outputNames[i]);
+            return false;
+        }
+        bindings[idx] = const_cast<float*>(outputs[i]->ptr());
+    }
+    // 旧版 executeV2，不带 stream
+    if (!g_ptr_context->executeV2(bindings.data())) {
+        LOG_ERROR("TrtEngine::infer", "executeV2 失败");
+        return false;
+    }
+#endif
+
     return true;
 }
