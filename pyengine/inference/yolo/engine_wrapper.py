@@ -1,10 +1,12 @@
 import ctypes
 from ctypes import c_char_p, c_bool, c_int, c_float, c_ubyte, POINTER
 from typing import Union
+import os
 
 import numpy as np
 
 from pyengine.inference.yolo.d_struct.data_struct import YoloPose, YoloPoint, Yolo
+from pyengine import load_build_dir
 
 
 class YoloEngineWrapper:
@@ -12,8 +14,11 @@ class YoloEngineWrapper:
         self.yolo_pose = use_pose
 
         #### 加载动态库 ####
+        # self.c_apis = ctypes.cdll.LoadLibrary(
+        #     '/opt/TrtEngineToolkits/cmake-build-release/libjetson.so')  # 或 'cyolo.dll' on Windows
         self.c_apis = ctypes.cdll.LoadLibrary(
-            '/opt/TrtEngineToolkits/cmake-build-release/libjetson.so')  # 或 'cyolo.dll' on Windows
+            os.path.join(load_build_dir(), 'libjetson.so')  # 动态库路径
+        )
 
         #### 函数原型定义 ####
 
