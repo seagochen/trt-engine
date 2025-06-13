@@ -1,10 +1,9 @@
 import math
-from dataclasses import dataclass
 from typing import List, Union, Tuple
 
 import numpy as np
-from pyengine.inference.yolo.d_struct.data_struct import YoloPose, YoloPoseSorted, YoloPoint
-from pyengine.inference.yolo.extend.basic import Posture, FacialDirection
+from pyengine.inference.extend.yolo.data_struct import YoloPose, YoloPoseSorted, YoloPoint
+from pyengine.inference.extend.yolo.basic import Posture, FacialDirection
 
 
 # -------------- 核心分析类 --------------

@@ -78,40 +78,6 @@ file(GLOB_RECURSE
         "${PROJECT_SOURCE_DIR}/src/*.cpp"
 )
 
-# ------------------ 生成目标：c_api_test (可执行文件) ------------------
-# 1) 测试专用的两个源
-set(TEST_SPECIAL_SOURCES
-        "${PROJECT_SOURCE_DIR}/test.cpp"
-)
-
-# 2) 合并公共源和测试专用源
-list(APPEND TEST_SPECIAL_SOURCES ${COMMON_SOURCE_FILES})
-
-# 3) 生成可执行文件
-add_executable(c_api_test ${TEST_SPECIAL_SOURCES})
-
-# 设置目标属性
-set_target_properties(c_api_test PROPERTIES
-        OUTPUT_NAME "c_api_test"
-)
-
-# 添加包含目录
-target_include_directories(c_api_test PRIVATE
-        ${CUDA_INCLUDE_DIRS}
-        ${SIMPLE_CUDA_TOOLKITS_INC}
-        ${TENSORRT_INCLUDE_DIRS}
-        ${OpenCV_INCLUDE_DIRS}
-        "${PROJECT_SOURCE_DIR}/include"
-)
-
-# 链接所需的库
-target_link_libraries(c_api_test PRIVATE
-        ${CUDA_LIBRARIES}
-        "${SIMPLE_CUDA_TOOLKITS_LIB}/libsimplecuda.a"
-        ${TENSORRT_LIBS}
-        ${OpenCV_LIBRARIES}
-)
-
 # ------------------ 生成目标：jetson_shared (共享库) ------------------
 add_library(jetson_shared SHARED ${COMMON_SOURCE_FILES})
 set_target_properties(jetson_shared PROPERTIES

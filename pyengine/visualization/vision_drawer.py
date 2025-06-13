@@ -4,8 +4,8 @@ from typing import Union, Tuple, Dict, List
 import cv2
 import numpy as np
 
-from pyengine.inference.yolo.d_struct.data_struct import YoloPose, Yolo, YoloPoseSorted, YoloSorted
-from pyengine.inference.yolo.extend.basic import FacialDirection
+from pyengine.inference.extend.yolo.data_struct import YoloPose, Yolo, YoloPoseSorted, YoloSorted
+from pyengine.inference.extend.yolo import FacialDirection
 from pyengine.visualization.schema_loader import SchemaLoader
 
 

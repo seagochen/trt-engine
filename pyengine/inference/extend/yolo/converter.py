@@ -1,7 +1,7 @@
 import numpy as np
 from typing import List
 
-from pyengine.inference.yolo.d_struct.data_struct import Yolo, YoloPose, YoloPoint, YoloSorted, YoloPoseSorted
+from pyengine.inference.extend.yolo.data_struct import Yolo, YoloPose, YoloPoint, YoloSorted, YoloPoseSorted
 
 
 ###### Convert yolo.results to a list of Yolo/YoloPose objects ######
