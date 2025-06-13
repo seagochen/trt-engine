@@ -15,6 +15,16 @@
 #include "serverlet/models/yolo/infer_yolo_v8.h"
 #include "serverlet/utils/logger.h"
 
+
+void postprocessYoloV8(
+    const float* cudaOutput,                        // 指向CUDA输出结果的指针
+    std::vector<std::vector<float>>& results,       // 存储处理后的结果
+    int batchIdx,                                   // 批次索引
+    float cls,                                      // 分类阈值
+    bool detectionMode) {                           // 是否为检测模式
+}
+
+
 InferYoloV8Obj::InferYoloV8Obj(
     const std::string& engine_path,
     int maximum_batch): InferModelBaseMulti(

@@ -5,6 +5,7 @@
 #include "serverlet/models/infer_model_multi.h"
 #include "yolo_def.h"
 
+
 class InferYoloV8Obj final: public InferModelBaseMulti {
 public:
     // Constructor and destructor
@@ -16,7 +17,7 @@ public:
     void preprocess(const cv::Mat& image, int batchIdx) override;
 
     // Postprocess the output
-    std::vector<Yolo> postprocess(int batchIdx=0, float cls=0.4, float alpha=0.f, float beta=640.f);
+    std::vector<Yolo> postprocess(int batchIdx=0, float cls=0.4);
 
 private:
     int g_int_maximumBatch;     // Maximum number of batch
@@ -56,7 +57,9 @@ private:
  * @param results    存储处理后的结果
  * @param batchIdx   批次索引
  * @param cls        分类阈值
+ * @param detectionMode 是否为检测模式 * 
  */
-void postprocessYoloV8(const float* cudaOutput, std::vector<std::vector<float>>& results, int batchIdx, float cls);
+void postprocessYoloV8(const float* cudaOutput, std::vector<std::vector<float>>& results, int batchIdx,
+    float cls, bool detectionMode);
 
 #endif //INFER_YOLO_V8_H

@@ -25,8 +25,6 @@ EfficientNetForFeatAndClassification::EfficientNetForFeatAndClassification(
     g_int_inputWidth = 224;
     g_int_inputHeight = 224;
     g_int_inputChannels = 3;
-    g_vec_featData.resize(256);
-    g_vec_classData.resize(2);
     LOG_VERBOSE_TOPIC("EfficientNetForFeatAndClassification", "constructor", "EfficientNetForFeatAndClassification created");
 }
 
@@ -81,10 +79,10 @@ std::vector<float> EfficientNetForFeatAndClassification::postprocess(int batchId
     // 3) 构造最终返回： [maxIndex, feat0, feat1, ..., featN]
     std::vector<float> result;
     result.reserve(1 + feats.size());
-    result.push_back(static_cast<float>(maxIndex));            // result[0]
+    result.push_back(static_cast<float>(maxIndex));  // result[0]
     result.insert(result.end(),                             
                   feats.begin(),
-                  feats.end());                     // 后面都是特征
+                  feats.end());                  // 后面都是特征
 
     return result;
 }
