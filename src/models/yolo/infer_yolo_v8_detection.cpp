@@ -11,7 +11,7 @@
 #include "serverlet/models/yolo/infer_yolo_v8.h"
 #include "serverlet/models/yolo/nms.hpp"
 #include "serverlet/models/yolo/yolo_post_proc.h"
-#include "serverlet/models/image_to_tensor.h"
+#include "serverlet/models/common/image_to_tensor.h"
 
 
 InferYoloV8Obj::InferYoloV8Obj(
@@ -66,9 +66,11 @@ void InferYoloV8Obj::preprocess(const cv::Mat& image, const int batchIdx) {
     }
 
     // 4) 转换图片并拷贝到CUDA设备中
-    sct_img_to_tensor(image, cuda_buffer_float,
+    sct_image_to_cuda_tensor(
+        image,
+        cuda_buffer_float,
         {g_int_inputHeight, g_int_inputWidth, g_int_inputChannels},
-        mean, stdv, true);
+        false);
 }
 
 

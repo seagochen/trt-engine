@@ -3,7 +3,7 @@
 //
 #include "serverlet/models/efficient_net/infer_efficient_net.h"
 #include "serverlet/utils/logger.h"
-#include "serverlet/models/image_to_tensor.h"
+#include "serverlet/models/common/image_to_tensor.h"
 
 #include "simple_cuda_toolkits/tsutils/convert.h"
 
@@ -51,8 +51,13 @@ void EfficientNetForFeatAndClassification::preprocess(const cv::Mat& image, int 
     }
 
     // 4) 转换图片并拷贝到CUDA设备中
-    sct_img_to_tensor(image, cuda_buffer_float, {g_int_inputHeight, g_int_inputWidth, g_int_inputChannels},
-        mean, stdv, true);
+    sct_image_to_cuda_tensor(
+        image,
+        cuda_buffer_float,
+        {g_int_inputHeight, g_int_inputWidth, g_int_inputChannels},
+        true,
+        mean,
+        stdv);
 }
 
 
