@@ -4,8 +4,9 @@
 
 #include <string>
 #include <cuda_runtime.h>
+#include <vector>
 
-// Simple CUDA Toolkits (SCT) specific headers
+// Simple CUDA Toolkits 
 #include <simple_cuda_toolkits/tsutils/filter.h>
 #include <simple_cuda_toolkits/tsutils/sort.h>
 #include <simple_cuda_toolkits/tsutils/maxmin.h>
@@ -22,9 +23,17 @@
 
 
 // --- Utility Function for YOLO Post-processing (CUDA-based) ---
-int inferPostProcForYolo(const float* ptr_device, std::vector<float>& output,
-                              int features, int samples, float cls, bool use_pose)
-{
+int inferPostProcForYolo(
+    const float* ptr_device,
+    std::vector<float>& output,
+    const int features,
+    const int samples,
+    const float cls,
+    const int maximum,
+    const bool use_pose
+) {
+
+    // 创建CUDA设备上的临时张量指针
     float* ptr_device_temp0 = nullptr;
     float* ptr_device_temp1 = nullptr;
     size_t total_size = (size_t)features * samples * sizeof(float);
@@ -45,64 +54,74 @@ int inferPostProcForYolo(const float* ptr_device, std::vector<float>& output,
     cudaMemcpy(ptr_device_temp0, ptr_device, total_size, cudaMemcpyDeviceToDevice);
 
 #if DEBUG
-    // Ensure sctDumpCudaMemoryToCSV is accessible if DEBUG is enabled
-    // sctDumpCudaMemoryToCSV(ptr_device_temp0, "before_op.csv", features, samples);
+    sctDumpCudaMemoryToCSV(ptr_device_temp0, "before_op.csv", features, samples);
 #endif
 
+    // 转置操作，将 [features, samples] 转换为 [samples, features]
     sctMatrixTranspose(ptr_device_temp0, ptr_device_temp1, features, samples);
 
 #if DEBUG
-    // sctDumpCudaMemoryToCSV(ptr_device_temp1, "transpose.csv", samples, features);
+    sctDumpCudaMemoryToCSV(ptr_device_temp1, "transpose.csv", samples, features);
 #endif
 
-    // If not a pose model, perform classification processing (e.g., argmax)
-    // IMPORTANT: The original code had sctArgmax commented out and just swapped pointers.
-    // If classification (finding class ID and confidence) is truly needed for object detection,
-    // you must uncomment and correctly use sctArgmax here.
-    // Current logic: if !use_pose, it effectively just swaps the pointers,
-    // which means ptr_device_temp1 will hold the transposed data, and ptr_device_temp0 will be unused.
+    // 如果不是姿态模型，则执行分类处理（例如 argmax）
     if (!use_pose)
     {
-        // Example if sctArgmax is actually needed:
-        // sctArgmax(ptr_device_temp1, ptr_device_temp0, samples, features, /* class_start_idx */ 4, features, /* class_id_output_idx */ 5, /* prob_output_idx */ 4);
-        // std::swap(ptr_device_temp0, ptr_device_temp1); // If sctArgmax writes to temp0, then swap to put results in temp1
-        sctArgmax_dim1(ptr_device_temp0, ptr_device_temp1, samples, features, 4, 5, features - 5, 4, 5);
+        // 从分类概率中提取最大值的索引和对应的值
+        sctArgmax_dim1(
+            ptr_device_temp1,   // 输入的CUDA设备指针 [samples, features]，其中每一行内容为 [cx, cy, w, h, cls1_conf, cls2_conf, ...]
+            ptr_device_temp0,   // 输出的CUDA设备指针 [samples, features]，其中每一行内容为 [cx, cy, w, h, conf, cls_idx]
+            samples,            // dim0 - 样本数量
+            features,           // dim1 - 特征数量
+            4,                  // start_at_col_idx - 从第4列开始处理（通常是 [cx, cy, w, h]）
+            features - 1,       // end_at_col_idx - 处理到最后一列
+            4,                  // output_value_at_col_idx - 输出的值存储在第4列（通常是置信度）
+            5                   // output_ind_at_col_idx - 输出的索引存储在第5列（通常是分类索引）
+        );
 
-        // If no argmax/classification is intended for object detection, and the swap is merely
-        // to move transposed data into ptr_device_temp1, this is fine.
-        std::swap(ptr_device_temp0, ptr_device_temp1); // Faster than a memcpy
+        // 交换指针，ptr_device_temp1 现在包含 [cx, cy, w, h, conf, cls_idx] 的结果
+        std::swap(ptr_device_temp0, ptr_device_temp1); 
     }
 
-    // Filter results based on confidence threshold
+    // 根据置信度阈值过滤结果
     int results = sctFilterGreater_dim1(
-        ptr_device_temp1, // Input data (transposed, possibly with classification)
-        ptr_device_temp0, // Output buffer for filtered results
-        4,                // Dimension index for confidence score (e.g., 4th column for x,y,w,h,conf,...)
-        cls,              // Confidence threshold
-        samples,          // Total samples to check
-        features          // Number of features per sample
-    );
+        ptr_device_temp1, // 输入数据（已转置，可能包含分类信息）
+        ptr_device_temp0, // 用于存放过滤后结果的输出缓冲区
+        4,                // 置信度分数所在的维度索引（例如第4列，表示x,y,w,h,conf,...）
+        cls,              // 置信度阈值
+        samples,          // dim0 - 需要检查的样本总数
+        features          // dim1 - 每个样本的特征数量
+    ); // 过滤后，不符合要求的数据被全部置为0，但此时依然乱序
 
 #if DEBUG
-    // sctDumpCudaMemoryToCSV(ptr_device_temp0, "filter.csv", samples, features);
+    sctDumpCudaMemoryToCSV(ptr_device_temp0, "filter.csv", samples, features);
 #endif
 
     if (results > 0)
     {
-        // Sort results by confidence in descending order
-        // Note: Sort only 'results' valid items, not 'samples' total items
-        sctSortTensor_dim1_descending(ptr_device_temp0, ptr_device_temp1, results, features, 4);
+        // 按置信度降序排序结果
+        sctSortTensor_dim1_descending(ptr_device_temp0, ptr_device_temp1, samples, features, 4); 
+        // 处理之后，有效结果排列靠前，之后可以使用 cvtXYWHCoordsToYolo / cvtXYWHCoordsToYoloPose 函数进行坐标转换
 
 #if DEBUG
-        // sctDumpCudaMemoryToCSV(ptr_device_temp1, "sort.csv", results, features);
+        sctDumpCudaMemoryToCSV(ptr_device_temp1, "sort.csv", samples, features);
 #endif
 
-        // Copy processed results from device to host
-        // Ensure output vector is large enough, resize if necessary
-        output.resize((size_t)results * features);
-        cudaMemcpy(output.data(), ptr_device_temp1, (size_t)results * features * sizeof(float), cudaMemcpyDeviceToHost);
+        // 拷贝的时候，我们不需要拷贝全部的 sammples，而是只拷贝有效的 results 数量
+        if (results > maximum) {
+            results = maximum; // 限制结果数量不超过最大值
+        }
+
+        // 确保输出向量大小足够
+        if (output.size() < results * features) {
+            output.resize(results * features); 
+        }
+
+        // 将结果从设备内存拷贝到输出向量
+        cudaMemcpy(output.data(), ptr_device_temp1, results * features * sizeof(float), cudaMemcpyDeviceToHost);
+
     } else {
-        results = -1; // Indicate no valid results found after filtering
+        results = -1; // Indicate no valid results found
     }
 
     // Clean up CUDA memory

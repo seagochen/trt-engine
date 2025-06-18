@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <any>
 #include <cuda_runtime.h>
 #include <opencv2/opencv.hpp>
 #include "serverlet/trt_engine/trt_engine_multi.h"
@@ -47,6 +48,9 @@ public:
      * @param batchIdx 批次索引
      */
     virtual void preprocess(const cv::Mat& image, int batchIdx) = 0;
+
+    // 在 InferModelBaseMulti 中
+    virtual void postprocess(int batchIdx, const std::map<std::string, std::any>& args, std::any& results_out) = 0;
 
     /**
      * 执行推理，多输入多输出统一处理

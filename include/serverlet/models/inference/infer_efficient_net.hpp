@@ -4,9 +4,8 @@
 
 #include <vector>
 #include <string>
-#include <opencv2/opencv.hpp> // Assuming OpenCV is installed and linked
+#include <opencv2/opencv.hpp>
 
-// Project-specific headers
 #include "serverlet/models/infer_model_multi.h"
 #include "serverlet/models/common/generic_image_to_tensor.h"
 #include "serverlet/utils/logger.h"
@@ -30,24 +29,23 @@ public:
 
     /**
      * @brief Postprocesses the model's output, reading features and logits, and returning them combined.
-     * The returned vector contains [max_class_index, feat0, feat1, ..., featN].
+     * The results are stored in the provided std::any container.
      * @param batchIdx Index of the batch to process.
-     * @return A vector of floats containing the maximum class index followed by the feature vector.
+     * @param args Additional arguments for postprocessing (not used here).
+     * @param results_out Output container for the processed results.
      */
-    std::vector<float> postprocess(int batchIdx);
+    void postprocess(int batchIdx, const std::map<std::string, std::any>& args, std::any& results_out) override;
+
 
 private:
     // Using 'm_' prefix for member variables for clarity, common in C++ style guides
-    int m_maximumBatch;
-    int m_inputWidth;
-    int m_inputHeight;
-    int m_inputChannels;
+    int maximum_batch;
+    int image_width;
+    int image_height;
+    int image_channels;
 };
 
 
-// --- Inline Implementation ---
-
-// Constructor implementation: Use member initializer list for efficiency and safety.
 inline EfficientNetForFeatAndClassification::EfficientNetForFeatAndClassification(
     const std::string& engine_path,
     int maximum_batch)
@@ -58,84 +56,87 @@ inline EfficientNetForFeatAndClassification::EfficientNetForFeatAndClassificatio
             {"logits", {maximum_batch, 2}},
             {"feat",   {maximum_batch, 256}}
         }),
-      m_maximumBatch(maximum_batch),
-      m_inputWidth(224),
-      m_inputHeight(224),
-      m_inputChannels(3)
+      maximum_batch(maximum_batch),
+      image_width(224),
+      image_height(224),
+      image_channels(3)
 {
-    // Constructor body can be empty if all initialization is done in the initializer list
-    LOG_VERBOSE_TOPIC("EfficientNetFeatCls", "constructor", "EfficientNetForFeatAndClassification instance created.");
+    // 如果所有初始化都在初始化列表中完成，构造函数体可以为空
+    LOG_VERBOSE_TOPIC("EfficientNetFeatCls", "constructor", "EfficientNetForFeatAndClassification 实例已创建。");
 }
 
-
-// Preprocess method implementation
 inline void EfficientNetForFeatAndClassification::preprocess(const cv::Mat& image, int batchIdx) {
-    if (batchIdx >= m_maximumBatch) {
-        LOG_ERROR("EfficientNetFeatCls", "Preprocess: batchIdx (" + std::to_string(batchIdx) + ") >= maximumBatch (" + std::to_string(m_maximumBatch) + ")");
+    if (batchIdx >= maximum_batch) {
+        LOG_ERROR("EfficientNetFeatCls", "Preprocess: batchIdx (" + std::to_string(batchIdx) + ") >= maximumBatch (" + std::to_string(maximum_batch) + ")");
         return;
     }
 
-    // Standardization parameters for EfficientNet
-    // These could be static const members if always the same, to avoid recreation per call
+    // EfficientNet 的标准化参数
+    // 如果始终相同，可以设为 static const 成员，避免每次调用都创建
     const std::vector<float> mean = {0.485f, 0.456f, 0.406f};
     const std::vector<float> stdv = {0.229f, 0.224f, 0.225f};
 
-    // Access the CUDA buffer for the current batch index
-    const float* cuda_buffer = accessCudaBufByBatchIdx("input", batchIdx);
-    float* cuda_buffer_float = const_cast<float*>(cuda_buffer); // Safe as we're writing to it
-
-    if (cuda_buffer_float == nullptr) {
-        LOG_ERROR("EfficientNetFeatCls", "Preprocess: Failed to access CUDA buffer for input at batchIdx " + std::to_string(batchIdx));
+    // 访问当前 batch 索引的 CUDA 缓冲区
+    auto cuda_device_ptr = const_cast<float*>(accessCudaBufByBatchIdx("input", batchIdx));
+    if (cuda_device_ptr == nullptr) {
+        LOG_ERROR("EfficientNetFeatCls", "Preprocess: 无法访问 batchIdx " + std::to_string(batchIdx) + " 的输入 CUDA 缓冲区");
         return;
     }
 
-    // Convert and copy image to CUDA device with BGR to RGB conversion and normalization
+    // 转换并拷贝图像到 CUDA 设备，同时进行 BGR 到 RGB 转换和归一化
     imageToCudaTensor(
-        image,               // Input image
-        cuda_buffer_float,   // CUDA device pointer
-        m_inputHeight,       // Target height
-        m_inputWidth,        // Target width
-        m_inputChannels,     // Target channels
-        true,                // Perform BGR to RGB conversion
-        mean,                // Mean for normalization
-        stdv                 // Standard deviation for normalization
+        image,              // 输入图像
+        cuda_device_ptr,    // CUDA 设备指针
+        image_height,       // 目标高度
+        image_width,        // 目标宽度
+        image_channels,     // 目标通道数
+        true,               // 执行 BGR 到 RGB 转换
+        mean,               // 归一化均值
+        stdv                // 归一化标准差
     );
 }
 
 
-// Postprocess method implementation
-inline std::vector<float> EfficientNetForFeatAndClassification::postprocess(int batchIdx) {
-    if (batchIdx >= m_maximumBatch) {
-        LOG_ERROR("EfficientNetFeatCls", "Postprocess: batchIdx (" + std::to_string(batchIdx) + ") >= maximumBatch (" + std::to_string(m_maximumBatch) + ")");
-        return {};
+inline void EfficientNetForFeatAndClassification::postprocess(int batchIdx, const std::map<std::string, std::any>& args, std::any& results_out) {
+
+    // 不需要 args 参数，这里可以忽略
+    (void)args; // 避免未使用参数的警告
+
+    // 输出类容
+    std::vector<float> result;
+
+    if (batchIdx >= maximum_batch) {
+        LOG_ERROR("EfficientNetFeatCls", "Postprocess: batchIdx (" + std::to_string(batchIdx) + ") >= maximumBatch (" + std::to_string(maximum_batch) + ")");
+        return;
     }
 
     std::vector<float> feats;
     std::vector<float> types;
 
-    // Copy data from CUDA output buffers to CPU vectors
-    // These functions should handle memory allocation for feats and types automatically
+    // 从 CUDA 输出缓冲区拷贝数据到 CPU 向量
+    // 这些函数应自动处理 feats 和 types 的内存分配
     copyCpuDataFromOutputBuffer("feat", feats, batchIdx);
     copyCpuDataFromOutputBuffer("logits", types, batchIdx);
 
-    // Ensure types vector has at least 2 elements for safe access
+    // 确保 types 向量至少有 2 个元素以安全访问
     if (types.size() < 2) {
-        LOG_ERROR("EfficientNetFeatCls", "Postprocess: Logits vector has fewer than 2 elements for batchIdx " + std::to_string(batchIdx));
-        return {}; // Return empty vector if not enough logits
+        LOG_ERROR("EfficientNetFeatCls", "Postprocess: batchIdx " + std::to_string(batchIdx) + " 的 logits 向量元素少于 2 个");
+        return;
     }
 
-    // Determine the class with the maximum logit score
+    // 判断最大 logit 分数对应的类别
     int maxIndex = (types[0] > types[1]) ? 0 : 1;
 
-    // Construct the final result vector: [maxIndex, feat0, feat1, ..., featN]
-    std::vector<float> result;
-    result.reserve(1 + feats.size()); // Reserve space to avoid reallocations
-    result.push_back(static_cast<float>(maxIndex)); // First element is the predicted class index
+    // 构造最终结果向量：[maxIndex, feat0, feat1, ..., featN]
+    result.reserve(1 + feats.size()); // 预留空间避免多次分配
+    result.push_back(static_cast<float>(maxIndex)); // 第一个元素为预测类别索引
     result.insert(result.end(),
                   feats.begin(),
-                  feats.end()); // Append all feature elements
+                  feats.end()); // 追加所有特征元素
 
-    return result;
+
+    // 将结果存储到 std::any 中
+    results_out = result;
 }
 
 #endif //INFER_EFFICIENTNET_HPP
