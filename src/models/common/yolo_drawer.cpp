@@ -2,17 +2,17 @@
 // Created by user on 6/17/25.
 //
 
-#include "serverlet/models/common/vision_drawer.h"
+#include "serverlet/models/common/yolo_drawer.h"
 
 // Constructor
-VisionDrawer::VisionDrawer(float object_conf_threshold, float point_conf_threshold)
+YoloDrawer::YoloDrawer(float object_conf_threshold, float point_conf_threshold)
     : object_conf_threshold(object_conf_threshold),
       point_conf_threshold(point_conf_threshold) {
-    _load_default_schema();
+    _loadSchema();
 }
 
 // Private method to load default schema (similar to your Python defaults)
-void VisionDrawer::_load_default_schema() {
+void YoloDrawer::_loadSchema() {
     // Default Bbox colors (matches your Python default_bbox_colors closely, order might differ slightly but covers common colors)
     bbox_colors = {
         RED, GREEN, BLUE, YELLOW, MAGENTA, CYAN,
@@ -58,7 +58,7 @@ void VisionDrawer::_load_default_schema() {
 }
 
 // Helper to get bounding box color based on class ID
-cv::Scalar VisionDrawer::_get_bbox_color_by_class(int class_id) const {
+cv::Scalar YoloDrawer::_getBoundingBoxColorByCls(int class_id) const {
     if (bbox_colors.empty()) {
         return WHITE; // Fallback
     }
@@ -68,7 +68,7 @@ cv::Scalar VisionDrawer::_get_bbox_color_by_class(int class_id) const {
 }
 
 // Helper to draw a single bounding box with label
-void VisionDrawer::_draw_bbox_and_label(cv::Mat& image,
+void YoloDrawer::_drawBoundingBoxAndLabel(cv::Mat& image,
                                           const std::string& text,
                                           const cv::Rect& bbox_rect,
                                           const cv::Scalar& bbox_color,
@@ -100,7 +100,7 @@ void VisionDrawer::_draw_bbox_and_label(cv::Mat& image,
 }
 
 // Draw bounding boxes for Yolo objects
-void VisionDrawer::drawBBoxes(cv::Mat& frame, const std::vector<Yolo>& detections,
+void YoloDrawer::drawBoundingBoxes(cv::Mat& frame, const std::vector<Yolo>& detections,
                                 const std::map<int, std::string>& class_labels) {
     for (const auto& obj : detections) {
         if (obj.conf < object_conf_threshold) {
@@ -108,7 +108,7 @@ void VisionDrawer::drawBBoxes(cv::Mat& frame, const std::vector<Yolo>& detection
         }
 
         cv::Rect bbox_rect(obj.lx, obj.ly, obj.rx - obj.lx, obj.ry - obj.ly);
-        cv::Scalar bbox_color = _get_bbox_color_by_class(obj.cls);
+        cv::Scalar bbox_color = _getBoundingBoxColorByCls(obj.cls);
 
         std::string label_text = "Conf: " + std::to_string(static_cast<int>(obj.conf * 100)) + "%";
         if (class_labels.count(obj.cls)) {
@@ -117,12 +117,12 @@ void VisionDrawer::drawBBoxes(cv::Mat& frame, const std::vector<Yolo>& detection
             label_text = "Class " + std::to_string(obj.cls) + " - " + label_text;
         }
 
-        _draw_bbox_and_label(frame, label_text, bbox_rect, bbox_color);
+        _drawBoundingBoxAndLabel(frame, label_text, bbox_rect, bbox_color);
     }
 }
 
 // Draw bounding boxes, keypoints, and skeletons for YoloPose objects
-void VisionDrawer::drawPose(cv::Mat& frame, const std::vector<YoloPose>& pose_detections,
+void YoloDrawer::drawPoses(cv::Mat& frame, const std::vector<YoloPose>& pose_detections,
                               const std::map<int, std::string>& class_labels) {
     for (const auto& pose_obj : pose_detections) {
         if (pose_obj.conf < object_conf_threshold) {
@@ -131,7 +131,7 @@ void VisionDrawer::drawPose(cv::Mat& frame, const std::vector<YoloPose>& pose_de
 
         // 1. Draw Bounding Box (same as Yolo)
         cv::Rect bbox_rect(pose_obj.lx, pose_obj.ly, pose_obj.rx - pose_obj.lx, pose_obj.ry - pose_obj.ly);
-        cv::Scalar bbox_color = _get_bbox_color_by_class(pose_obj.cls);
+        cv::Scalar bbox_color = _getBoundingBoxColorByCls(pose_obj.cls);
 
         std::string label_text = "Conf: " + std::to_string(static_cast<int>(pose_obj.conf * 100)) + "%";
         if (class_labels.count(pose_obj.cls)) {
@@ -139,7 +139,7 @@ void VisionDrawer::drawPose(cv::Mat& frame, const std::vector<YoloPose>& pose_de
         } else {
             label_text = "Class " + std::to_string(pose_obj.cls) + " - " + label_text;
         }
-        _draw_bbox_and_label(frame, label_text, bbox_rect, bbox_color);
+        _drawBoundingBoxAndLabel(frame, label_text, bbox_rect, bbox_color);
 
         // 2. Draw Keypoints
         std::map<int, cv::Point> valid_kpts_coords; // Store valid keypoints for link drawing

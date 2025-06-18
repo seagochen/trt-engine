@@ -7,7 +7,6 @@
 
 #include <opencv2/opencv.hpp>
 #include <vector>
-#include "serverlet/models/common/yolo_dstruct.h"
 
 /**
  * @brief 将 OpenCV 图像转换为 CUDA 张量格式，并可选地进行归一化。
@@ -32,7 +31,7 @@
  * 注意：如果提供了 mean 但未提供 stdv，或反之，可能会导致不完整的归一化。
  * 建议同时提供 mean 和 stdv，或同时不提供。
  */
-void sct_image_to_cuda_tensor(
+void imageToCudaTensor(
     const cv::Mat& image,
     float* device_ptr,
     int target_height, // 目标高度
@@ -42,32 +41,5 @@ void sct_image_to_cuda_tensor(
     const std::vector<float>& mean = {}, // Default empty vector means no mean normalization
     const std::vector<float>& stdv = {}  // Default empty vector means no stdv normalization
 );
-
-
-/**
- * @brief 将YOLO格式的检测框(cx,cy,w,h)转换为坐标(lx,ly,rx,ry)
- * @param input 输入的浮点数数组
- * @param output 输出的Yolo对象向量
- * @param features 每个样本的特征数量
- * @param samples 样本总数
- * @param target_width 目标图像宽度
- * @param target_height 目标图像高度
- */
-void host_xywh_to_xyxy_yolo(const std::vector<float>& input, std::vector<Yolo>& output,
-                            int features, int samples, float target_width = 1.0, float target_height = 1.0);
-
-
-/**
- * @brief 将YOLO Pose格式的检测结果转换为带有关键点的对象
- * @param input 输入的浮点数数组
- * @param output 输出的YoloPose对象向量
- * @param features 每个样本的特征数量
- * @param samples 样本总数
- * @param target_width 目标图像宽度
- * @param target_height 目标图像高度
- */
-void host_xywh_to_xyxy_pose(const std::vector<float>& input, std::vector<YoloPose>& output,
-                            int features, int samples, float target_width = 1.0, float target_height = 1.0);
-
 
 #endif //IMAGE_TO_TENSOR_H

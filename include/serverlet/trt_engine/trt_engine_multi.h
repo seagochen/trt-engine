@@ -42,10 +42,6 @@ public:
      * @param outputs  与 createContext 时 output_names 顺序一致的 device Tensor 列表
      * @param stream   用于 enqueueV3 的 CUDA 流
      */
-    //  bool infer(
-    //          const std::vector<Tensor<float>>& inputs,
-    //          const std::vector<Tensor<float>>& outputs,
-    //          cudaStream_t                      stream) const;
     bool infer(
         const std::vector<Tensor<float>*>& inputs,
         const std::vector<Tensor<float>*>& outputs,

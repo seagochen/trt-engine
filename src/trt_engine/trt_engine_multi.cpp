@@ -4,9 +4,7 @@
 
 #include "serverlet/trt_engine/trt_engine_multi.h"
 #include "serverlet/utils/logger.h"
-
 #include "NvInferVersion.h"  // 一定要包含这个头，才能拿到 NV_TENSORRT_MAJOR 宏
-
 #include <fstream>
 
 // Temporary debugging - Check macro values

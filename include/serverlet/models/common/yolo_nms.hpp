@@ -20,7 +20,7 @@ float iou(const T& a, const T& b) {
     const int inter_bottom = std::min(a.ry, b.ry);
 
     // 计算交集区域的面积
-    int inter_area = std::max(0, inter_right - inter_left + 1) * std::max(0, inter_bottom - inter_top + 1);
+    const int inter_area = std::max(0, inter_right - inter_left + 1) * std::max(0, inter_bottom - inter_top + 1);
 
     // 如果交集区域的面积为0，则返回0
     if (inter_area <= 0) {
@@ -28,11 +28,11 @@ float iou(const T& a, const T& b) {
     }
 
     // 计算两个矩形的面积
-    int area_a = (a.rx - a.lx + 1) * (a.ry - a.ly + 1);
-    int area_b = (b.rx - b.lx + 1) * (b.ry - b.ly + 1);
+    const int area_a = (a.rx - a.lx + 1) * (a.ry - a.ly + 1);
+    const int area_b = (b.rx - b.lx + 1) * (b.ry - b.ly + 1);
 
     // 计算并集区域的面积
-    float union_area = static_cast<float>(area_a + area_b - inter_area) + 1e-6f;
+    const float union_area = static_cast<float>(area_a + area_b - inter_area) + 1e-6f;
     
     // 返回交并比
     return static_cast<float>(inter_area) / union_area;
