@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "trtengine/utils/logger.h"
 
 // Function to get current memory usage (OS-dependent, simplified for demonstration)
 // For accurate leak detection, a tool like Valgrind is recommended.
@@ -22,6 +23,9 @@ long getCurrentRSS() {
     fclose(fp);
     return rss; // in KB
 #else
+    // For Windows, macOS, or other OSes, you would implement similar logic
+    LOG_ERROR("SYSTEM_UTILS", "getCurrentRSS is not implemented for this OS.");
+
     // Placeholder for other OSes
     return 0;
 #endif

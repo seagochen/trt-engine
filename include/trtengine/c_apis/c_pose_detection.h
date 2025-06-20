@@ -3,6 +3,11 @@
 
 #include "trtengine/c_apis/c_dstruct.h"
 
+// 对于目前的Jetson平台来说
+// YoloV8的模型，一次性推理8张图片最合适的，EfficientNet的模型，一次性推理32张图片是合适的
+// 因此，对于目前采用硬编码，指定了YoloPose最多一次性处理8张图片，而EfficientNet为32张图片
+// 以后如果还有时间，这个参数的配置情况将全部挪到配置文件中
+
 #ifdef __cplusplus
 extern "C" {
 #endif
