@@ -2,172 +2,254 @@
 #include <opencv2/opencv.hpp>
 #include <any>
 #include <map>
-#include <cstddef> // For size_t
-#include <algorithm> // For std::min
+#include <cstddef>     // For size_t
+#include <algorithm>   // For std::min
+#include <numeric>     // For std::iota (if needed)
 
-#include "trtengine/c_apis/aux_batch_process.h" // Includes the new PoseBatchOutput struct
-#include "trtengine/c_apis/c_dstruct.h"         // C-style structs
-#include "trtengine/serverlet/models/infer_model_multi.h" // C++ ModelBase
-#include "trtengine/serverlet/models/inference/infer_yolo_v8.hpp" // To access specific YoloPose type for casting (e.g., getMaximumBatchSize())
+#include <omp.h> // For OpenMP parallel processing
+
+#include "trtengine/c_apis/aux_batch_process.h"
+#include "trtengine/c_apis/c_pose_detection.h"
+#include "trtengine/serverlet/models/infer_model_multi.h"
+#include "trtengine/serverlet/models/common/yolo_dstruct.h"
 #include "trtengine/utils/logger.h"
 
+// Re-defining GET_PARAM here for clarity, assuming it's available in your context
+#ifndef GET_PARAM
+#define GET_PARAM(map, key, type) std::any_cast<type>(map.at(key))
+#endif
 
-// Helper function: Converts C++ YoloPose structs to C-friendly C_Extended_Person_Feats structs.
+#define DEBUG 1
+
+
+// Helper function: Converts C++ YoloPose structs to C-friendly C_Extended_Pose_Feats structs.
 // In this stage, class_id is initialized to -1, to be filled by EfficientNet later.
-void convert_yolopose_to_c_struct(
+void convert_pose_to_c_struct(
     const std::vector<YoloPose>& cpp_poses,
-    std::vector<C_Extended_Person_Feats>& c_feats)
+    std::vector<C_Extended_Pose_Feats>& c_feats_out) // Output vector of C-style structs
 {
-    c_feats.clear();
-    c_feats.reserve(cpp_poses.size()); // Pre-allocate space
+    c_feats_out.clear();
+    c_feats_out.resize(cpp_poses.size()); // Resize to exact size for direct assignment
 
-    for (const auto& cpp_pose : cpp_poses) {
-        C_Extended_Person_Feats c_feat;
+    // 启动OpenMP
+    #pragma omp parallel for
+    for (size_t i = 0; i < cpp_poses.size(); ++i) {
+        const auto& cpp_pose = cpp_poses[i];
+        C_Extended_Pose_Feats c_feat_local = {}; // Initialize with zeros (important for fixed-size arrays)
 
         // Copy bounding box information (lx, ly, rx, ry)
-        c_feat.box.x1 = cpp_pose.lx;
-        c_feat.box.y1 = cpp_pose.ly;
-        c_feat.box.x2 = cpp_pose.rx;
-        c_feat.box.y2 = cpp_pose.ry;
-        c_feat.confidence = cpp_pose.conf;
-        c_feat.class_id = -1; // Default value, to be filled by EfficientNet stage
+        c_feat_local.box.x1 = cpp_pose.lx;
+        c_feat_local.box.y1 = cpp_pose.ly;
+        c_feat_local.box.x2 = cpp_pose.rx;
+        c_feat_local.box.y2 = cpp_pose.ry;
+        c_feat_local.confidence = cpp_pose.conf;
+        c_feat_local.class_id = -1.0f; // Default value, to be filled by EfficientNet stage (now float)
 
         // Copy keypoint information
-        c_feat.num_kps = std::min(cpp_pose.pts.size(), (size_t)17); // Limit to max 17 keypoints
-        for (int k = 0; k < c_feat.num_kps; ++k) {
-            c_feat.kps[k].x = cpp_pose.pts[k].x;
-            c_feat.kps[k].y = cpp_pose.pts[k].y;
-            c_feat.kps[k].score = cpp_pose.pts[k].conf; // Ensure this matches your YoloPose::Point struct
+        size_t num_kps_to_copy = std::min(cpp_pose.pts.size(), (size_t)17);
+        for (size_t j = 0; j < num_kps_to_copy; ++j) {
+            c_feat_local.pts[j].x = cpp_pose.pts[j].x;
+            c_feat_local.pts[j].y = cpp_pose.pts[j].y;
+            c_feat_local.pts[j].score = cpp_pose.pts[j].conf; // Conf for keypoint score
         }
+        // No need to explicitly fill remaining keypoints with 0.0f if c_feat_local is zero-initialized.
 
-        // Fill any remaining keypoints with default values (0.0f)
-        for (int k = c_feat.num_kps; k < 17; ++k) {
-            c_feat.kps[k] = {0.0f, 0.0f, 0.0f};
-        }
+        // Features are not available at this stage, leave them as zero-initialized.
+        // For C_Extended_Pose_Feats.features[256], it's already zeroed by ={}.
 
-        c_feats.push_back(c_feat); // Add to the results list
+        // Assign the locally created struct to the pre-allocated spot in c_feats_out
+        c_feats_out[i] = c_feat_local;
     }
 }
 
+// Helper function to process a single batch of images through the pose model
+// This handles preprocess, inference, and postprocess for one model's max_batch_size
+std::vector<InferenceResult> process_single_batch_internal(
+    const std::vector<cv::Mat>& current_batch_input_images,     // Images for this batch
+    const std::unique_ptr<InferModelBaseMulti>& pose_model,     // Pose model instance
+    const std::map<std::string, std::any>& pose_pp_params       // Pose post-processing parameters
+) {
+    std::vector<InferenceResult> batch_results_output; // Results for images in this single batch
+    batch_results_output.reserve(current_batch_input_images.size()); // Pre-allocate
 
-// Updated function signature and implementation
-PoseBatchOutput process_batch_images_by_pose_engine(
+    // Preprocess images for this batch
+    for (size_t i = 0; i < current_batch_input_images.size(); ++i) {
+        pose_model->preprocess(current_batch_input_images[i], i);
+    }
+
+#if DEBUG
+    LOG_VERBOSE_TOPIC("BatchProcess", "Pose_Internal", "Preprocess completed for " + std::to_string(current_batch_input_images.size()) + " images.");
+#endif
+
+    // Execute model inference for the current batch
+    if (!pose_model->inference()) {
+
+#if DEBUG
+        LOG_ERROR("BatchProcess", "Pose model inference failed for current batch.");
+#endif
+
+        // Fill batch_results_output with error indications for each image
+        for (size_t i = 0; i < current_batch_input_images.size(); ++i) {
+            InferenceResult error_result;
+            error_result.num_detected = -1; // Indicate error
+            error_result.processed_image = current_batch_input_images[i].clone();
+            error_result.detections.clear(); // Empty detections
+            batch_results_output.push_back(std::move(error_result));
+        }
+        return batch_results_output;
+    }
+
+#if DEBUG
+    LOG_VERBOSE_TOPIC("BatchProcess", "Pose_Internal", "Inference completed for current batch.");
+#endif
+
+    // Postprocess and collect detection results for each image in the current batch
+    for (size_t i = 0; i < current_batch_input_images.size(); ++i) {
+
+        // 后处理 ith 的结果
+        std::any pose_raw_results;
+        pose_model->postprocess(i, pose_pp_params, pose_raw_results);
+
+        // 准备一个 InferenceResult 对象来存储当前图像的结果
+        InferenceResult current_image_result;
+
+        // 克隆图片
+        current_image_result.processed_image = current_batch_input_images[i].clone();
+
+        try {
+            // 尝试将 std::any 转换为 std::vector<YoloPose>
+            std::vector<YoloPose> cpp_pose_detections = std::any_cast<std::vector<YoloPose>>(pose_raw_results);
+            current_image_result.num_detected = cpp_pose_detections.size();
+
+            // 将 C++ 的 YoloPose 转换为 C 风格的 C_Extended_Pose_Feats
+            convert_pose_to_c_struct(cpp_pose_detections, current_image_result.detections);
+
+        } catch (const std::bad_any_cast& e) {
+            LOG_ERROR("BatchProcess", "Error casting pose results for batch item " + std::to_string(i) + ": " + std::string(e.what()));
+            current_image_result.num_detected = -1; // Indicate error
+            current_image_result.detections.clear();
+        } catch (const std::exception& e) {
+            LOG_ERROR("BatchProcess", "An unexpected error during pose postprocessing for batch item " + std::to_string(i) + ": " + std::string(e.what()));
+            current_image_result.num_detected = -1; // Indicate error
+            current_image_result.detections.clear();
+        }
+
+        // 将当前图像的结果添加到输出结果中，使用 std::move 的方式来避免不必要的拷贝
+        batch_results_output.push_back(std::move(current_image_result));
+    }
+
+#if DEBUG
+    LOG_VERBOSE_TOPIC("BatchProcess", "Pose_Internal", "Postprocess completed for current batch.");
+#endif
+
+    return batch_results_output;
+}
+
+
+// Main function for the pose detection stage, handling multiple batches
+std::vector<InferenceResult> run_pose_detection_stage(
     std::vector<cv::Mat>& images, // Input images (will be consumed/popped)
     const std::unique_ptr<InferModelBaseMulti>& pose_model,
-    const std::map<std::string, std::any>& pose_pp_params,
-    const int pose_max_batch_size
-)
+    const std::map<std::string, std::any>& pose_pp_params)
 {
-    // Initialize the return struct
-    PoseBatchOutput output;
-    output.success = false; // Assume failure until proven otherwise
+    std::vector<InferenceResult> final_output;
 
     // Check if pose model is initialized
     if (!pose_model) {
         LOG_ERROR("BatchProcess", "Pose model not initialized. Cannot process images.");
-        return output; // Return failure
+        return final_output; // Return empty output
     }
 
     // Check if input images vector is valid
     if (images.empty()) {
         LOG_WARNING("BatchProcess", "Input images vector is empty. No images to process.");
-        output.success = true; // No images to process, consider it a success for an empty input
-        return output;
+        return final_output; // Return empty output, which is a 'success' for no input
     }
 
-    // Ensure pose_max_batch_size is a valid positive number
-    if (pose_max_batch_size <= 0) {
-        LOG_ERROR("BatchProcess", "Invalid pose_max_batch_size: " + std::to_string(pose_max_batch_size) + ". Must be greater than 0.");
-        return output; // Return failure
+    // 获得模型最大图像处理批次大小
+    int pose_model_max_batch_size = 0;
+    try {
+        pose_model_max_batch_size = GET_PARAM(pose_pp_params, "maximum_batch", int);
+        if (pose_model_max_batch_size <= 0) {
+             LOG_ERROR("BatchProcess", "Pose model configuration reports invalid maximum batch size: " + std::to_string(pose_model_max_batch_size));
+             return final_output;
+        }
+    } catch (const std::exception& e) {
+        LOG_ERROR("BatchProcess", "Failed to get 'maximum_batch' from pose_pp_params: " + std::string(e.what()) + ". Ensure it is set and of type int.");
+        return final_output;
     }
 
-    size_t remaining_images_count = images.size(); // Number of images still to process
-
+    // 剩余多少图片待处理
+    size_t remaining_images_count = images.size();
+#if DEBUG
     LOG_INFO("BatchProcess", "Starting batch processing with pose engine for " + std::to_string(remaining_images_count) + " images.");
+#endif
 
+    // 循环，处理每个批次的图像，直到没有剩余的图像需要处理
     while (remaining_images_count > 0) {
-        // Calculate the number of images to process in the current batch
-        size_t current_batch_count = std::min(remaining_images_count, (size_t)pose_max_batch_size);
+        // 计算当前应当处理的图片批次大小
+        size_t current_batch_count = std::min(remaining_images_count, (size_t)pose_model_max_batch_size);
 
-        // Store resized images for this batch. These will be passed to the next stage.
-        std::vector<cv::Mat> current_batch_resized_images;
-        
-        // Collect and preprocess images for the current batch
-        for (size_t i = 0; i < current_batch_count; ++i) {
-            // Get and remove the last image from the input vector
-            cv::Mat image_to_process = images.back();
-            images.pop_back(); 
-            
-            // YOLOv8 models usually expect 640x640 input.
-            // Resize the image here before preprocessing and storing.
-            cv::Mat resized_image_for_model;
-            cv::resize(image_to_process, resized_image_for_model, cv::Size(640, 640));
+        // 通过从末尾复制子向量的方式提取当前批次的图像。
+        // 然后从原始 `images` 向量中擦除这些图像。
+        std::vector<cv::Mat> current_batch_images_for_processing;
+        current_batch_images_for_processing.reserve(current_batch_count);
 
-            // Preprocess the image and push it to the model's input buffer
-            pose_model->preprocess(resized_image_for_model, i);
-            
-            // Store a copy of the *resized* image for later stages (EfficientNet)
-            current_batch_resized_images.push_back(resized_image_for_model.clone()); 
-        }
-        
-        // Update the count of remaining images in the input vector
-        remaining_images_count = images.size(); 
-
-        LOG_VERBOSE_TOPIC("BatchProcess", "Pose", "Preprocessed " + std::to_string(current_batch_count) + " images for current batch.");
-
-        // Execute model inference
-        if (!pose_model->inference()) {
-            LOG_ERROR("BatchProcess", "Pose model inference failed for current batch.");
-            // output.detections_per_image remains empty, output.processed_images remains empty or partial
-            return output; // Return failure
-        }
-        LOG_VERBOSE_TOPIC("BatchProcess", "Pose", "Inference completed for current batch.");
-
-        // Postprocess and collect detection results for each image in the current batch
-        // The results are stored in `temp_batch_results_per_image`, which has one element per image.
-        std::vector<std::vector<C_Extended_Person_Feats>> temp_batch_results_per_image;
-        for (size_t i = 0; i < current_batch_count; ++i) {
-            std::any pose_raw_results;
-            // `pose_pp_params` should contain `cls` and `iou` for YOLO post-processing
-            pose_model->postprocess(i, pose_pp_params, pose_raw_results);
-
-            try {
-                // Convert std::any result to std::vector<YoloPose>
-                std::vector<YoloPose> cpp_pose_detections = std::any_cast<std::vector<YoloPose>>(pose_raw_results);
-                
-                // C-interface result container for this specific image
-                std::vector<C_Extended_Person_Feats> c_pose_feats_for_image;
-                
-                // Convert YoloPose to C_Extended_Person_Feats
-                convert_yolopose_to_c_struct(cpp_pose_detections, c_pose_feats_for_image);
-                
-                // Add current image's results to the temporary batch results
-                temp_batch_results_per_image.push_back(std::move(c_pose_feats_for_image));
-
-            } catch (const std::bad_any_cast& e) {
-                LOG_ERROR("BatchProcess", "Error casting pose results for batch item " + std::to_string(i) + ": " + std::string(e.what()));
-                temp_batch_results_per_image.push_back({}); // Push empty results for this item
-            } catch (const std::exception& e) {
-                LOG_ERROR("BatchProcess", "An unexpected error during pose postprocessing for batch item " + std::to_string(i) + ": " + std::string(e.what()));
-                temp_batch_results_per_image.push_back({}); // Push empty results for this item
-            }
-        }
-        
-        // Move the results (detections and images) from the current batch to the final output struct
-        // Each element of `temp_batch_results_per_image` is a vector of persons for one image.
-        // `output.detections_per_image` needs to store these individual image results.
-        for (auto& image_person_results : temp_batch_results_per_image) {
-            output.detections_per_image.push_back(std::move(image_person_results));
-        }
-        // Also move the processed images to the output struct
-        for (auto& img : current_batch_resized_images) {
-            output.processed_images.push_back(std::move(img));
+        // 从输入向量的末尾复制图像。
+        // 如果需要保留原始顺序，可以从前面复制并从前面擦除。
+        // 对于 `pop_back` 策略，处理顺序与输入相反，但对于批处理来说没有影响。
+        for(size_t i = 0; i < current_batch_count; ++i) {
+            current_batch_images_for_processing.push_back(images[images.size() - current_batch_count + i].clone());
         }
 
-        LOG_VERBOSE_TOPIC("BatchProcess", "Pose", "Postprocess completed for current batch.");
+        // 将当前批次的图像从原始 `images` 向量中擦除
+        images.erase(images.end() - current_batch_count, images.end());
+        remaining_images_count = images.size();
+
+        LOG_VERBOSE_TOPIC("BatchProcess", "Pose", "Processing a batch of " + std::to_string(current_batch_count) + " images.");
+
+        // 处理当前批次的图像
+        std::vector<InferenceResult> batch_results_from_internal = process_single_batch_internal(
+            current_batch_images_for_processing, // Pass images for this batch
+            pose_model,
+            pose_pp_params
+        );
+
+        // 将当前批次的结果合并到最终输出中
+        final_output.insert(final_output.end(),
+                            std::make_move_iterator(batch_results_from_internal.begin()),
+                            std::make_move_iterator(batch_results_from_internal.end()));
     }
 
-    output.success = true; // Mark as successful after processing all images
-    LOG_INFO("BatchProcess", "Finished processing all images by pose engine. Total images processed: " + std::to_string(output.processed_images.size()));
-    return output;
+#if DEBUG
+    LOG_DEBUG_V3("BatchProcess", "Finished processing all images by pose engine. Total images processed: " + std::to_string(final_output.size()));
+#endif
+    return final_output;
 }
+
+
+std::vector<InferenceResult> run_efficientnet_stage(
+    const std::vector<InferenceResult>& pose_results, // Input results from the pose detection stage
+    const std::unique_ptr<InferModelBaseMulti>& efficient_model,
+    const std::map<std::string, std::any>& efficient_pp_params
+) 
+{
+    std::vector<InferenceResult> final_output;
+
+    // Check if efficient model is initialized
+    if (!efficient_model) {
+        LOG_ERROR("BatchProcess", "Efficient model not initialized. Cannot process pose results.");
+        return final_output; // Return empty output
+    }
+
+    // Check if pose results vector is valid
+    if (pose_results.empty()) {
+        LOG_WARNING("BatchProcess", "Pose results vector is empty. No results to process.");
+        return final_output; // Return empty output, which is a 'success' for no input
+    }
+
+    // 处理每个姿态检测结果
+    // TODO: 对每个画面的姿态检测结果进行处理，追加新的信息（包括类型分类，以及人的特征向量）
+
+    return final_output;
+};

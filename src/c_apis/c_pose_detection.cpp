@@ -1,5 +1,4 @@
 #include "trtengine/c_apis/c_pose_detection.h"
-#include "trtengine/c_apis/c_dstruct.h"
 #include "trtengine/c_apis/aux_batch_process.h"
 #include "trtengine/serverlet/models/inference/model_init_helper.hpp"
 #include "trtengine/utils/logger.h"
@@ -8,7 +7,6 @@
 #include <vector>
 #include <map>
 #include <any>
-#include <stdexcept> // For std::runtime_error
 
 // --- Global Model Pointers ---
 // 使用全局智能指针管理模型生命周期
@@ -138,33 +136,21 @@ void add_image_to_pose_detection_pipeline(const unsigned char* image_data_in_bgr
 }
 
 
-bool run_pose_detection_pipeline(C_Extended_Person_Feats** out_results, int* out_num_detected)
+bool run_pose_detection_pipeline(void **out_results, int *out_num_results)
 {
     if (!g_pose_model || !g_efficient_model) {
         LOG_ERROR("C_API", "Models not initialized. Call init_pose_detection_pipeline first.");
-        *out_num_detected = 0;
-        *out_results = nullptr;
         return false;
     }
 
     // 确认 g_image_queue 不为空
     if (g_image_queue.empty()) {
         LOG_WARNING("C_API", "No images in the queue to process.");
-        *out_num_detected = 0;
-        *out_results = nullptr;
         return true; // 没有图片处理，但也算成功完成
     }
 
-    // 先对g_image_queue中的图片进行批量拷贝
-    std::vector<cv::Mat> images_to_pose_engine;
-    images_to_pose_engine.reserve(g_image_queue.size());
-    for (const auto& img : g_image_queue) {
-        if (!img.empty()) {
-            images_to_pose_engine.push_back(img.clone()); // 克隆以确保数据安全
-        } else {
-            LOG_WARNING("C_API", "Encountered an empty image in the queue, skipping.");
-        }
-    }
+    // 启动管道，执行yolo姿态检测
+    auto yolo_processed_batch_results = run_pose_detection_stage(g_image_queue, g_pose_model, g_pose_pp_params);
 
     // TODO 首先，对所有的照片都执行 process_batch_images_by_pose_engine 获取初步的检测结果
     // 注意 g_image_queue 中的图片在这里会被消耗掉，因此执行克隆任务
@@ -175,17 +161,27 @@ bool run_pose_detection_pipeline(C_Extended_Person_Feats** out_results, int* out
     return true;
 }
 
-void free_pose_detection_results(C_Extended_Person_Feats* results) {
-    if (results) {
-        free(results);
-        LOG_INFO("C_API", "Freed C_Extended_Person_Feats results.");
-    } else {
-        LOG_WARNING("C_API", "Attempted to free null results pointer.");
-    }
-}
-
 void deinit_pose_detection_pipeline() {
     g_pose_model.reset();
     g_efficient_model.reset();
     LOG_INFO("C_API", "Pose detection pipeline models deinitialized.");
+}
+
+
+void release_inference_result(void* result) {
+    if (result) {
+
+        // 将 void* 转换为 C_InferenceResult*
+        C_InferenceResult* inference_result = static_cast<C_InferenceResult*>(result);
+
+        // 释放 detections 数组
+        if (inference_result->detections) {
+            delete[] inference_result->detections; // 释放 detections 数组
+            inference_result->detections = nullptr; // 避免悬空指针
+        }
+
+        // 释放 C_InferenceResult 结构体本身
+        delete inference_result; // 释放 C_InferenceResult 结构体
+        inference_result = nullptr; // 避免悬空指针
+    }
 }

@@ -3,9 +3,9 @@
 //
 
 #include <opencv2/opencv.hpp>
-#include "trtengine/utils/system.h"
 #include "trtengine/serverlet/models/common/yolo_drawer.h"
 #include "trtengine/serverlet/models/inference/model_init_helper.hpp"
+#include "trtengine/utils/system.h"
 
 // 示例用法
 #include <iostream>
@@ -16,7 +16,6 @@
 #include <map>       // For std::map
 #include <chrono>    // For std::chrono
 #include <numeric>   // For std::accumulate (if calculating average throughput)
-
 
 void test_yolo_pose()
 {
@@ -390,7 +389,7 @@ void test_efficientnet_throughput() {
 
     // Test batch sizes
     // std::vector<int> batch_sizes = {2, 4, 8, 16, 32};  // 16, 32, 64, 128 are too large for EfficientNet B0
-    std::vector<int> batch_sizes = {1, 2, 4, 8, 16}; // Adjusted for more realistic testing
+    std::vector<int> batch_sizes = {1, 2, 4, 8, 16, 32}; // Adjusted for more realistic testing
     const int num_iterations = 100; // Number of times to run inference for each batch size
 
     for (int current_batch_size : batch_sizes) {

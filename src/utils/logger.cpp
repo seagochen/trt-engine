@@ -2,18 +2,13 @@
 // Created by user on 3/21/25.
 //
 
-#include "trtengine/utils/logger.h"
 #include <iostream>
 #include <sstream>
 #include <ctime>
 
-// ANSI 转义码定义颜色
-#define RESET "\033[0m"
-#define RED "\033[31m"
-#define GREEN "\033[32m"
-#define YELLOW "\033[33m"
-#define CYAN "\033[36m"
-#define GRAY "\033[90m"
+#include "trtengine/utils/logger.h"
+#include "trtengine/utils/console_schema.h"
+
 
 // 处理 module 和 message 的日志输出
 void Logger::log(LogLevel level, const std::string& module, const std::string& message) {
@@ -42,7 +37,7 @@ std::string Logger::formatLogMessage(LogLevel level, const std::string& module, 
         logStream << "/" << topic;
     }
 
-    logStream << "] " << logLevelStr << " " << timestamp << ": " << message << RESET << std::endl;  // 输出后重置颜色
+    logStream << "] " << logLevelStr << " " << timestamp << ": " << message << CONSOLE_COLOR_RESET << std::endl;  // 输出后重置颜色
     return logStream.str();
 }
 
@@ -53,7 +48,11 @@ std::string Logger::getLogLevelString(LogLevel level) {
         case INFO: return "INFO";
         case WARNING: return "WARNING";
         case ERROR: return "ERROR";
-        case DEBUG: return "DEBUG";
+        case DEBUG_LV1: return "LEVEL1";
+        case DEBUG_LV2: return "LEVEL2";
+        case DEBUG_LV3: return "LEVEL3";
+        case DEBUG_LV4: return "LEVEL4";
+        case DEBUG_LV5: return "LEVEL5";
         default: return "UNKNOWN";
     }
 }
@@ -61,12 +60,17 @@ std::string Logger::getLogLevelString(LogLevel level) {
 // 根据日志级别选择颜色
 std::string Logger::getLogLevelColor(LogLevel level) {
     switch (level) {
-        case VERBOSE: return CYAN;      // 青色
-        case INFO: return GREEN;        // 绿色
-        case WARNING: return YELLOW;    // 黄色
-        case ERROR: return RED;         // 红色
-        case DEBUG: return GRAY;        // 黑色
-        default: return RESET;
+        case VERBOSE: return CONSOLE_COLOR_CYAN;      // 青色
+        case INFO: return CONSOLE_COLOR_GREEN;        // 绿色
+        case WARNING: return CONSOLE_COLOR_YELLOW;    // 黄色
+        case ERROR: return CONSOLE_COLOR_RED;         // 红色
+        case DEBUG_LV1: return CONSOLE_COLOR_GRAY;          // 灰色
+        case DEBUG_LV2: return CONSOLE_COLOR_LIGHT_GRAY;    // 浅灰色
+        case DEBUG_LV3: return CONSOLE_COLOR_WHITE;         // 白色
+        case DEBUG_LV4: return CONSOLE_COLOR_LIGHT_BLUE;    // 浅蓝色
+        case DEBUG_LV5: return CONSOLE_COLOR_LIGHT_PURPLE;  // 浅紫色
+        // 如果需要更多颜色，可以继续添加
+        default: return CONSOLE_COLOR_RESET;
     }
 }
 

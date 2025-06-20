@@ -13,7 +13,11 @@ enum LogLevel {
     INFO,
     WARNING,
     ERROR,
-    DEBUG
+    DEBUG_LV1,
+    DEBUG_LV2,
+    DEBUG_LV3,
+    DEBUG_LV4,
+    DEBUG_LV5,
 };
 
 // Logger 类声明
@@ -44,7 +48,15 @@ private:
 #define LOG_WARNING_TOPIC(module, topic, message) Logger::log(WARNING, module, topic, message)
 #define LOG_ERROR(module, message) Logger::log(ERROR, module, message)
 #define LOG_ERROR_TOPIC(module, topic, message) Logger::log(ERROR, module, topic, message)
-#define LOG_DEBUG(module, message) Logger::log(DEBUG, module, message)
-#define LOG_DEBUG_TOPIC(module, topic, message) Logger::log(DEBUG, module, topic, message)
+#define LOG_DEBUG_V1(module, message) Logger::log(DEBUG_LV1, module, message)
+#define LOG_DEBUG_TOPIC(module, topic, message) Logger::log(DEBUG_LV1, module, topic, message)
+#define LOG_DEBUG_V2(module, message) Logger::log(DEBUG_LV2, module, message)
+#define LOG_DEBUG_V2_TOPIC(module, topic, message) Logger::log(DEBUG_LV2, module, topic, message)
+#define LOG_DEBUG_V3(module, message) Logger::log(DEBUG_LV3, module, message)
+#define LOG_DEBUG_V3_TOPIC(module, topic, message) Logger::log(DEBUG_LV3, module, topic, message)
+#define LOG_DEBUG_V4(module, message) Logger::log(DEBUG_LV4, module, message)
+#define LOG_DEBUG_V4_TOPIC(module, topic, message) Logger::log(DEBUG_LV4, module, topic, message)
+#define LOG_DEBUG_V5(module, message) Logger::log(DEBUG_LV5, module, message)
+#define LOG_DEBUG_V5_TOPIC(module, topic, message) Logger::log(DEBUG_LV5, module, topic, message)
 
 #endif //INFER_LOGGER_H
