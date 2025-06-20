@@ -8,19 +8,30 @@
     "version": "1.0.0",
     "author": "Orlando Chen",
     "date": "2023-10-01",
+    "maximum_batch_size": 32,
+    "input_image_type": "RGB",
     "input_tensors": [
       {
         "name": "input",
+        "type": "float32",
+        "description": "Input tensor for the model",
+        "format": "NCHW",
         "dimensions": [1, 3, 224, 224]
       }
     ],
     "output_tensors": [
       {
         "name": "logits",
+        "type": "float32",
+        "description": "Logits output from the model",
+        "format": "NC",
         "dimensions": [1, 2]
       },
       {
         "name": "feat",
+        "type": "float32",
+        "description": "Feature output from the model",
+        "format": "NC",
         "dimensions": [1, 256]
       }
     ]
