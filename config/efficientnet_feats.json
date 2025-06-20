@@ -2,7 +2,7 @@
   "onnx_path": "/opt/models/efficientnet_b0_feat_logits.onnx",
   "target_path": "/opt/models/efficientnet_b0_feat_logits.engine",
 
-  "inference_information": {
+  "model_information": {
     "name": "EfficientNet B0 Feature and Logits",
     "description": "EfficientNet B0 model for feature extraction and logits output",
     "version": "1.0.0",

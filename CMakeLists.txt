@@ -170,26 +170,26 @@ target_compile_options(jetson_static PRIVATE
 )
 
 # ====================================================================
-#                生成目标：trt_engine_test (可执行文件)
+#                trt_engine_pipeline_test (可执行文件)
 # ====================================================================
 # 测试专用源文件
 set(TEST_SPECIAL_SOURCES
-        "${PROJECT_SOURCE_DIR}/trt_engine_test.cpp"
+        "${PROJECT_SOURCE_DIR}/trt_engine_pipeline_test.cpp"
 )
 
 # 合并公共源和测试专用源
 list(APPEND TEST_SPECIAL_SOURCES ${COMMON_SOURCE_FILES})
 
 # 生成可执行文件
-add_executable(trt_engine_test ${TEST_SPECIAL_SOURCES})
+add_executable(trt_engine_pipeline_test ${TEST_SPECIAL_SOURCES})
 
 # 设置目标属性
-set_target_properties(trt_engine_test PROPERTIES
-        OUTPUT_NAME "trt_engine_test"
+set_target_properties(trt_engine_pipeline_test PROPERTIES
+        OUTPUT_NAME "trt_engine_pipeline_test"
 )
 
 # 添加包含目录
-target_include_directories(trt_engine_test PRIVATE
+target_include_directories(trt_engine_pipeline_test PRIVATE
         ${CUDA_INCLUDE_DIRS}
         ${SIMPLE_CUDA_TOOLKITS_INC}
         ${TENSORRT_INCLUDE_DIRS}
@@ -198,7 +198,7 @@ target_include_directories(trt_engine_test PRIVATE
 )
 
 # 链接所需的库
-target_link_libraries(trt_engine_test PRIVATE
+target_link_libraries(trt_engine_pipeline_test PRIVATE
         ${CUDA_LIBRARIES}
         "${SIMPLE_CUDA_TOOLKITS_LIB}/libsimplecuda.a"
         ${TENSORRT_LIBS}
@@ -207,9 +207,52 @@ target_link_libraries(trt_engine_test PRIVATE
 )
 
 # 设置编译选项
-target_compile_options(trt_engine_test PRIVATE
+target_compile_options(trt_engine_pipeline_test PRIVATE
         ${OpenMP_FLAGS} # 添加 OpenMP 编译选项
 )
+
+# ====================================================================
+#                trt_engine_performance_test (可执行文件)
+# ====================================================================
+# 测试专用源文件
+set(TEST_SPECIAL_SOURCES
+        "${PROJECT_SOURCE_DIR}/trt_engine_performance_test.cpp"
+)
+
+# 合并公共源和测试专用源
+list(APPEND TEST_SPECIAL_SOURCES ${COMMON_SOURCE_FILES})
+
+# 生成可执行文件
+add_executable(trt_engine_performance_test ${TEST_SPECIAL_SOURCES})
+
+# 设置目标属性
+set_target_properties(trt_engine_performance_test PROPERTIES
+        OUTPUT_NAME "trt_engine_performance_test"
+)
+
+# 添加包含目录
+target_include_directories(trt_engine_performance_test PRIVATE
+        ${CUDA_INCLUDE_DIRS}
+        ${SIMPLE_CUDA_TOOLKITS_INC}
+        ${TENSORRT_INCLUDE_DIRS}
+        ${OpenCV_INCLUDE_DIRS}
+        "${PROJECT_SOURCE_DIR}/include"
+)
+
+# 链接所需的库
+target_link_libraries(trt_engine_performance_test PRIVATE
+        ${CUDA_LIBRARIES}
+        "${SIMPLE_CUDA_TOOLKITS_LIB}/libsimplecuda.a"
+        ${TENSORRT_LIBS}
+        ${OpenCV_LIBRARIES}
+        ${OpenMP_LIBS} # 添加 OpenMP 链接库
+)
+
+# 设置编译选项
+target_compile_options(trt_engine_performance_test PRIVATE
+        ${OpenMP_FLAGS} # 添加 OpenMP 编译选项
+)
+
 
 # ------------------- 安装规则 -------------------
 

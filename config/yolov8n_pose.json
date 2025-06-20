@@ -1,9 +1,9 @@
 {
-  "onnx_path": "/opt/models/yolov8s.onnx",
-  "target_path": "/opt/models/yolov8s.engine",
+  "onnx_path": "/opt/models/yolov8n-pose.onnx",
+  "target_path": "/opt/models/yolov8n-pose.engine",
   "model_information": {
-    "name": "YOLOv8s",
-    "description": "YOLOv8s model for pose estimation",
+    "name": "YOLOv8n Pose",
+    "description": "YOLOv8n model for pose estimation",
     "version": "1.0.0",
     "author": "Orlando Chen",
     "date": "2023-10-01",
@@ -16,7 +16,7 @@
     "output_tensors": [
       {
         "name": "output0",
-        "dimensions": [1, 84, 8400]
+        "dimensions": [1, 56, 8400]
       }
     ]
   },

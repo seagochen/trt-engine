@@ -153,14 +153,14 @@ int main()
 
     // Load test images
     std::vector<std::string> batch_images_paths = {
-        // "/opt/images/supermarket/customer1.png",
-        // "/opt/images/supermarket/customer2.png",
-        // "/opt/images/supermarket/customer3.png",
-        // "/opt/images/supermarket/customer4.png",
-        // "/opt/images/supermarket/customer5.png",
-        // "/opt/images/supermarket/customer6.png",
-        // "/opt/images/supermarket/customer7.png",
-        // "/opt/images/supermarket/customer8.png",
+        "/opt/images/supermarket/customer1.png",
+        "/opt/images/supermarket/customer2.png",
+        "/opt/images/supermarket/customer3.png",
+        "/opt/images/supermarket/customer4.png",
+        "/opt/images/supermarket/customer5.png",
+        "/opt/images/supermarket/customer6.png",
+        "/opt/images/supermarket/customer7.png",
+        "/opt/images/supermarket/customer8.png",
         "/opt/images/supermarket/staff1.png",
         "/opt/images/supermarket/staff2.png",
         "/opt/images/supermarket/staff3.png",

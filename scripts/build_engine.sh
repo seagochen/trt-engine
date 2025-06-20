@@ -45,13 +45,13 @@ fi
 # 3. 调用 Python 脚本
 #    注意：这里假设 trt_builder.py 和 launcher.sh 在同一目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-$PY "$SCRIPT_DIR/trt_builder.py" "$CONFIG"
+$PY "$SCRIPT_DIR/build_engine.py" "$CONFIG"
 RET=$?
 
 # 4. 返回状态
 if [ $RET -eq 0 ]; then
   echo "🎉 All done!"
 else
-  echo "❌ trt_builder.py 运行失败 (exit code $RET)" >&2
+  echo "❌ build_engine.py 运行失败 (exit code $RET)" >&2
 fi
 exit $RET

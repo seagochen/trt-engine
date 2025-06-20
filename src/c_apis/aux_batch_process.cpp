@@ -19,7 +19,7 @@
 #define GET_PARAM(map, key, type) std::any_cast<type>(map.at(key))
 #endif
 
-#define DEBUG 1
+#define DEBUG 0
 
 
 // Helper function: Converts C++ YoloPose structs to C-friendly C_Extended_Pose_Feats structs.
@@ -185,37 +185,36 @@ std::vector<InferenceResult> run_pose_detection_stage(
     LOG_INFO("BatchProcess", "Starting batch processing with pose engine for " + std::to_string(remaining_images_count) + " images.");
 #endif
 
-    // 循环，处理每个批次的图像，直到没有剩余的图像需要处理
+    // Loop, processing images batch by batch until none remain
     while (remaining_images_count > 0) {
-        // 计算当前应当处理的图片批次大小
         size_t current_batch_count = std::min(remaining_images_count, (size_t)pose_model_max_batch_size);
 
-        // 通过从末尾复制子向量的方式提取当前批次的图像。
-        // 然后从原始 `images` 向量中擦除这些图像。
+        // --- MODIFICATION START ---
+        // Copy images from the BEGINNING of the input vector for the current batch.
         std::vector<cv::Mat> current_batch_images_for_processing;
         current_batch_images_for_processing.reserve(current_batch_count);
 
-        // 从输入向量的末尾复制图像。
-        // 如果需要保留原始顺序，可以从前面复制并从前面擦除。
-        // 对于 `pop_back` 策略，处理顺序与输入相反，但对于批处理来说没有影响。
         for(size_t i = 0; i < current_batch_count; ++i) {
-            current_batch_images_for_processing.push_back(images[images.size() - current_batch_count + i].clone());
+            // Copy from the beginning of the 'images' vector
+            current_batch_images_for_processing.push_back(images[i].clone());
         }
 
-        // 将当前批次的图像从原始 `images` 向量中擦除
-        images.erase(images.end() - current_batch_count, images.end());
-        remaining_images_count = images.size();
+        // Erase processed images from the BEGINNING of the original `images` vector.
+        images.erase(images.begin(), images.begin() + current_batch_count);
+        // --- MODIFICATION END ---
+
+        remaining_images_count = images.size(); // Update remaining count
 
         LOG_VERBOSE_TOPIC("BatchProcess", "Pose", "Processing a batch of " + std::to_string(current_batch_count) + " images.");
 
-        // 处理当前批次的图像
+        // Process the current batch of images
         std::vector<InferenceResult> batch_results_from_internal = process_single_batch_internal(
             current_batch_images_for_processing, // Pass images for this batch
             pose_model,
             pose_pp_params
         );
 
-        // 将当前批次的结果合并到最终输出中
+        // Append results from this batch to the final output
         final_output.insert(final_output.end(),
                             std::make_move_iterator(batch_results_from_internal.begin()),
                             std::make_move_iterator(batch_results_from_internal.end()));
@@ -278,7 +277,10 @@ EfficientNetCrops prepare_efficientnet_crops(const InferenceResult& image_result
         crops_output.cropped_images.push_back(final_efficientnet_input);
         crops_output.original_indices.push_back(i); // Store original index for mapping back
     }
+
+#if DEBUG
     LOG_VERBOSE_TOPIC("BatchProcess", "EfficientNet_Crops", "Prepared " + std::to_string(crops_output.cropped_images.size()) + " crops.");
+#endif
     return crops_output;
 }
 
@@ -295,7 +297,10 @@ std::vector<std::pair<int, std::vector<float>>> process_single_batch_feats(
     for (size_t i = 0; i < cropped_persons_batch.size(); ++i) {
         efficient_model->preprocess(cropped_persons_batch[i], i);
     }
+
+#if DEBUG
     LOG_VERBOSE_TOPIC("BatchProcess", "EfficientNet_Internal", "Preprocess completed for " + std::to_string(cropped_persons_batch.size()) + " persons.");
+#endif
 
     // Execute EfficientNet inference
     if (!efficient_model->inference()) {
@@ -306,7 +311,10 @@ std::vector<std::pair<int, std::vector<float>>> process_single_batch_feats(
         }
         return efficientnet_results_output;
     }
+
+#if DEBUG
     LOG_VERBOSE_TOPIC("BatchProcess", "EfficientNet_Internal", "Inference completed for current batch.");
+#endif
 
     // Postprocess EfficientNet results
     for (size_t i = 0; i < cropped_persons_batch.size(); ++i) {
@@ -324,7 +332,10 @@ std::vector<std::pair<int, std::vector<float>>> process_single_batch_feats(
         // The original index is implicitly `i` within this batch's context.
         efficientnet_results_output.push_back({static_cast<int>(i), std::move(result_vec)});
     }
+
+#if DEBUG
     LOG_VERBOSE_TOPIC("BatchProcess", "EfficientNet_Internal", "Postprocess completed for current batch.");
+#endif
 
     return efficientnet_results_output;
 }
