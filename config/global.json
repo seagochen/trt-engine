@@ -1,5 +1,0 @@
-{
-  "build_dir": "/opt/TrtEngineToolkits/build",
-  "test_video": "/opt/videos/football_01.mp4",
-  "resource_dir": "/opt/TrtEngineToolkits/pyengine/res"
-}

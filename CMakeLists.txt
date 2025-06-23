@@ -289,3 +289,15 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/config/"
         DESTINATION "${CMAKE_INSTALL_PREFIX}/config"
         OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
 )
+
+# 安装脚本文件
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/scripts/"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/scripts"
+        OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
+)
+
+# 安装资源文件
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/resources/"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/resources"
+        OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
+)
