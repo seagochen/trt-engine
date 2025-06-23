@@ -137,8 +137,15 @@ void add_image_to_pose_detection_pipeline(const unsigned char* image_data_in_bgr
     // Make sure to create a deep copy if original_image might go out of scope or change
     cv::Mat original_image(height, width, CV_8UC3, (void*)image_data_in_bgr, cv::Mat::AUTO_STEP);
 
+    // 由于 efficientnet 需要基于 yolo 的结果进行二次分析, 所以最好是将图片统一处理为 640x640 的大小
+    if (width != 640 || height != 640) {
+        cv::Mat resized_image;
+        cv::resize(original_image, resized_image, cv::Size(640, 640));
+        original_image = resized_image; // Update original_image to the resized version
+    }
+
     // Store the image in the global queue
-    g_image_queue.push_back(original_image.clone()); // Clone to ensure the data is owned by the queue
+    g_image_queue.push_back(original_image); // Clone to ensure the data is owned by the queue
     LOG_VERBOSE_TOPIC("C_API", "ImageQueue", "Image added to queue. Current queue size: " + std::to_string(g_image_queue.size()));
 }
 

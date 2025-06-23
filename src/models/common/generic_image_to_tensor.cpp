@@ -48,31 +48,32 @@ void imageToCudaTensor(
         throw std::runtime_error("Failed to allocate CUDA memory for cuda_temp_out: " + std::string(cudaGetErrorString(err_out)));
     }
 
-    // 1. 把图像调整为目标尺寸
-    cv::Mat resized;
-    cv::resize(image, resized, cv::Size(target_width, target_height), 0, 0, cv::INTER_LINEAR);
-    if (resized.empty()) {
-        cudaFree(cuda_temp_in);
-        cudaFree(cuda_temp_out);
-        throw std::runtime_error("Failed to resize image.");
-    }
+    // 用于后续处理的图像变量
+    cv::Mat processedImage;
 
-    // 检查调整后的图像通道数是否与目标尺寸的通道数匹配
-    if (resized.channels() != target_channels) {
-        cudaFree(cuda_temp_in);
-        cudaFree(cuda_temp_out);
-        throw std::runtime_error("Resized image channel count (" + std::to_string(resized.channels()) + 
-                                 ") does not match target dimensions' channels (" + std::to_string(target_channels) + ").");
+    // --- 图像尺寸处理逻辑 ---
+    // 如果输入图像的大小与目标尺寸不相同，则需要调整图像大小
+    if (image.size() != cv::Size(target_width, target_height)) {
+        cv::resize(image, processedImage, cv::Size(target_width, target_height), 0, 0, cv::INTER_LINEAR);
+        if (processedImage.empty()) {
+            cudaFree(cuda_temp_in);
+            cudaFree(cuda_temp_out);
+            throw std::runtime_error("Failed to resize image.");
+        }
+    } else {
+        // 如果尺寸相同，直接使用原始图像的副本进行后续处理，避免修改原图
+        image.copyTo(processedImage);
     }
+    // --- 图像尺寸处理逻辑结束 ---
 
     // 2. 如果需要，将图像从 BGR 转换为 RGB
     if (is_rgb && target_channels == 3) {
-        cv::cvtColor(resized, resized, cv::COLOR_BGR2RGB);
+        cv::cvtColor(processedImage, processedImage, cv::COLOR_BGR2RGB);
     }
 
     // 3. 将图像转换为浮点格式并归一化到 [0, 1] 范围
     cv::Mat floatImg;
-    resized.convertTo(floatImg, CV_32FC3, 1.0f / 255.0f);
+    processedImage.convertTo(floatImg, CV_32FC3, 1.0f / 255.0f);
 
     // 4. 将图像数据从 OpenCV Mat 拷贝到 CUDA 设备内存
     cudaError_t err_memcpy = cudaMemcpy(cuda_temp_in, floatImg.data, total_size * sizeof(float), cudaMemcpyHostToDevice);
@@ -90,7 +91,6 @@ void imageToCudaTensor(
 
     // 5. 如果提供了 mean/stdv 参数则进行归一化
     if (!mean.empty() && !stdv.empty()) {
-
         // 检查 mean 和 stdv 的大小是否与通道数匹配
         if (mean.size() != target_channels || stdv.size() != target_channels) {
             cudaFree(cuda_temp_in);
@@ -98,7 +98,6 @@ void imageToCudaTensor(
             throw std::runtime_error("Mean and standard deviation vectors must have size equal to channel count.");
         }
 
-        // 由于前面已经将元素整体调整为[0, 1]范围，因此当使用std/mean进行归一化时，不对元素执行/255.0f
         // image[i] = (image[i] - mean[i]) / stdv[i];
         sctImageSubC3(current_data_dev, next_output_dev,
             target_height, target_width, mean[0], mean[1], mean[2]);
@@ -119,7 +118,7 @@ void imageToCudaTensor(
     sctImagePermute(current_data_dev, next_output_dev,
         target_height, target_width, target_channels,
         2, 0, 1);
-    
+
     // 转置后，next_output_dev 现在持有最终的 CHW 数据。
     // 再次交换，使 current_data_dev 指向最终结果，便于后续统一清理
     std::swap(current_data_dev, next_output_dev); // current_data_dev 现在指向 CHW 结果
