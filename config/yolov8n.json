@@ -33,6 +33,8 @@
     "min_shapes": "images:1x3x640x640",
     "opt_shapes": "images:4x3x640x640",
     "max_shapes": "images:8x3x640x640",
+    "use_nvdla": true,
+    "nvdla_core_id": 0,
     "verbose": true
   }
 }

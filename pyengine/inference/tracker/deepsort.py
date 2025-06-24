@@ -9,7 +9,6 @@ from pyengine.inference.c_wrapper.c_pose_pipeline_wrapper import PosePipelineWra
 from pyengine.inference.tracker.tracker import UnifiedTrack
 
 
-# --- DeepSORT Tracker Class ---
 class DeepSORTTracker:
     def __init__(self, max_age: int = 30, min_hits: int = 3, iou_threshold: float = 0.5, reid_threshold: float = 0.4):
         self.tracks: List[UnifiedTrack] = []

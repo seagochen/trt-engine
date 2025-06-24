@@ -42,6 +42,8 @@
     "min_shapes": "input:1x3x224x224",
     "opt_shapes": "input:8x3x224x224",
     "max_shapes": "input:32x3x224x224",
+    "use_nvdla": true,
+    "nvdla_core_id": 0,
     "verbose": true
   }
 }
