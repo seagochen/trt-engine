@@ -44,7 +44,8 @@
     "max_shapes": "input:32x3x224x224",
     "use_nvdla": true,
     "nvdla_core_id": 0,
-    "verbose": true
+    "verbose": true,
+    "use_spin_wait": false
   }
 }
 

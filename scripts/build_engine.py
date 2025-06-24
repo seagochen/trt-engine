@@ -65,6 +65,13 @@ def build_tensorrt_engine(config_file):
     if verbose:
         base_command.append("--verbose")
 
+    # Add useSpinWait flag
+    use_spin_wait = trt_config.get("use_spin_wait", False)
+    if use_spin_wait:
+        base_command.append("--useSpinWait")
+        print(f"{WARNING_COLOR}Info: --useSpinWait is enabled, which may increase CPU utilization but reduce latency.{RESET_COLOR}")
+
+
     def run_trtexec_command(command, attempt_name=""):
         """Helper function to run trtexec and print output in real-time."""
         print(f"\n{'='*50}")
@@ -117,7 +124,7 @@ def build_tensorrt_engine(config_file):
     nvdla_core_id = trt_config.get("nvdla_core_id")
 
     if use_nvdla:
-        command_with_nvdla = list(base_command)
+        command_with_nvdla = list(base_command) # Create a copy for NVDLA specific flags
         if nvdla_core_id is not None:
             command_with_nvdla.append(f"--useDLACore={nvdla_core_id}")
         else:
@@ -187,7 +194,8 @@ if __name__ == "__main__":
             "max_shapes": "input:32x3x224x224",
             "use_nvdla": True,
             "nvdla_core_id": 0,
-            "verbose": True
+            "verbose": True,
+            "use_spin_wait": False # 新增的配置项，默认为False
         }
     }
 
