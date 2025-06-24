@@ -5,7 +5,6 @@ import sys
 import time
 
 # ANSI 颜色代码
-# WARNING_COLOR = '\033[93m' # Yellow
 WARNING_COLOR = '\033[33m' # Less bright yellow
 RESET_COLOR = '\033[0m'    # Reset to default color
 
@@ -47,8 +46,6 @@ def build_tensorrt_engine(config_file):
         base_command.append("--fp16")
     elif precision == "int8":
         base_command.append("--int8")
-        # For INT8, you'd typically need calibration, which is more complex.
-        # This example just adds --int8, but real-world usage would need --calib or other int8 flags.
         print(f"{WARNING_COLOR}Warning: INT8 precision selected. Full INT8 calibration setup is not included in this basic script.{RESET_COLOR}")
 
     # Add dynamic shapes
@@ -68,93 +65,94 @@ def build_tensorrt_engine(config_file):
     if verbose:
         base_command.append("--verbose")
 
-    # --- NVDLA Attempt Logic ---
-    use_nvdla = trt_config.get("use_nvdla", False)
-    nvdla_core_id = trt_config.get("nvdla_core_id") # Optional: allow specifying which core
-
-    attempt_with_nvdla = False
-    if use_nvdla:
-        command_with_nvdla = list(base_command) # Create a copy of the base command
-        if nvdla_core_id is not None:
-            command_with_nvdla.append(f"--useDLACore={nvdla_core_id}")
-        else:
-            command_with_nvdla.append("--useDLACore=0") # Default to core 0 if not specified
-        command_with_nvdla.append("--allowGPUFallback")
-        attempt_with_nvdla = True
-
-        print("\n" + "="*50)
-        print("TensorRT Engine Building Initiated (Attempting with NVDLA)")
-        print("="*50)
+    def run_trtexec_command(command, attempt_name=""):
+        """Helper function to run trtexec and print output in real-time."""
+        print(f"\n{'='*50}")
+        print(f"TensorRT Engine Building Initiated ({attempt_name})")
+        print(f"{'='*50}")
         print(f"Configuration file: {config_file}")
         print(f"Input ONNX: {onnx_path}")
         print(f"Output Engine: {target_path}")
         print(f"Precision: {precision}")
-        print(f"NVDLA Enabled: Yes (Core {nvdla_core_id if nvdla_core_id is not None else 0}) with GPU fallback.")
-        print(f"Generated Command: {' '.join(command_with_nvdla)}")
-        print("="*50 + "\n")
+        print(f"Generated Command: {' '.join(command)}")
+        print(f"{'='*50}\n")
 
+        process = None
         try:
-            # Execute command with NVDLA
-            process = subprocess.run(command_with_nvdla, check=True, text=True, capture_output=True)
-            print("STDOUT:\n", process.stdout)
-            if process.stderr:
-                print("STDERR:\n", process.stderr)
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+            
+            # Read output in real-time
+            while True:
+                output = process.stdout.readline()
+                if output == '' and process.poll() is not None:
+                    break
+                if output:
+                    print(output.strip()) # Print stdout lines as they come
+
+            # Read remaining stderr (if any, after stdout is done)
+            stderr_output = process.stderr.read()
+            if stderr_output:
+                print(f"{WARNING_COLOR}STDERR:\n{stderr_output.strip()}{RESET_COLOR}")
+
+            process.wait() # Wait for the process to truly finish
+
+            if process.returncode != 0:
+                # If there's an error and it's NVDLA related, we'll handle it outside
+                # Otherwise, it's a general trtexec error
+                return False, stderr_output # Return False and stderr for error handling
+            else:
+                return True, "" # Return True for success
+        except FileNotFoundError:
+            print(f"{WARNING_COLOR}Error: 'trtexec' command not found. Please ensure TensorRT is installed and configured in your PATH.{RESET_COLOR}")
+            return False, ""
+        except Exception as e:
+            print(f"{WARNING_COLOR}An unexpected error occurred: {e}{RESET_COLOR}")
+            return False, ""
+        finally:
+            if process and process.poll() is None: # If process is still running, terminate it
+                process.terminate()
+
+    # --- NVDLA Attempt Logic ---
+    use_nvdla = trt_config.get("use_nvdla", False)
+    nvdla_core_id = trt_config.get("nvdla_core_id")
+
+    if use_nvdla:
+        command_with_nvdla = list(base_command)
+        if nvdla_core_id is not None:
+            command_with_nvdla.append(f"--useDLACore={nvdla_core_id}")
+        else:
+            command_with_nvdla.append("--useDLACore=0")
+        command_with_nvdla.append("--allowGPUFallback")
+
+        print(f"NVDLA Enabled: Yes (Core {nvdla_core_id if nvdla_core_id is not None else 0}) with GPU fallback.")
+        
+        success, stderr = run_trtexec_command(command_with_nvdla, "Attempting with NVDLA")
+
+        if success:
             print("\n" + "="*50)
             print("TensorRT Engine Built Successfully with NVDLA!")
             print("="*50)
-            return # Successfully built with NVDLA, exit function
-
-        except subprocess.CalledProcessError as e:
-            if "Cannot create DLA engine" in e.stderr or "DLA not available" in e.stderr:
-                print(f"\n{WARNING_COLOR}⚠️ WARNING: NVDLA compilation failed. Reason: {e.stderr.strip().splitlines()[-1]}{RESET_COLOR}")
-                print(f"{WARNING_COLOR}⚠️ Attempting to build engine without NVDLA acceleration...{RESET_COLOR}")
-                time.sleep(1) # Small delay for readability
-            else:
-                # Other non-DLA related errors, re-raise or handle as critical
-                print(f"{WARNING_COLOR}Error: trtexec command failed with unexpected exit code {e.returncode}{RESET_COLOR}")
-                print("STDOUT:\n", e.stdout)
-                print("STDERR:\n", e.stderr)
-                return
-        except FileNotFoundError:
-            print(f"{WARNING_COLOR}Error: 'trtexec' command not found. Please ensure TensorRT is installed and configured in your PATH.{RESET_COLOR}")
             return
-        except Exception as e:
-            print(f"{WARNING_COLOR}An unexpected error occurred during NVDLA compilation attempt: {e}{RESET_COLOR}")
+        elif "Cannot create DLA engine" in stderr or "DLA not available" in stderr:
+            print(f"\n{WARNING_COLOR}⚠️ WARNING: NVDLA compilation failed. Reason: {stderr.strip().splitlines()[-1]}{RESET_COLOR}")
+            print(f"{WARNING_COLOR}⚠️ Attempting to build engine without NVDLA acceleration...{RESET_COLOR}")
+            time.sleep(1)
+        else:
+            print(f"{WARNING_COLOR}Error: trtexec command failed during NVDLA attempt.{RESET_COLOR}")
+            print(f"STDERR:\n{stderr}")
             return
-
 
     # --- GPU-only Fallback / Default Compilation ---
-    # This block will run if:
-    # 1. 'use_nvdla' was False in the config.
-    # 2. 'use_nvdla' was True, but the NVDLA compilation attempt failed.
-    
-    print("\n" + "="*50)
-    print("TensorRT Engine Building Initiated (GPU Only)")
-    print("="*50)
-    print(f"Configuration file: {config_file}")
-    print(f"Input ONNX: {onnx_path}")
-    print(f"Output Engine: {target_path}")
-    print(f"Precision: {precision}")
     print("NVDLA Enabled: No (or NVDLA compilation failed, falling back to GPU).")
-    print(f"Generated Command: {' '.join(base_command)}") # Note: This is base_command without NVDLA flags
-    print("="*50 + "\n")
+    success, stderr = run_trtexec_command(base_command, "GPU Only")
 
-    try:
-        process = subprocess.run(base_command, check=True, text=True, capture_output=True)
-        print("STDOUT:\n", process.stdout)
-        if process.stderr:
-            print("STDERR:\n", process.stderr)
+    if success:
         print("\n" + "="*50)
         print("TensorRT Engine Built Successfully (GPU Only)!")
         print("="*50)
-    except FileNotFoundError:
-        print(f"{WARNING_COLOR}Error: 'trtexec' command not found. Please ensure TensorRT is installed and configured in your PATH.{RESET_COLOR}")
-    except subprocess.CalledProcessError as e:
-        print(f"{WARNING_COLOR}Error: trtexec command failed with exit code {e.returncode}{RESET_COLOR}")
-        print("STDOUT:\n", e.stdout)
-        print("STDERR:\n", e.stderr)
-    except Exception as e:
-        print(f"{WARNING_COLOR}An unexpected error occurred during GPU-only compilation: {e}{RESET_COLOR}")
+    else:
+        print(f"{WARNING_COLOR}Error: trtexec command failed during GPU-only compilation.{RESET_COLOR}")
+        print(f"STDERR:\n{stderr}")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
