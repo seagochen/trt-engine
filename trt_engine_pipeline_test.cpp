@@ -17,8 +17,6 @@
 #include "trtengine/c_apis/c_pose_detection.h" // Includes C_Inference_Result and C_Extended_Person_Feats
 #include "trtengine/utils/logger.h"
 
-// Assuming YoloDrawer class is not directly used here.
-// The drawing logic is included in visualize_and_save_person_cutouts.
 
 /**
  * @brief Visualizes detected persons by cropping them from the original image,
@@ -132,10 +130,9 @@ void visualize_and_save_person_cutouts(
 
 int main()
 {
-    // Enable detailed logging for debugging
-    // This depends on your logger implementation. Example:
-    // Logger::setLogLevel(LogLevel::DEBUG_V3);
+    // -------------------------------------------- Initialization ----------------------------------------
 
+    // Define the paths to the YOLO and EfficientNet engines
     std::string yolo_engine_path = "/opt/models/yolov8s-pose_extend.engine";
     std::string efficient_engine_path = "/opt/models/efficientnet_b0_feat_logits.engine";
 
@@ -149,7 +146,6 @@ int main()
         LOG_ERROR("TrtEngineDemo", "Initialization failed for pose_extend detection pipeline.");
         return -1;
     }
-    LOG_INFO("TrtEngineDemo", "Pose detection pipeline initialized successfully");
 
     // Load test images
     std::vector<std::string> batch_images_paths = {
@@ -186,7 +182,14 @@ int main()
         }
         original_images_blobs.push_back(img);
     }
-    LOG_DEBUG_V2("TrtEngineDemo", "Loaded " + std::to_string(original_images_blobs.size()) + " images (original size) for pose_extend detection.");
+
+    LOG_DEBUG_V5_TOPIC("TrtEngineDemo", "#1 LOAD_IMAGES", 
+        "Loaded " + std::to_string(original_images_blobs.size()) + " images (original size) for pose_extend detection.");
+
+    // ----------------------------------------- Add Images to Pose Detection Pipeline ----------------------------------------
+
+    // Use a timer to measure the duration of the pose detection pipeline run
+    auto start_time = std::chrono::high_resolution_clock::now();
 
     // Add images to the pose_extend detection pipeline queue (using original_images_blobs's data, which will be resized internally)
     for (size_t i = 0; i < original_images_blobs.size(); ++i)
@@ -197,11 +200,20 @@ int main()
             std::to_string(original_images_blobs[i].cols) + "x" + std::to_string(original_images_blobs[i].rows));
     }
 
-    // Run pose_extend detection on the batch of images currently in the queue
-    LOG_INFO("TrtEngineDemo", "Starting pose_extend detection on the batch of images.");
+    // Ensure all images are added to the pipeline before running detection
+    auto end_time =  std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> add_duration = end_time - start_time;
+
+    LOG_DEBUG_V5_TOPIC("TrtEngineDemo", "#2 ADD_IMAGES",
+        "Added " + std::to_string(original_images_blobs.size()) + " images to the pipeline in " + std::to_string(add_duration.count()) + " ms.");
+
+    // ---------------------------------------- Run Pose Detection Pipeline ----------------------------------------
 
     C_Inference_Result* c_results_array = nullptr;
     int num_images_processed = 0;
+
+    // Measure the time taken to run the pose detection pipeline
+    start_time = std::chrono::high_resolution_clock::now();
 
     if (!run_pose_detection_pipeline(&c_results_array, &num_images_processed))
     {
@@ -210,9 +222,15 @@ int main()
         return -1;
     }
 
-    LOG_INFO("TrtEngineDemo", "Pose detection completed successfully. Received " + std::to_string(num_images_processed) + " results.");
+    end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> duration = end_time - start_time;
 
-    // --- Print Results --- (Your existing code)
+    LOG_DEBUG_V5_TOPIC("TrtEngineDemo", "#3 RUN_PIPELINE",
+        "Pose detection pipeline processed " + std::to_string(num_images_processed) + " images in " + std::to_string(duration.count()) + " ms.");
+
+    // ---------------------------------------- Processing Results ----------------------------------------
+    start_time = std::chrono::high_resolution_clock::now();
+
     if (c_results_array != nullptr && num_images_processed > 0) {
         for (int i = 0; i < num_images_processed; ++i) {
             const C_Inference_Result& image_result = c_results_array[i];
@@ -255,6 +273,14 @@ int main()
     std::string output_directory_name = "visual_cutouts";
     // Pass the already resized 640x640 images for visualization
     visualize_and_save_person_cutouts(original_images_blobs, c_results_array, num_images_processed, output_directory_name);
+
+    end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> processing_duration = end_time - start_time;
+
+    LOG_DEBUG_V5_TOPIC("TrtEngineDemo", "#4 PROCESS_RESULTS",
+        "Processed results for " + std::to_string(num_images_processed) + " images in " + std::to_string(processing_duration.count()) + " ms.");
+
+    // -------------------------------------------- Release Resources --------------------------------
 
     // Release inference results
     LOG_INFO("TrtEngineDemo", "Releasing inference results.");
