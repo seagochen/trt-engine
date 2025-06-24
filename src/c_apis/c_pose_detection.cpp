@@ -179,6 +179,11 @@ bool run_pose_detection_pipeline(C_Inference_Result** out_results, int *out_num_
         return true;
     }
 
+    // ----------------------------------- Start Stage 1 ----------------------------
+
+    // Print out the time
+    auto start_time = std::chrono::high_resolution_clock::now();
+
     // --- Stage 1: Run YOLOv8 Pose Detection Batch Processing ---
     // `g_image_queue` will be consumed by run_pose_detection_stage
     std::vector<InferenceResult> pose_stage_results = run_pose_detection_stage(
@@ -187,6 +192,18 @@ bool run_pose_detection_pipeline(C_Inference_Result** out_results, int *out_num_
         g_pose_pp_params
     );
 
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> elapsed = end_time - start_time;
+
+    LOG_INFO_TOPIC("C_API", "run_pose_detection_pipeline",
+        "Pose detection stage completed in " + std::to_string(elapsed.count()) + " ms, "
+        + std::to_string(pose_stage_results.size()) + " images processed.");
+
+
+    // ---------------------------- Start Stage 2 ----------------------------
+
+    start_time = std::chrono::high_resolution_clock::now(); // Reset timer for next stage
+
     // --- Stage 2: Run EfficientNet Classification/Feature Extraction ---
     // `pose_stage_results` is passed by const reference, so it's not modified.
     std::vector<InferenceResult> final_cpp_results = run_efficientnet_stage(
@@ -194,6 +211,15 @@ bool run_pose_detection_pipeline(C_Inference_Result** out_results, int *out_num_
         g_efficient_model,
         g_efficient_pp_params
     );
+
+    end_time = std::chrono::high_resolution_clock::now();
+    elapsed = end_time - start_time;    
+    LOG_INFO_TOPIC("C_API", "run_pose_detection_pipeline",
+        "EfficientNet stage completed in " + std::to_string(elapsed.count()) + " ms, "
+        + std::to_string(final_cpp_results.size()) + " results generated.");
+
+    // ---------------------------- Final Output Preparation ----------------------------
+    start_time = std::chrono::high_resolution_clock::now(); // Reset timer for final output preparation
 
     // --- Convert C++ results (std::vector<InferenceResult>) to C-compatible output (C_Inference_Result**) ---
     *out_num_results = static_cast<int>(final_cpp_results.size());
@@ -250,6 +276,12 @@ bool run_pose_detection_pipeline(C_Inference_Result** out_results, int *out_num_
                 "No detections for image " + std::to_string(i) + ", setting detections to nullptr.");
         }
     }
+
+    end_time = std::chrono::high_resolution_clock::now();
+    elapsed = end_time - start_time;
+    LOG_INFO_TOPIC("C_API", "run_pose_detection_pipeline",
+        "Final output preparation completed in " + std::to_string(elapsed.count()) + " ms, "
+        + std::to_string(*out_num_results) + " C_Inference_Result objects created.");
 
 #if DEBUG
     LOG_INFO("C_API", "Pipeline executed successfully and results converted to C structs.");

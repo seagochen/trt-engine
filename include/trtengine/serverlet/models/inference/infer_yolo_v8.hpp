@@ -183,7 +183,7 @@ void InferYoloV8<YoloResultType, ConvertFunc>::postprocess(int batchIdx, const s
 
     // 如果返回的结果数量小于等于0，表示没有有效的检测结果
     if (results_count <= 0) {
-        LOG_VERBOSE_TOPIC("InferYoloV8", "postprocess", "No valid results found after sct_yolo_post_proc.");
+        // LOG_VERBOSE_TOPIC("InferYoloV8", "postprocess", "No valid results found after sct_yolo_post_proc.");
         // results_out is already an empty vector, so nothing more to do here.
         return;
     }

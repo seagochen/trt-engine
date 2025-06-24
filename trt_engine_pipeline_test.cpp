@@ -17,6 +17,7 @@
 #include "trtengine/c_apis/c_pose_detection.h" // Includes C_Inference_Result and C_Extended_Person_Feats
 #include "trtengine/utils/logger.h"
 
+#define OUTPUT_INFORMATION 0
 
 /**
  * @brief Visualizes detected persons by cropping them from the original image,
@@ -130,11 +131,10 @@ void visualize_and_save_person_cutouts(
 
 int main()
 {
-    // -------------------------------------------- Initialization ----------------------------------------
-
-    // Define the paths to the YOLO and EfficientNet engines
-    std::string yolo_engine_path = "/opt/models/yolov8s-pose_extend.engine";
+    std::string yolo_engine_path = "/opt/models/yolov8n-pose.engine";
     std::string efficient_engine_path = "/opt/models/efficientnet_b0_feat_logits.engine";
+
+    // -------------------------------------------- Initialization ----------------------------------------
 
     // Initialize pose_extend detection pipeline
     if (!init_pose_detection_pipeline(
@@ -147,6 +147,33 @@ int main()
         return -1;
     }
 
+    // -------------------------------------------- Warmup Phase ----------------------------------------
+    LOG_INFO("TrtEngineDemo", "Starting warmup phase...");
+    cv::Mat warmup_img = cv::Mat(640, 640, CV_8UC3, cv::Scalar(128, 128, 128)); // A dummy grey image
+    
+    C_Inference_Result* warmup_results = nullptr;
+    int warmup_num_results = 0;
+
+    add_image_to_pose_detection_pipeline(warmup_img.data, warmup_img.cols, warmup_img.rows);
+    
+    auto warmup_start_time = std::chrono::high_resolution_clock::now();
+    if (!run_pose_detection_pipeline(&warmup_results, &warmup_num_results)) {
+        LOG_ERROR("TrtEngineDemo", "Warmup run failed!");
+        deinit_pose_detection_pipeline();
+        return -1;
+    }
+    auto warmup_end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> warmup_duration = warmup_end_time - warmup_start_time;
+    LOG_INFO("TrtEngineDemo", "Warmup completed in " + std::to_string(warmup_duration.count()) + " ms. Num results: " + std::to_string(warmup_num_results));
+
+    // Release warmup results immediately
+    if (warmup_results) {
+        release_inference_result(warmup_results, warmup_num_results);
+    }
+
+    // ---------------------------------------- Main Test Run ----------------------------------------
+    LOG_INFO("TrtEngineDemo", "Starting main test run.");
+
     // Load test images
     std::vector<std::string> batch_images_paths = {
         "/opt/images/supermarket/customer1.png",
@@ -157,14 +184,87 @@ int main()
         "/opt/images/supermarket/customer6.png",
         "/opt/images/supermarket/customer7.png",
         "/opt/images/supermarket/customer8.png",
-        "/opt/images/supermarket/staff1.png",
-        "/opt/images/supermarket/staff2.png",
-        "/opt/images/supermarket/staff3.png",
-        "/opt/images/supermarket/staff4.png",
-        "/opt/images/supermarket/staff5.png",
-        "/opt/images/supermarket/staff6.png",
-        "/opt/images/supermarket/staff7.png",
-        "/opt/images/supermarket/staff8.png",
+
+        "/opt/images/supermarket/customer1.png",
+        "/opt/images/supermarket/customer2.png",
+        "/opt/images/supermarket/customer3.png",
+        "/opt/images/supermarket/customer4.png",
+        "/opt/images/supermarket/customer5.png",
+        "/opt/images/supermarket/customer6.png",
+        "/opt/images/supermarket/customer7.png",
+        "/opt/images/supermarket/customer8.png",
+
+        "/opt/images/supermarket/customer1.png",
+        "/opt/images/supermarket/customer2.png",
+        "/opt/images/supermarket/customer3.png",
+        "/opt/images/supermarket/customer4.png",
+        "/opt/images/supermarket/customer5.png",
+        "/opt/images/supermarket/customer6.png",
+        "/opt/images/supermarket/customer7.png",
+        "/opt/images/supermarket/customer8.png",
+
+        "/opt/images/supermarket/customer1.png",
+        "/opt/images/supermarket/customer2.png",
+        "/opt/images/supermarket/customer3.png",
+        "/opt/images/supermarket/customer4.png",
+        "/opt/images/supermarket/customer5.png",
+        "/opt/images/supermarket/customer6.png",
+        "/opt/images/supermarket/customer7.png",
+        "/opt/images/supermarket/customer8.png",
+
+        "/opt/images/supermarket/customer1.png",
+        "/opt/images/supermarket/customer2.png",
+        "/opt/images/supermarket/customer3.png",
+        "/opt/images/supermarket/customer4.png",
+        "/opt/images/supermarket/customer5.png",
+        "/opt/images/supermarket/customer6.png",
+        "/opt/images/supermarket/customer7.png",
+        "/opt/images/supermarket/customer8.png",
+
+        "/opt/images/supermarket/customer1.png",
+        "/opt/images/supermarket/customer2.png",
+        "/opt/images/supermarket/customer3.png",
+        "/opt/images/supermarket/customer4.png",
+        "/opt/images/supermarket/customer5.png",
+        "/opt/images/supermarket/customer6.png",
+        "/opt/images/supermarket/customer7.png",
+        "/opt/images/supermarket/customer8.png",
+
+        "/opt/images/supermarket/customer1.png",
+        "/opt/images/supermarket/customer2.png",
+        "/opt/images/supermarket/customer3.png",
+        "/opt/images/supermarket/customer4.png",
+        "/opt/images/supermarket/customer5.png",
+        "/opt/images/supermarket/customer6.png",
+        "/opt/images/supermarket/customer7.png",
+        "/opt/images/supermarket/customer8.png",
+
+        "/opt/images/supermarket/customer1.png",
+        "/opt/images/supermarket/customer2.png",
+        "/opt/images/supermarket/customer3.png",
+        "/opt/images/supermarket/customer4.png",
+        "/opt/images/supermarket/customer5.png",
+        "/opt/images/supermarket/customer6.png",
+        "/opt/images/supermarket/customer7.png",
+        "/opt/images/supermarket/customer8.png",
+
+        "/opt/images/supermarket/customer1.png",
+        "/opt/images/supermarket/customer2.png",
+        "/opt/images/supermarket/customer3.png",
+        "/opt/images/supermarket/customer4.png",
+        "/opt/images/supermarket/customer5.png",
+        "/opt/images/supermarket/customer6.png",
+        "/opt/images/supermarket/customer7.png",
+        "/opt/images/supermarket/customer8.png",
+
+        "/opt/images/supermarket/customer1.png",
+        "/opt/images/supermarket/customer2.png",
+        "/opt/images/supermarket/customer3.png",
+        "/opt/images/supermarket/customer4.png",
+        "/opt/images/supermarket/customer5.png",
+        "/opt/images/supermarket/customer6.png",
+        "/opt/images/supermarket/customer7.png",
+        "/opt/images/supermarket/customer8.png",
     };
 
     // Read images (original sizes)
@@ -172,48 +272,44 @@ int main()
     for (const auto& image_path : batch_images_paths)
     {
         cv::Mat img = cv::imread(image_path, cv::IMREAD_COLOR);
-        cv::resize(img, img, cv::Size(640, 640)); // Resize to 640x640 for consistency
-
+        
         if (img.empty())
         {
             LOG_ERROR("TrtEngineDemo", "Failed to read image: " + image_path);
             deinit_pose_detection_pipeline();
             return -1;
         }
+        
+        // Resize to 640x640 for consistency and for visualization
+        cv::resize(img, img, cv::Size(640, 640));
+
         original_images_blobs.push_back(img);
     }
+    LOG_DEBUG_V2("TrtEngineDemo", "Loaded " + std::to_string(original_images_blobs.size()) + " images (640x640) for pose detection.");
 
-    LOG_DEBUG_V5_TOPIC("TrtEngineDemo", "#1 LOAD_IMAGES", 
-        "Loaded " + std::to_string(original_images_blobs.size()) + " images (original size) for pose_extend detection.");
-
-    // ----------------------------------------- Add Images to Pose Detection Pipeline ----------------------------------------
-
-    // Use a timer to measure the duration of the pose detection pipeline run
-    auto start_time = std::chrono::high_resolution_clock::now();
-
-    // Add images to the pose_extend detection pipeline queue (using original_images_blobs's data, which will be resized internally)
+    // Add images to the pose detection pipeline queue
+    auto add_start_time = std::chrono::high_resolution_clock::now();
     for (size_t i = 0; i < original_images_blobs.size(); ++i)
     {
         add_image_to_pose_detection_pipeline(original_images_blobs[i].data, original_images_blobs[i].cols, original_images_blobs[i].rows);
-        LOG_DEBUG_V1("TrtEngineDemo",
-            "Added image " + batch_images_paths[i] + " to pipeline queue, original size: " +
-            std::to_string(original_images_blobs[i].cols) + "x" + std::to_string(original_images_blobs[i].rows));
+        // LOG_DEBUG_V1("TrtEngineDemo",
+        //     "Added image " + batch_images_paths[i] + " to pipeline queue, current size: " +
+        //     std::to_string(original_images_blobs[i].cols) + "x" + std::to_string(original_images_blobs[i].rows));
     }
-
-    // Ensure all images are added to the pipeline before running detection
-    auto end_time =  std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> add_duration = end_time - start_time;
-
+    auto add_end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> add_duration = add_end_time - add_start_time;
     LOG_DEBUG_V5_TOPIC("TrtEngineDemo", "#2 ADD_IMAGES",
         "Added " + std::to_string(original_images_blobs.size()) + " images to the pipeline in " + std::to_string(add_duration.count()) + " ms.");
 
-    // ---------------------------------------- Run Pose Detection Pipeline ----------------------------------------
+
+    // Run pose detection on the batch of images currently in the queue
+    LOG_INFO("TrtEngineDemo", "Starting pose detection on the batch of images.");
 
     C_Inference_Result* c_results_array = nullptr;
     int num_images_processed = 0;
 
     // Measure the time taken to run the pose detection pipeline
-    start_time = std::chrono::high_resolution_clock::now();
+    auto run_pipeline_start_time = std::chrono::high_resolution_clock::now();
 
     if (!run_pose_detection_pipeline(&c_results_array, &num_images_processed))
     {
@@ -222,14 +318,16 @@ int main()
         return -1;
     }
 
-    end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> duration = end_time - start_time;
+    auto run_pipeline_end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> run_pipeline_duration = run_pipeline_end_time - run_pipeline_start_time;
 
     LOG_DEBUG_V5_TOPIC("TrtEngineDemo", "#3 RUN_PIPELINE",
-        "Pose detection pipeline processed " + std::to_string(num_images_processed) + " images in " + std::to_string(duration.count()) + " ms.");
+        "Pose detection pipeline processed " + std::to_string(num_images_processed) + " images in " + std::to_string(run_pipeline_duration.count()) + " ms.");
 
     // ---------------------------------------- Processing Results ----------------------------------------
-    start_time = std::chrono::high_resolution_clock::now();
+    auto process_results_start_time = std::chrono::high_resolution_clock::now();
+
+#if OUTPUT_INFORMATION
 
     if (c_results_array != nullptr && num_images_processed > 0) {
         for (int i = 0; i < num_images_processed; ++i) {
@@ -269,13 +367,14 @@ int main()
         std::cout << "No results array returned or no images processed.\n";
     }
 
+#endif // OUTPUT_INFORMATION
+
     // --- Visualize and Save Cutouts ---
     std::string output_directory_name = "visual_cutouts";
-    // Pass the already resized 640x640 images for visualization
     visualize_and_save_person_cutouts(original_images_blobs, c_results_array, num_images_processed, output_directory_name);
 
-    end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> processing_duration = end_time - start_time;
+    auto process_results_end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> processing_duration = process_results_end_time - process_results_start_time;
 
     LOG_DEBUG_V5_TOPIC("TrtEngineDemo", "#4 PROCESS_RESULTS",
         "Processed results for " + std::to_string(num_images_processed) + " images in " + std::to_string(processing_duration.count()) + " ms.");
@@ -291,6 +390,6 @@ int main()
     LOG_INFO("TrtEngineDemo", "Starting to deinitialize pose_extend detection pipeline.");
     deinit_pose_detection_pipeline();
     LOG_INFO("TrtEngineDemo", "Pose detection pipeline deinitialized successfully.");
-
+    
     return 0;
 }

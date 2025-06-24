@@ -29,7 +29,7 @@ void test_yolo_pose()
 
     // 创建 YOLOv8 姿态估计模型
     std::unique_ptr<InferModelBaseMulti> pose_model = ModelFactory::createModel(
-        "YoloV8_Pose", "/opt/models/yolov8s-pose_extend.engine", params
+        "YoloV8_Pose", "/opt/models/yolov8s-pose.engine", params
     );
 
     // 检查模型是否成功创建
@@ -208,7 +208,7 @@ void test_yolo_pose_efficient()
 
     // 创建 YOLOv8 姿态估计模型
     std::unique_ptr<InferModelBaseMulti> pose_model = ModelFactory::createModel(
-        "YoloV8_Pose", "/opt/models/yolov8s-pose_extend.engine", params1
+        "YoloV8_Pose", "/opt/models/yolov8s-pose.engine", params1
     );
     if (!pose_model) {
         std::cerr << "Failed to create YOLOv8 Pose Estimation Model." << std::endl;
@@ -254,7 +254,7 @@ void test_yolo_pose_efficient()
     try {
         pose_detections = std::any_cast<std::vector<YoloPose>>(pose_results);
     } catch (const std::bad_any_cast& e) {
-        std::cerr << "Error casting pose_extend results: " << e.what() << std::endl;
+        std::cerr << "Error casting pose results: " << e.what() << std::endl;
         return;
     }
 
@@ -317,15 +317,15 @@ void test_yolo_pose_efficient()
 
             if (!current_person_feat_cls.empty()) {
                 int predicted_class = static_cast<int>(current_person_feat_cls[0]);
-                std::cout << "  Person " << i << ": Predicted class: " << predicted_class
-                          << ", Feature vector size: " << current_person_feat_cls.size() - 1 << std::endl;
+                std::cout << "   Person " << i << ": Predicted class: " << predicted_class
+                                  << ", Feature vector size: " << current_person_feat_cls.size() - 1 << std::endl;
 
                 // **核心修改：使用引用来更新原始向量中的元素**
                 auto& pose = pose_detections[i]; // 注意这里的 '&'
                 pose.cls = static_cast<float>(predicted_class); // 确保 cls 是 float 类型
 
             } else {
-                std::cout << "  Person " << i << ": No EfficientNet results found." << std::endl;
+                std::cout << "   Person " << i << ": No EfficientNet results found." << std::endl;
             }
 
         } catch (const std::bad_any_cast& e) {
@@ -384,7 +384,6 @@ void test_efficientnet_throughput() {
     const int image_channels = 3;
 
     // Test batch sizes
-    // std::vector<int> batch_sizes = {2, 4, 8, 16, 32};  // 16, 32, 64, 128 are too large for EfficientNet B0
     std::vector<int> batch_sizes = {1, 2, 4, 8, 16, 32}; // Adjusted for more realistic testing
     const int num_iterations = 100; // Number of times to run inference for each batch size
 
@@ -393,6 +392,9 @@ void test_efficientnet_throughput() {
 
         std::map<std::string, std::any> params;
         params["maximum_batch"] = current_batch_size;
+        // EfficientNet的推理特征和样本数量，确保params包含必要项
+        params["infer_features"] = 1000; // EfficientNet输出特征通常是类别数，例如ImageNet有1000类
+        params["infer_samples"] = 1;     // 通常对每个图片一个输出样本
 
         std::unique_ptr<InferModelBaseMulti> efficient_model = ModelFactory::createModel(
             "EfficientNet", engine_path, params
@@ -427,7 +429,7 @@ void test_efficientnet_throughput() {
                 efficient_model->postprocess(i, params, results_out);
                 // Optionally, cast and check results to ensure correctness, but not strictly needed for throughput
                 // try {
-                //     auto results_vec = std::any_cast<std::vector<float>>(results_out);
+                //      auto results_vec = std::any_cast<std::vector<float>>(results_out);
                 // } catch(...) {}
             }
         }
@@ -438,12 +440,88 @@ void test_efficientnet_throughput() {
         double total_images_processed = static_cast<double>(num_iterations) * current_batch_size;
         double throughput_ips = total_images_processed / duration.count();
 
-        std::cout << "  Total images processed: " << total_images_processed << std::endl;
-        std::cout << "  Total time taken: " << duration.count() << " seconds" << std::endl;
-        std::cout << "  Throughput: " << throughput_ips << " images/second" << std::endl;
+        std::cout << "   Total images processed: " << total_images_processed << std::endl;
+        std::cout << "   Total time taken: " << duration.count() << " seconds" << std::endl;
+        std::cout << "   Throughput: " << throughput_ips << " images/second" << std::endl;
         std::cout << std::endl;
     }
 }
+
+
+/**
+ * @brief Tests YoloPose throughput for various batch sizes.
+ * Creates random images and measures processing time.
+ */
+void test_yolo_pose_throughput() {
+    const std::string engine_path = "/opt/models/yolov8s-pose.engine";
+    const int image_width = 640;
+    const int image_height = 640;
+    const int image_channels = 3;
+
+    // Test batch sizes
+    std::vector<int> batch_sizes = {1, 2, 4, 8};
+    const int num_iterations = 100; // Number of times to run inference for each batch size
+
+    for (int current_batch_size : batch_sizes) {
+        std::cout << "--- Testing YoloPose with batch size: " << current_batch_size << " ---" << std::endl;
+
+        std::map<std::string, std::any> params;
+        params["maximum_batch"] = current_batch_size;
+        // ADDED: Post-processing parameters for YoloPose
+        params["cls"] = 0.4f; // Confidence threshold
+        params["iou"] = 0.5f; // IoU threshold
+        // 关键修复：添加YoloPose模型后处理所需的参数
+        params["maximum_items"] = 100;  // 从test_yolo_pose中获取的参数
+        params["infer_features"] = 56;  // 从test_yolo_pose中获取的参数
+        params["infer_samples"] = 8400; // 从test_yolo_pose中获取的参数
+
+        std::unique_ptr<InferModelBaseMulti> yolo_pose_model = ModelFactory::createModel(
+            "YoloV8_Pose", engine_path, params
+        );
+
+        if (!yolo_pose_model) {
+            std::cerr << "Failed to create YoloPose model for batch size " << current_batch_size << ". Skipping." << std::endl;
+            continue;
+        }
+
+        // Generate random images for the current batch size
+        std::vector<cv::Mat> random_images(current_batch_size);
+        for (int i = 0; i < current_batch_size; ++i) {
+            random_images[i] = generate_random_image(image_width, image_height, image_channels);
+        }
+
+        auto start_time = std::chrono::high_resolution_clock::now();
+
+        for (int iter = 0; iter < num_iterations; ++iter) {
+            // Preprocess batch
+            for (int i = 0; i < current_batch_size; ++i) {
+                yolo_pose_model->preprocess(random_images[i], i);
+            }
+
+            // Inference
+            yolo_pose_model->inference();
+
+            // Postprocess (results for each item in batch)
+            for (int i = 0; i < current_batch_size; ++i) {
+                std::any results_out;
+                // Pass the `params` map which now includes "cls" and "iou" and other necessary parameters
+                yolo_pose_model->postprocess(i, params, results_out);
+            }
+        }
+
+        auto end_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = end_time - start_time;
+
+        double total_images_processed = static_cast<double>(num_iterations) * current_batch_size;
+        double throughput_ips = total_images_processed / duration.count();
+
+        std::cout << "   Total images processed: " << total_images_processed << std::endl;
+        std::cout << "   Total time taken: " << duration.count() << " seconds" << std::endl;
+        std::cout << "   Throughput: " << throughput_ips << " images/second" << std::endl;
+        std::cout << std::endl;
+    }
+}
+
 
 /**
  * @brief Performs a memory leak stress test for a given model.
@@ -506,23 +584,23 @@ void test_memory_leak_stress(const std::string& model_name,
         if (model_name == "YoloV8_Pose" || model_name == "YoloV8_Detection") {
             try {
                 auto results_vec = std::any_cast<std::vector<YoloPose>>(results_out); // or std::vector<Yolo>
-                // std::cout << "  YOLO detections in iteration " << i << ": " << results_vec.size() << std::endl;
+                // std::cout << "   YOLO detections in iteration " << i << ": " << results_vec.size() << std::endl;
             } catch (const std::bad_any_cast& e) {
-                // std::cerr << "  Warning: Bad cast in iteration " << i << " for YOLO model: " << e.what() << std::endl;
+                // std::cerr << "   Warning: Bad cast in iteration " << i << " for YOLO model: " << e.what() << std::endl;
             }
         } else if (model_name == "EfficientNet") {
             try {
                 auto results_vec = std::any_cast<std::vector<float>>(results_out);
-                // std::cout << "  EfficientNet result size in iteration " << i << ": " << results_vec.size() << std::endl;
+                // std::cout << "   EfficientNet result size in iteration " << i << ": " << results_vec.size() << std::endl;
             } catch (const std::bad_any_cast& e) {
-                // std::cerr << "  Warning: Bad cast in iteration " << i << " for EfficientNet: " << e.what() << std::endl;
+                // std::cerr << "   Warning: Bad cast in iteration " << i << " for EfficientNet: " << e.what() << std::endl;
             }
         }
         
         // Print memory usage periodically
         if ((i + 1) % (num_iterations / 10) == 0) { // Print 10 times during the test
             long current_rss = getCurrentRSS();
-            std::cout << "  Iteration " << (i + 1) << "/" << num_iterations << ", Current RSS: " << current_rss << " KB, Diff: " << (current_rss - initial_rss) << " KB" << std::endl;
+            std::cout << "   Iteration " << (i + 1) << "/" << num_iterations << ", Current RSS: " << current_rss << " KB, Diff: " << (current_rss - initial_rss) << " KB" << std::endl;
         }
     }
 
@@ -565,6 +643,11 @@ int main() {
     test_efficientnet_throughput();
     std::cout << YELLOW_LINE << std::endl;
 
+    // 2. YOLOv8 Pose 吞吐量测试
+    std::cout << YELLOW << "Starting YOLOv8 Pose Throughput Test..." << RESET << std::endl;
+    test_yolo_pose_throughput();
+    std::cout << YELLOW_LINE << std::endl;
+
     // 2. 内存溢出/泄露测试 (1万次请求)
     std::cout << YELLOW << "Starting Memory Leak Stress Tests (10,000 iterations each)..." << RESET << std::endl;
 
@@ -576,7 +659,7 @@ int main() {
     yolo_pose_params["infer_samples"] = 8400;
     yolo_pose_params["cls"] = 0.4f;
     yolo_pose_params["iou"] = 0.5f;
-    test_memory_leak_stress("YoloV8_Pose", "/opt/models/yolov8s-pose_extend.engine", yolo_pose_params, "/opt/images/human_and_pets.png", true);
+    test_memory_leak_stress("YoloV8_Pose", "/opt/models/yolov8s-pose.engine", yolo_pose_params, "/opt/images/human_and_pets.png", true);
 
     // YOLOv8 Detection
     std::map<std::string, std::any> yolo_detection_params;
@@ -591,6 +674,9 @@ int main() {
     // EfficientNet
     std::map<std::string, std::any> efficientnet_params_leak_test;
     efficientnet_params_leak_test["maximum_batch"] = 1; // Fixed for this test
+    // 为EfficientNet模型添加预期的infer_features和infer_samples
+    efficientnet_params_leak_test["infer_features"] = 1000;
+    efficientnet_params_leak_test["infer_samples"] = 1;
     test_memory_leak_stress("EfficientNet", "/opt/models/efficientnet_b0_feat_logits.engine", efficientnet_params_leak_test, "/opt/images/apples.png", false);
 
     std::cout << YELLOW_LINE << std::endl;
