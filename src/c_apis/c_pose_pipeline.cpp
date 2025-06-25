@@ -87,7 +87,11 @@ extern "C" {
                     free(c_poses); // Free the main poses array
                     return nullptr;
                 }
-                std::ranges::copy(cpp_poses[i].feats, c_poses[i].feats);
+                // std::ranges::copy(cpp_poses[i].feats, c_poses[i].feats); // This requires C++20, use an alternative in C++17
+                // for (size_t k = 0; k < cpp_poses[i].feats.size(); ++k) {
+                    // c_poses[i].feats[k] = cpp_poses[i].feats[k];
+                // }
+                std::memcpy(c_poses[i].feats, cpp_poses[i].feats.data(), cpp_poses[i].feats.size() * sizeof(float));
             }
         }
         return c_poses;
