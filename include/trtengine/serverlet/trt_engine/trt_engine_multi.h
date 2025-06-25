@@ -40,29 +40,35 @@ public:
      *
      * @param inputs   与 createContext 时 input_names 顺序一致的 device Tensor 列表
      * @param outputs  与 createContext 时 output_names 顺序一致的 device Tensor 列表
-     * @param stream   用于 enqueueV3 的 CUDA 流
      */
     bool infer(
         const std::vector<Tensor<float>*>& inputs,
-        const std::vector<Tensor<float>*>& outputs,
-        cudaStream_t stream
-      ) const;
+        const std::vector<Tensor<float>*>& outputs
+    ) const;
+
+    /**
+     * 获取当前 CUDA 流
+     * @return 返回当前的 CUDA 流
+     */
+    [[nodiscard]]
+    cudaStream_t getCudaStream() const { return cuda_stream; }
 
 
 private:
     // TensorRT 核心对象
-    nvinfer1::IRuntime*         g_ptr_runtime  = nullptr;
-    nvinfer1::ICudaEngine*      g_ptr_engine   = nullptr;
-    nvinfer1::IExecutionContext* g_ptr_context = nullptr;
+    nvinfer1::IRuntime*             ptr_runtime     = nullptr;
+    nvinfer1::ICudaEngine*          ptr_engine      = nullptr;
+    nvinfer1::IExecutionContext*    ptr_context     = nullptr;
+    cudaStream_t                    cuda_stream     = nullptr; // CUDA 流
 
     // 记录名字用于后续绑定
-    std::vector<std::string>     m_inputNames;
-    std::vector<std::string>     m_outputNames;
+    std::vector<std::string>     vec_inputNames;
+    std::vector<std::string>     vec_outputNames;
 
     // Logger
     class NvLogger : public nvinfer1::ILogger {
         void log(Severity sev, const char* msg) noexcept override;
-    } g_logger;
+    } cuda_logger;
 
     void cleanup();
 };

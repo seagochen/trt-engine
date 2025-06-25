@@ -35,13 +35,32 @@ void TrtEngineMultiTs::NvLogger::log(Severity severity, const char* msg) noexcep
 // --------------------------------------
 // 构造 / 析构
 // --------------------------------------
-TrtEngineMultiTs::TrtEngineMultiTs() {}
-TrtEngineMultiTs::~TrtEngineMultiTs() { cleanup(); }
+TrtEngineMultiTs::TrtEngineMultiTs()
+{
+    // 初始化 CUDA 流
+    if (cudaStreamCreate(&cuda_stream) != cudaSuccess) {
+        LOG_ERROR_TOPIC("TrtEngineMultiTs", "Constructor", "Failed to create CUDA stream.");
+        cuda_stream = nullptr;  // 确保流创建失败时不使用无效指针
+    }
+}
+
+TrtEngineMultiTs::~TrtEngineMultiTs()
+{
+    // 先销毁 CUDA 流
+    if (cuda_stream) {
+        cudaStreamDestroy(cuda_stream);
+        cuda_stream = nullptr;  // 确保流销毁后指针不再指向无效内存
+    }
+
+    // 清理 TensorRT 相关资源
+    cleanup();
+}
 
 void TrtEngineMultiTs::cleanup() {
-    if (g_ptr_context)  { delete g_ptr_context;  g_ptr_context  = nullptr; }
-    if (g_ptr_engine)   { delete g_ptr_engine;   g_ptr_engine   = nullptr; }
-    if (g_ptr_runtime)  { delete g_ptr_runtime;  g_ptr_runtime  = nullptr; }
+    // 修复：对于这些 TensorRT 接口对象，应使用 delete 运算符释放，而不是 destroy()
+    if (ptr_context)  { delete ptr_context;  ptr_context  = nullptr; }
+    if (ptr_engine)   { delete ptr_engine;   ptr_engine   = nullptr; }
+    if (ptr_runtime)  { delete ptr_runtime;  ptr_runtime  = nullptr; }
 }
 
 bool TrtEngineMultiTs::loadFromFile(const std::string& engineFile) {
@@ -68,16 +87,16 @@ bool TrtEngineMultiTs::loadFromFile(const std::string& engineFile) {
     }
 
     // Deserialize the engine
-    g_ptr_runtime = nvinfer1::createInferRuntime(g_logger);
-    if (!g_ptr_runtime) {
+    ptr_runtime = nvinfer1::createInferRuntime(cuda_logger);
+    if (!ptr_runtime) {
         LOG_ERROR_TOPIC("TrtEngineMultiTs", "loadFromFile",
             "Failed to create TensorRT runtime.");
         return false;
     }
 
     // Deserialize the engine
-    g_ptr_engine = g_ptr_runtime->deserializeCudaEngine(vec_data.data(), uint64_length);
-    if (!g_ptr_engine) {
+    ptr_engine = ptr_runtime->deserializeCudaEngine(vec_data.data(), uint64_length);
+    if (!ptr_engine) {
         LOG_ERROR_TOPIC("TrtEngineMultiTs", "loadFromFile",
             "Failed to deserialize engine from file: " + engineFile);
         return false;
@@ -93,7 +112,7 @@ bool TrtEngineMultiTs::loadFromONNX(const std::string& onnxFile) {
     cleanup();
 
     // Create the builder
-    nvinfer1::IBuilder* ptr_builder = nvinfer1::createInferBuilder(g_logger);
+    nvinfer1::IBuilder* ptr_builder = nvinfer1::createInferBuilder(cuda_logger);
     if (!ptr_builder) {
         LOG_ERROR_TOPIC("TrtEngineMultiTs", "loadFromONNX",
             "Failed to create TensorRT builder.");
@@ -124,7 +143,7 @@ bool TrtEngineMultiTs::loadFromONNX(const std::string& onnxFile) {
 #endif
 
     // Create the parser
-    auto* ptr_parser = nvonnxparser::createParser(*ptr_network, g_logger);
+    auto* ptr_parser = nvonnxparser::createParser(*ptr_network, cuda_logger);
     if (!ptr_parser) {
         LOG_ERROR_TOPIC("TrtEngineMultiTs", "loadFromONNX", "Failed to create parser.");
         delete ptr_network;
@@ -191,8 +210,8 @@ bool TrtEngineMultiTs::loadFromONNX(const std::string& onnxFile) {
     }
 
     // Create the runtime
-    g_ptr_runtime = nvinfer1::createInferRuntime(g_logger);
-    if (!g_ptr_runtime) {
+    ptr_runtime = nvinfer1::createInferRuntime(cuda_logger);
+    if (!ptr_runtime) {
         LOG_ERROR_TOPIC("TrtEngineMultiTs", "loadFromONNX", "Failed to create runtime.");
         delete ptr_parser;
         delete ptr_network;
@@ -202,8 +221,8 @@ bool TrtEngineMultiTs::loadFromONNX(const std::string& onnxFile) {
     }
 
     // Deserialize the engine
-    g_ptr_engine = g_ptr_runtime->deserializeCudaEngine(ptr_serialized->data(), ptr_serialized->size());
-    if (!g_ptr_engine) {
+    ptr_engine = ptr_runtime->deserializeCudaEngine(ptr_serialized->data(), ptr_serialized->size());
+    if (!ptr_engine) {
         LOG_ERROR_TOPIC("TrtEngineMultiTs", "loadFromONNX", "Failed to deserialize engine.");
         delete ptr_parser;
         delete ptr_network;
@@ -225,7 +244,7 @@ bool TrtEngineMultiTs::loadFromONNX(const std::string& onnxFile) {
 
 //-----------------------------------------------------------------------------
 // createContext：替代旧的 getNbBindings/getBindingIndex/setBindingDimensions
-// - 用 setInputShape 设置动态输入形状  :contentReference[oaicite:0]{index=0}
+// - 用 setInputShape 设置动态输入形状
 // - 不再需要显式索引绑定，后续通过名字 setTensorAddress 绑定内存
 //-----------------------------------------------------------------------------
 bool TrtEngineMultiTs::createContext(
@@ -233,20 +252,20 @@ bool TrtEngineMultiTs::createContext(
         const std::vector<nvinfer1::Dims4>& input_dims,
         const std::vector<std::string>& output_names)
 {
-    if (!g_ptr_engine) {
+    if (!ptr_engine) {
         LOG_ERROR_TOPIC("TrtEngineMultiTs", "createContext", "Engine is not loaded.");
         return false;
     }
 
     // 销毁旧 context（如有）
-    if (g_ptr_context) {
-        delete g_ptr_context;
-        g_ptr_context = nullptr;
+    if (ptr_context) {
+        delete ptr_context; // 修复：使用 delete
+        ptr_context = nullptr;
     }
 
     // 创建新 context
-    g_ptr_context = g_ptr_engine->createExecutionContext();
-    if (!g_ptr_context) {
+    ptr_context = ptr_engine->createExecutionContext();
+    if (!ptr_context) {
         LOG_ERROR_TOPIC("TrtEngineMultiTs", "createContext", "Failed to create execution context.");
         return false;
     }
@@ -258,7 +277,7 @@ bool TrtEngineMultiTs::createContext(
         return false;
     }
     for (size_t i = 0; i < input_names.size(); ++i) {
-        if (!g_ptr_context->setInputShape(
+        if (!ptr_context->setInputShape(
                 input_names[i].c_str(), input_dims[i])) {
             LOG_ERROR_TOPIC("TrtEngineMultiTs", "createContext",
                             "Failed to set input shape for: " + input_names[i]);
@@ -267,63 +286,71 @@ bool TrtEngineMultiTs::createContext(
     }
 
     // 记录名字，供 infer 时绑定内存
-    m_inputNames  = input_names;
-    m_outputNames = output_names;
+    vec_inputNames  = input_names;
+    vec_outputNames = output_names;
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // infer：替代旧的 executeV2/enqueueV2 + getBindingIndex + bindings 数组
-// - 用 setInputTensorAddress/setOutputTensorAddress 绑定内存  :contentReference[oaicite:1]{index=1}
-// - 使用 enqueueV3 执行推理（V2/V1 都已弃用）    :contentReference[oaicite:2]{index=2}
+// - 用 setInputTensorAddress/setOutputTensorAddress 绑定内存
+// - 使用 enqueueV3 执行推理（V2/V1 都已弃用）
 //-----------------------------------------------------------------------------
 bool TrtEngineMultiTs::infer(
         const std::vector<Tensor<float>*>& inputs,
-        const std::vector<Tensor<float>*>& outputs,
-        cudaStream_t stream
-      ) const
+        const std::vector<Tensor<float>*>& outputs) const
 {
-    if (!g_ptr_context) {
+    if (!ptr_context) {
         LOG_ERROR_TOPIC("TrtEngineMultiTs", "infer", "ExecutionContext does not exist.");
         return false;
     }
-    if (inputs.size()  != m_inputNames.size()  ||
-        outputs.size() != m_outputNames.size()) {
+    if (inputs.size()  != vec_inputNames.size()  ||
+        outputs.size() != vec_outputNames.size()) {
         LOG_ERROR_TOPIC("TrtEngineMultiTs", "infer", "Input/Output size mismatch with context.");
         return false;
     }
 
-    // 只有在 TensorRT 8.6+ 版本才支持新的 API: setInput/OutputTensorAddress + enqueueV3
+    // 只有在 TensorRT 8.6+ 版本才支持新的 API
 #if (NV_TENSORRT_MAJOR > 8) || (NV_TENSORRT_MAJOR == 8 && NV_TENSORRT_MINOR > 6)
-    // ---- TensorRT 8.6+ 新 API 路径 ----
+    /**
+     * 8.6+ 版本之后，使用 setInputTensorAddress 和 setOutputTensorAddress 以及 enqueueV3 来执行推理
+     */
+
+    // 将输入张量的地址绑定到 context
     for (size_t i = 0; i < inputs.size(); ++i) {
-        if (!g_ptr_context->setInputTensorAddress(
-                m_inputNames[i].c_str(),
+        if (!ptr_context->setInputTensorAddress(
+                vec_inputNames[i].c_str(),
                 inputs[i]->ptr()))
         {
             LOG_ERROR_TOPIC("TrtEngineMultiTs", "infer",
-                "setInputTensorAddress failed: " + m_inputNames[i]);
+                "setInputTensorAddress failed: " + vec_inputNames[i]);
             return false;
         }
     }
+
+    // 将输出张量的地址绑定到 context
     for (size_t i = 0; i < outputs.size(); ++i) {
-        void* outPtr = static_cast<void*>(
-            const_cast<float*>(outputs[i]->ptr()));
-        if (!g_ptr_context->setOutputTensorAddress(
-                m_outputNames[i].c_str(),
+        auto outPtr = outputs[i]->ptr();
+        if (!ptr_context->setOutputTensorAddress(
+                vec_outputNames[i].c_str(),
                 outPtr))
         {
             LOG_ERROR_TOPIC("TrtEngineMultiTs", "infer",
-                "setOutputTensorAddress failed: " + m_outputNames[i]);
+                "setOutputTensorAddress failed: " + vec_outputNames[i]);
             return false;
         }
     }
-    if (!g_ptr_context->enqueueV3(stream)) {
+
+    // 执行推理
+    if (!ptr_context->enqueueV3(cuda_stream)) {
         LOG_DEBUG_TOPIC("TrtEngineMultiTs", "infer",
             "Failed to enqueueV3 with bindings: " +
             std::to_string(inputs.size() + outputs.size()));
         return false;
     }
+
+    // 推理完成后同步 CUDA 流，确保结果可用且资源可以被安全访问
+    cudaStreamSynchronize(cuda_stream);
 
 #else
     // ---- TensorRT 8.5 及以下老 API 路径 ----

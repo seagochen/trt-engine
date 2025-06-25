@@ -7,7 +7,7 @@
 #include <opencv2/opencv.hpp>
 
 #include "trtengine/serverlet/models/infer_model_multi.h"
-#include "trtengine/serverlet/models/common/generic_image_to_tensor.h"
+#include "trtengine/serverlet/models/cuda_tensor_processor.h"
 #include "trtengine/utils/logger.h"
 
 
@@ -51,6 +51,8 @@ private:
 
     std::vector<float> vec_types;  // 用于存储类别 logits
     std::vector<float> vec_feats;  // 用于存储特征向量
+
+    CudaTensorProcessor tensor_processor; // 用于图像预处理和数据转换
 };
 
 
@@ -67,7 +69,8 @@ inline EfficientFeats::EfficientFeats(
       maximum_batch(maximum_batch),
       image_width(224),
       image_height(224),
-      image_channels(3)
+      image_channels(3),
+      tensor_processor(image_height, image_width, image_channels)  // 初始化 CudaTensorProcessor
 {
     // 初始化输出缓冲区
     vec_feats.resize(256);
@@ -103,14 +106,11 @@ inline void EfficientFeats::preprocess(const cv::Mat& image, int batchIdx) {
         return;
     }
 
-    // 转换并拷贝图像到 CUDA 设备，同时进行 BGR 到 RGB 转换和归一化
-    imageToCudaTensor(
-        image,              // 输入图像
-        cuda_device_ptr,    // CUDA 设备指针
-        image_height,       // 目标高度
-        image_width,        // 目标宽度
-        image_channels,     // 目标通道数
-        true,               // 执行 BGR 到 RGB 转换
+    // 使用 CudaTensorProcessor 进行图像预处理和数据转换
+    tensor_processor.transformImage(
+        image,              // 输入图像 (cv::Mat)
+        cuda_device_ptr,    // CUDA 设备输出指针
+        true,               // 执行 BGR 到 RGB 的转换
         mean,               // 归一化均值
         stdv                // 归一化标准差
     );
@@ -133,7 +133,6 @@ inline void EfficientFeats::postprocess(int batchIdx, const std::map<std::string
         LOG_ERROR("EfficientNetFeatCls", "Postprocess: batchIdx (" + std::to_string(batchIdx) + ") >= maximumBatch (" + std::to_string(maximum_batch) + ")");
         return;
     }
-
 
     // 从 CUDA 输出缓冲区拷贝数据到 CPU 向量
     // 这些函数应自动处理 feats 和 types 的内存分配

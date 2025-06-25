@@ -10,7 +10,7 @@
 
 // Project-specific includes
 #include "trtengine/serverlet/models/infer_model_multi.h"
-#include "trtengine/serverlet/models/common/generic_image_to_tensor.h"
+#include "trtengine/serverlet/models/cuda_tensor_processor.h"
 #include "trtengine/serverlet/models/common/yolo_dstruct.h"
 #include "trtengine/serverlet/models/common/yolo_nms.hpp"
 #include "trtengine/serverlet/models/common/yolo_postprocess.h"
@@ -66,8 +66,9 @@ private:
     int infer_features;     // Number of output features per sample (e.g., 84 for Obj, 56 for Pose)
     int infer_samples;      // Number of output samples (fixed to 8400 for YOLOv8)
 
-    std::vector<float> vec_output; // Output buffer for postprocessing
-    ConvertFunc converter_func;    // Function object for converting raw output to structured Yolo objects
+    std::vector<float>      vec_output;         // Output buffer for postprocessing
+    ConvertFunc             converter_func;     // Function object for converting raw output to structured Yolo objects
+    CudaTensorProcessor     tensor_processor;   // CudaTensorProcessor for image transformation
 };
 
 // --- Template Class Implementation ---
@@ -90,7 +91,8 @@ InferYoloV8<YoloResultType, ConvertFunc>::InferYoloV8(
       image_channels(3),                // YOLOv8 模型输入固定为640x640，BGR格式
       infer_features(infer_features),   // YOLOv8 对于分类任务通常为84，对于姿态估计任务通常为56
       infer_samples(8400),              // YOLOv8 预训练模型默认输出8400个样本
-      converter_func(converter)            // 用户需要提供转换函数
+      converter_func(converter),        // 用户需要提供转换函数
+      tensor_processor(image_height, image_width, image_channels)
 {
     
     // 初始化输出缓冲区，只保留必要的空间
@@ -111,7 +113,6 @@ void InferYoloV8<YoloResultType, ConvertFunc>::preprocess(const cv::Mat& image, 
         return;
     }
 
-    // 访问当前 batch 索引的 CUDA 缓冲区
     auto cuda_device_ptr = const_cast<float*>(accessCudaBufByBatchIdx("images", batchIdx));
     if (cuda_device_ptr == nullptr) {
         LOG_ERROR("InferYoloV8", "Preprocess: Failed to access CUDA buffer for input at batchIdx " + std::to_string(batchIdx));
@@ -119,13 +120,13 @@ void InferYoloV8<YoloResultType, ConvertFunc>::preprocess(const cv::Mat& image, 
     }
 
     // 将图像转换为CUDA张量。YOLOv8通常期望输入为BGR格式且无需归一化。
-    imageToCudaTensor(
-        image,               // 输入图像（cv::Mat）
-        cuda_device_ptr,     // CUDA设备输出指针
-        image_height,        // 图像高度
-        image_width,         // 图像宽度
-        image_channels,      // 图像通道数（通常为3）
-        false                // 不进行BGR到RGB的转换（保持BGR格式）
+    // 传递 CUDA 流以支持异步传输
+    tensor_processor.transformImage(
+        image,                  // 输入图像（cv::Mat）
+        cuda_device_ptr,        // CUDA设备输出指针
+        false,                  // 不进行BGR到RGB的转换（保持BGR格式）
+        {0.0f, 0.0f, 0.0f},  // YOLOv8不需要归一化，因此传递零均值
+        {1.0f, 1.0f, 1.0f}   // YOLOv8不需要归一化，因此传递单位标准差
     );
 }
 

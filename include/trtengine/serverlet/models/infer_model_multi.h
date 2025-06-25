@@ -9,7 +9,6 @@
 #include <vector>
 #include <map>
 #include <any>
-#include <cuda_runtime.h>
 #include <opencv2/opencv.hpp>
 #include "trtengine/serverlet/trt_engine/trt_engine_multi.h"
 
@@ -49,7 +48,12 @@ public:
      */
     virtual void preprocess(const cv::Mat& image, int batchIdx) = 0;
 
-    // 在 InferModelBaseMulti 中
+    /**
+     * 用户需实现：推理后处理，处理单个批次的结果
+     * @param batchIdx 批次索引
+     * @param args     额外参数，可以包含任何需要的上下文信息
+     * @param results_out 输出结果，通常是一个 std::any 类型，可以存储任意类型的结果
+     */
     virtual void postprocess(int batchIdx, const std::map<std::string, std::any>& args, std::any& results_out) = 0;
 
     /**
@@ -99,7 +103,7 @@ protected:
     bool loadEngine(
         const std::string& engine_path,
         const std::vector<TensorDefinition>& input_defs,
-        const std::vector<TensorDefinition>& output_defs);
+        const std::vector<TensorDefinition>& output_defs) const;
 
     /**
      * 为所有输入和输出分配 Device Tensor Buffer
@@ -109,10 +113,9 @@ protected:
         const std::vector<TensorDefinition>& output_defs);
 
     TrtEngineMultiTs*                       g_ptr_engine      = nullptr;
-    std::vector<TensorDefinition>           g_input_defs;         // 多输入定义
-    std::vector<TensorDefinition>           g_output_defs;        // 多输出定义
-    std::map<std::string, Tensor<float>>    g_map_trtTensors;     // TensorRT 张量映射, <name, Tensor>
-    cudaStream_t                            g_stream           = nullptr;  // CUDA 流
+    std::vector<TensorDefinition>           g_input_defs;                       // 多输入定义
+    std::vector<TensorDefinition>           g_output_defs;                      // 多输出定义
+    std::map<std::string, Tensor<float>>    g_map_trtTensors;                   // TensorRT 张量映射, <name, Tensor>
 };
 
 #endif // INFERENCE_INFER_MODEL_MULTI_H
