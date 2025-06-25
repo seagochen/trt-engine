@@ -386,7 +386,11 @@ void benchmark_yolo_pose_efficient_threaded(int num_iterations = 1000, bool disp
         "/opt/images/supermarket/customer1.png",
         "/opt/images/supermarket/customer2.png",
         "/opt/images/supermarket/customer3.png",
-        "/opt/images/supermarket/customer4.png"
+        "/opt/images/supermarket/customer4.png",
+        "/opt/images/supermarket/customer5.png",
+        "/opt/images/supermarket/customer6.png",
+        "/opt/images/supermarket/customer7.png",
+        "/opt/images/supermarket/customer8.png"
     };
 
     std::vector<cv::Mat> batched_original_images;
@@ -412,7 +416,7 @@ void benchmark_yolo_pose_efficient_threaded(int num_iterations = 1000, bool disp
 
     // Parameters for models
     std::map<std::string, std::any> params1{
-        {"maximum_batch", static_cast<int>(batched_resized_images.size())}, // YoloPose processes all loaded images as a batch
+        {"maximum_batch", 8},
         {"maximum_items", 100},
         {"infer_features", 56},
         {"infer_samples", 8400},
