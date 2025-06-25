@@ -354,29 +354,29 @@ bool TrtEngineMultiTs::infer(
 
 #else
     // ---- TensorRT 8.5 及以下老 API 路径 ----
-    int nb = g_ptr_engine->getNbBindings();
+    int nb = ptr_engine->getNbBindings();
     std::vector<void*> bindings(nb, nullptr);
 
     // inputs
     for (size_t i = 0; i < inputs.size(); ++i) {
-        int idx = g_ptr_engine->getBindingIndex(m_inputNames[i].c_str());
+        int idx = ptr_engine->getBindingIndex(vec_inputNames[i].c_str());
         if (idx < 0 || idx >= nb) {
-            LOG_ERROR_TOPIC("TrtEngineMultiTs", "infer", "Invalid input binding: " + m_inputNames[i]);
+            LOG_ERROR_TOPIC("TrtEngineMultiTs", "infer", "Invalid input binding: " + vec_inputNames[i]);
             return false;
         }
         bindings[idx] = const_cast<float*>(inputs[i]->ptr());
     }
     // outputs
     for (size_t i = 0; i < outputs.size(); ++i) {
-        int idx = g_ptr_engine->getBindingIndex(m_outputNames[i].c_str());
+        int idx = ptr_engine->getBindingIndex(vec_outputNames[i].c_str());
         if (idx < 0 || idx >= nb) {
-            LOG_ERROR_TOPIC("TrtEngineMultiTs", "infer", "Invalid output binding: " + m_outputNames[i]);
+            LOG_ERROR_TOPIC("TrtEngineMultiTs", "infer", "Invalid output binding: " + vec_outputNames[i]);
             return false;
         }
         bindings[idx] = const_cast<float*>(outputs[i]->ptr());
     }
     // 旧版 executeV2，不带 stream
-    if (!g_ptr_context->executeV2(bindings.data())) {
+    if (!ptr_context->executeV2(bindings.data())) {
         LOG_DEBUG_TOPIC("TrtEngineMultiTs", "infer", "Bindings: " + std::to_string(bindings.size()));
         return false;
     }

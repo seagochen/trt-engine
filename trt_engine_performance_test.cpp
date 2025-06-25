@@ -1,8 +1,8 @@
 #include <opencv2/opencv.hpp>
 #include "trtengine/serverlet/models/inference/model_init_helper.hpp"
-#include "trtengine/utils/system.h" // 假设 getCurrentRSS 在此头文件中
+#include "trtengine/utils/system.h" // Assuming getCurrentRSS is in this header
 
-// 示例用法
+// Example usage
 #include <iostream>
 #include <vector>
 #include <string>
@@ -12,48 +12,48 @@
 #include <chrono>    // For std::chrono
 #include <numeric>   // For std::accumulate (if calculating average throughput)
 
-// 包含 OpenMP 头文件
+// Include OpenMP header
 #include <omp.h>
 
-// 绘制姿态检测结果的辅助函数
+// Helper function to draw pose detection results
 void draw_pose_results(cv::Mat& image, const std::vector<YoloPose>& pose_detections) {
     for (const auto& pose : pose_detections) {
-        // 根据 pose.cls 选择颜色
+        // Choose color based on pose.cls
         cv::Scalar box_color;
-        // 假设 cls 是 0 到 1 之间的浮点数
-        // 我们可以根据 cls 值分段来选择颜色
+        // Assuming cls is a float between 0 and 1
+        // We can segment based on cls value to choose colors
         if (pose.cls < 0.2f) {
-            box_color = cv::Scalar(0, 0, 255); // 红色 for low confidence
+            box_color = cv::Scalar(0, 0, 255); // Red for low confidence
         } else if (pose.cls < 0.5f) {
-            box_color = cv::Scalar(0, 165, 255); // 橙色 for medium-low confidence
+            box_color = cv::Scalar(0, 165, 255); // Orange for medium-low confidence
         } else if (pose.cls < 0.8f) {
-            box_color = cv::Scalar(0, 255, 255); // 黄色 for medium-high confidence
+            box_color = cv::Scalar(0, 255, 255); // Yellow for medium-high confidence
         } else {
-            box_color = cv::Scalar(0, 255, 0); // 绿色 for high confidence
+            box_color = cv::Scalar(0, 255, 0); // Green for high confidence
         }
 
-        // 绘制边界框
+        // Draw bounding box
         cv::rectangle(image, cv::Rect(pose.lx, pose.ly, pose.rx - pose.lx, pose.ry - pose.ly), box_color, 2);
 
-        // 绘制关节点 (通常关节点颜色可以固定，或者也可以根据 cls 改变)
-        // 这里我们保持关节点为红色，以便区分
+        // Draw keypoints (keypoint color can usually be fixed, or also changed based on cls)
+        // We'll keep keypoints red here for distinction
         for (const auto& pt : pose.pts) {
-            if (pt.x >= 0 && pt.y >= 0) { // 确保关节点有效
+            if (pt.x >= 0 && pt.y >= 0) { // Ensure keypoint is valid
                 cv::circle(image, cv::Point(pt.x, pt.y), 3, cv::Scalar(0, 0, 255), -1);
             }
         }
-        // 绘制类别分数 (可选)
+        // Draw class score (optional)
         std::string label = "Cls: " + std::to_string(pose.cls);
-        cv::putText(image, label, cv::Point(pose.lx, pose.ly - 10), cv::FONT_HERSHEY_SIMPLEX, 0.5, box_color, 1); // 文本颜色与框同色
+        cv::putText(image, label, cv::Point(pose.lx, pose.ly - 10), cv::FONT_HERSHEY_SIMPLEX, 0.5, box_color, 1); // Text color matches box
     }
 }
 
-// 执行推理1000次并统计平均耗时
+// Function to benchmark YOLO Pose and EfficientNet inference
 void benchmark_yolo_pose_efficient(int num_iterations = 1000,
-    bool calculate_every_step = false,
-    bool display_results = true) {
+                                   bool calculate_every_step = false, // This flag now only controls calculation, not printing
+                                   bool display_results = true) {
 
-    std::string image_path = "/opt/images/supermarket/customer8.png";
+    std::string image_path = "/opt/images/supermarket/customer2.png";
     cv::Mat original_image = cv::imread(image_path);
     if (original_image.empty()) {
         std::cerr << "Failed to load image: " << image_path << std::endl;
@@ -87,54 +87,64 @@ void benchmark_yolo_pose_efficient(int num_iterations = 1000,
         return;
     }
 
-    auto start_time = std::chrono::high_resolution_clock::now();
+    auto start_total_time = std::chrono::high_resolution_clock::now();
 
     cv::Mat resized_image;
     cv::resize(original_image, resized_image, cv::Size(640, 640));
 
     std::vector<YoloPose> last_pose_detections;
 
+    // Vectors to store durations for each step
+    std::vector<long long> yolo_preprocess_times;
+    std::vector<long long> yolo_inference_times;
+    std::vector<long long> yolo_postprocess_times;
+    std::vector<long long> crop_times;
+    std::vector<long long> efficient_preprocess_times;
+    std::vector<long long> efficient_inference_times;
+    std::vector<long long> efficient_postprocess_times;
+
     for (int iter = 0; iter < num_iterations; ++iter) {
-        auto step_time = std::chrono::high_resolution_clock::now();
+        auto step_start_time = std::chrono::high_resolution_clock::now();
 
+        // YoloPose Preprocess
         pose_model->preprocess(resized_image, 0);
-        if (calculate_every_step) {
-            auto step_duration = std::chrono::high_resolution_clock::now() - step_time;
-            std::cout << "YoloPose model preprocess time for iteration " << iter << ": "
-                      << std::chrono::duration_cast<std::chrono::milliseconds>(step_duration).count()
-                      << " ms" << std::endl;
-        }
+        auto current_step_end_time = std::chrono::high_resolution_clock::now();
+        long long duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(current_step_end_time - step_start_time).count();
+        yolo_preprocess_times.push_back(duration_ms);
 
-        step_time = std::chrono::high_resolution_clock::now();
+        // YoloPose Inference
+        step_start_time = std::chrono::high_resolution_clock::now();
         pose_model->inference();
-        if (calculate_every_step) {
-            auto step_duration = std::chrono::high_resolution_clock::now() - step_time;
-            std::cout << "YoloPose model inference time for iteration " << iter << ": "
-                      << std::chrono::duration_cast<std::chrono::milliseconds>(step_duration).count()
-                      << " ms" << std::endl;
-        }
+        current_step_end_time = std::chrono::high_resolution_clock::now();
+        duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(current_step_end_time - step_start_time).count();
+        yolo_inference_times.push_back(duration_ms);
 
-        step_time = std::chrono::high_resolution_clock::now();
+        // YoloPose Postprocess
+        step_start_time = std::chrono::high_resolution_clock::now();
         std::any pose_results;
         pose_model->postprocess(0, params1, pose_results);
-        if (calculate_every_step) {
-            auto step_duration = std::chrono::high_resolution_clock::now() - step_time;
-            std::cout << "YoloPose model postprocess time for iteration " << iter << ": "
-                      << std::chrono::duration_cast<std::chrono::milliseconds>(step_duration).count()
-                      << " ms" << std::endl;
-        }
+        current_step_end_time = std::chrono::high_resolution_clock::now();
+        duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(current_step_end_time - step_start_time).count();
+        yolo_postprocess_times.push_back(duration_ms);
 
         std::vector<YoloPose> current_pose_detections;
         try {
             current_pose_detections = std::any_cast<std::vector<YoloPose>>(pose_results);
         } catch (...) {
+            // If cast fails, continue to the next iteration
+            // Push 0 to all time vectors for this iteration to maintain size consistency
+            crop_times.push_back(0);
+            efficient_preprocess_times.push_back(0);
+            efficient_inference_times.push_back(0);
+            efficient_postprocess_times.push_back(0);
             continue;
         }
 
-        step_time = std::chrono::high_resolution_clock::now();
+        // Image Cropping
+        step_start_time = std::chrono::high_resolution_clock::now();
         const float scale_factor = 1.2f;
         std::vector<cv::Mat> cropped_images;
-        size_t max_efficient_batch = 4;
+        size_t max_efficient_batch = 4; // From params2["maximum_batch"]
         for (size_t i = 0; i < current_pose_detections.size() && cropped_images.size() < max_efficient_batch; ++i) {
             const auto& pose = current_pose_detections[i];
             if (pose.pts.empty()) continue;
@@ -154,34 +164,28 @@ void benchmark_yolo_pose_efficient(int num_iterations = 1000,
             if (crop_width > 0 && crop_height > 0)
                 cropped_images.emplace_back(resized_image(cv::Rect(crop_x, crop_y, crop_width, crop_height)));
         }
-        if (calculate_every_step) {
-            auto step_duration = std::chrono::high_resolution_clock::now() - step_time;
-            std::cout << "Crop time for iteration " << iter << ": "
-                      << std::chrono::duration_cast<std::chrono::milliseconds>(step_duration).count()
-                      << " ms" << std::endl;
-        }
+        current_step_end_time = std::chrono::high_resolution_clock::now();
+        duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(current_step_end_time - step_start_time).count();
+        crop_times.push_back(duration_ms);
 
-        step_time = std::chrono::high_resolution_clock::now();
+        // EfficientNet Preprocess
+        step_start_time = std::chrono::high_resolution_clock::now();
         for (size_t i = 0; i < cropped_images.size(); ++i) {
             efficient_model->preprocess(cropped_images[i], i);
         }
-        if (calculate_every_step) {
-            auto step_duration = std::chrono::high_resolution_clock::now() - step_time;
-            std::cout << "Efficient model preprocess time for iteration " << iter << ": "
-                      << std::chrono::duration_cast<std::chrono::milliseconds>(step_duration).count()
-                      << " ms" << std::endl;
-        }
+        current_step_end_time = std::chrono::high_resolution_clock::now();
+        duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(current_step_end_time - step_start_time).count();
+        efficient_preprocess_times.push_back(duration_ms);
 
-        step_time = std::chrono::high_resolution_clock::now();
+        // EfficientNet Inference
+        step_start_time = std::chrono::high_resolution_clock::now();
         efficient_model->inference();
-        if (calculate_every_step) {
-            auto step_duration = std::chrono::high_resolution_clock::now() - step_time;
-            std::cout << "Efficient model inference time for iteration " << iter << ": "
-                      << std::chrono::duration_cast<std::chrono::milliseconds>(step_duration).count()
-                      << " ms" << std::endl;
-        }
+        current_step_end_time = std::chrono::high_resolution_clock::now();
+        duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(current_step_end_time - step_start_time).count();
+        efficient_inference_times.push_back(duration_ms);
 
-        step_time = std::chrono::high_resolution_clock::now();
+        // EfficientNet Postprocess
+        step_start_time = std::chrono::high_resolution_clock::now();
         for (size_t i = 0; i < cropped_images.size(); ++i) {
             std::any results;
             efficient_model->postprocess(i, params2, results);
@@ -193,30 +197,44 @@ void benchmark_yolo_pose_efficient(int num_iterations = 1000,
                 continue;
             }
         }
-        if (calculate_every_step) {
-            auto step_duration = std::chrono::high_resolution_clock::now() - step_time;
-            std::cout << "Efficient model postprocess time for iteration " << iter << ": "
-                      << std::chrono::duration_cast<std::chrono::milliseconds>(step_duration).count()
-                      << " ms" << std::endl;
-        }
+        current_step_end_time = std::chrono::high_resolution_clock::now();
+        duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(current_step_end_time - step_start_time).count();
+        efficient_postprocess_times.push_back(duration_ms);
+        // Removed: if (calculate_every_step) { std::cout << "..." << std::endl; }
 
         if (iter == num_iterations - 1) {
             last_pose_detections = current_pose_detections;
         }
     }
 
-    auto end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> duration = end_time - start_time;
+    auto end_total_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> total_duration = end_total_time - start_total_time;
 
-    double avg_ms = (duration.count() * 1000) / num_iterations;
+    double avg_total_ms = (total_duration.count() * 1000) / num_iterations;
 
     std::cout << "\n--- Efficient YOLO Pose Benchmark Results ---" << std::endl;
     std::cout << "  Total iterations: " << num_iterations << std::endl;
-    std::cout << "  Total time: " << duration.count() << " seconds" << std::endl;
-    std::cout << "  Average time per iteration: " << avg_ms << " ms" << std::endl;
+    std::cout << "  Total time: " << total_duration.count() << " seconds" << std::endl;
+    std::cout << "  Average total time per iteration: " << avg_total_ms << " ms" << std::endl;
 
-    if (display_results)
-    {
+    // Calculate and display average times for each step
+    auto calculate_average = [](const std::vector<long long>& times) {
+        if (times.empty()) return 0.0;
+        long long sum = std::accumulate(times.begin(), times.end(), 0LL);
+        return static_cast<double>(sum) / times.size();
+    };
+
+    std::cout << "\n--- Average Time Per Step (over " << num_iterations << " iterations) ---" << std::endl;
+    std::cout << "  YoloPose Preprocess: " << calculate_average(yolo_preprocess_times) << " ms" << std::endl;
+    std::cout << "  YoloPose Inference: " << calculate_average(yolo_inference_times) << " ms" << std::endl;
+    std::cout << "  YoloPose Postprocess: " << calculate_average(yolo_postprocess_times) << " ms" << std::endl;
+    std::cout << "  Image Cropping: " << calculate_average(crop_times) << " ms" << std::endl;
+    std::cout << "  EfficientNet Preprocess: " << calculate_average(efficient_preprocess_times) << " ms" << std::endl;
+    std::cout << "  EfficientNet Inference: " << calculate_average(efficient_inference_times) << " ms" << std::endl;
+    std::cout << "  EfficientNet Postprocess: " << calculate_average(efficient_postprocess_times) << " ms" << std::endl;
+
+
+    if (display_results) {
         if (!last_pose_detections.empty()) {
             cv::Mat display_image = resized_image.clone();
             draw_pose_results(display_image, last_pose_detections);
@@ -230,6 +248,8 @@ void benchmark_yolo_pose_efficient(int num_iterations = 1000,
 
 int main() {
     registerModels();
-    benchmark_yolo_pose_efficient(1000, false, true);
+    // Setting calculate_every_step to false (or even true, it won't print per-iteration anymore)
+    // will now ONLY produce the final average step times.
+    benchmark_yolo_pose_efficient(100, true, false); // Changed num_iterations back to 1000 for full benchmark
     return 0;
 }
