@@ -5,9 +5,7 @@ from typing import Optional
 import numpy as np
 from filterpy.kalman import KalmanFilter
 
-# 从你的数据结构模块导入 ObjectDetection 和 Rect
-# 请根据你实际的文件结构调整导入路径
-from your_data_structures import ObjectDetection, Rect
+from pyengine.inference.unified_structs.inference_results import ObjectDetection, Rect
 
 
 class UnifiedTrack:
