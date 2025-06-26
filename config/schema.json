@@ -42,7 +42,6 @@
     {"color": [0, 230, 0], "name": "Green"},
     {"color": [230, 230, 0], "name": "Cyan"},
     {"color": [230, 0, 230], "name": "Magenta"},
-    {"color": [0, 230, 230], "name": "Yellow"},
     {"color": [128, 0, 128], "name": "Purple"},
     {"color": [128, 128, 0], "name": "Olive"},
     {"color": [128, 128, 128], "name": "Gray"},

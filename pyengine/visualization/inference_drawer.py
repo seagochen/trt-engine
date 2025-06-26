@@ -17,7 +17,7 @@ class GenericInferenceDrawer:
         self.schema_loader = SchemaLoader(schema_file)
         self.kpt_color_map = self.schema_loader.kpt_color_map
         self.skeleton_map = self.schema_loader.skeleton_map
-        self.bbox_colors = self.schema_loader.bbox_colors
+        self.bbox_colors = self.schema_loader.bbox_colors  # 这是一个 List[Tuple[int, int, int]]
 
         # 默认的文本和线条颜色/粗细
         self.text_color = (255, 255, 255)  # White
@@ -25,20 +25,17 @@ class GenericInferenceDrawer:
         self.thickness = 2
         self.keypoint_radius = 5
 
-        # 缓存 bbox 颜色，按索引选择
-        self._num_bbox_colors = len(self.bbox_colors)
-        if self._num_bbox_colors == 0:
-            logger.warning("ObjectDrawer", "No bbox colors loaded from schema. Using default red.")
+        # 缓存 bbox 颜色，确保至少有一个颜色
+        if not self.bbox_colors:  # If schema_loader returned an empty list
+            logger.warning("GenericInferenceDrawer", "No bbox colors loaded from schema. Using default red.")
             self.bbox_colors = [(0, 0, 255)]  # Default to red if none are loaded
-            self._num_bbox_colors = 1
 
-    def _get_bbox_color(self, track_id: int) -> Tuple[int, int, int]:
-        """根据 track_id 选择一个循环的边界框颜色。"""
-        if track_id is None or track_id < 0:  # For detections before tracking, or untracked ones
-            return 0, 255, 255  # Default cyan for untracked/unassigned
-        return self.bbox_colors[track_id % self._num_bbox_colors]
+    def _get_classification_color(self, classification_id: int) -> Tuple[int, int, int]:
+        """根据分类ID选择边界框颜色，从 schema.json 的 bbox_color 列表中获取。"""
+        color_at_index = classification_id % len(self.bbox_colors)  # 确保索引在范围内
+        return self.bbox_colors[color_at_index]
 
-    @staticmethod # 修正：移除了 'self' 参数
+    @staticmethod
     def _scale_coordinates(coords: Union[Rect, Point, Tuple[float, float]],
                            original_shape: Tuple[int, int],
                            pipeline_input_shape: Tuple[int, int] = (640, 640)) -> Rect | Point | tuple[int, int] | \
@@ -93,22 +90,22 @@ class GenericInferenceDrawer:
         display_image = image.copy()
 
         # 缩放边界框坐标
-        # 修正：调用静态方法时，不需要传入 self
         scaled_rect = self._scale_coordinates(detection.rect, original_image_shape)
         x1, y1, x2, y2 = map(int, [scaled_rect.x1, scaled_rect.y1, scaled_rect.x2, scaled_rect.y2])
 
-        # 获取边界框颜色
-        bbox_color = self._get_bbox_color(detection.track_id)
+        # 获取边界框颜色 - 现在根据 classification 来获取
+        bbox_color = self._get_classification_color(detection.classification)
 
         # 构建标签文本
-        class_label = str(detection.classification)
+        class_label_display = str(detection.classification)  # 默认显示分类ID
         if label_names and 0 <= detection.classification < len(label_names):
-            class_label = label_names[detection.classification]
+            class_label_display = label_names[detection.classification]  # 如果有标签名，显示名称
 
+        # 标签格式调整
         label_text = ""
-        if enable_track_id:
+        if enable_track_id and detection.track_id != 0:  # 只有当 track_id 非0时才显示 ID
             label_text = f"ID: {detection.track_id} - "
-        label_text += f"Class: {class_label} Score: {detection.confidence:.2f}"
+        label_text += f"Class: {class_label_display} Score: {detection.confidence:.2f}"
 
         # 绘制边界框
         cv2.rectangle(display_image, (x1, y1), (x2, y2), bbox_color, self.thickness)
@@ -132,7 +129,7 @@ class GenericInferenceDrawer:
                       skeleton: Skeleton,
                       original_image_shape: Tuple[int, int],
                       enable_track_id: bool = True,
-                      label_names: Optional[List[str]] = None,
+                      label_names: Optional[List[str]] = None,  # 这里的label_names用于分类名称，而非关键点名称
                       enable_pts_names: bool = False,
                       enable_skeleton: bool = True) -> np.ndarray:
         """
@@ -152,21 +149,21 @@ class GenericInferenceDrawer:
         display_image = image.copy()
 
         # 绘制边界框 (继承自 ObjectDetection)
-        # 修正：调用静态方法时，不需要传入 self
+        # 对于 Skeleton，分类标签优先使用提供的 label_names，否则统一为 'person'
+        # 这里的 `label_names` 是用于 `ObjectDetection` 的分类名称，不是关键点名称
+        effective_label_names = ['person'] if not label_names else label_names
         display_image = self.draw_object_detection(
             display_image,
             skeleton,  # Skeleton 也是 ObjectDetection
             original_image_shape,
             enable_track_id=enable_track_id,
-            # 对于 Skeleton，分类标签优先使用提供的 label_names，否则统一为 'person'
-            label_names=['person'] if not label_names else label_names
+            label_names=effective_label_names
         )
 
         if not enable_skeleton:
             return display_image
 
         # 缩放所有关键点
-        # 修正：调用静态方法时，不需要传入 self
         scaled_points = [
             self._scale_coordinates(p, original_image_shape, pipeline_input_shape=(640, 640))
             for p in skeleton.points
@@ -257,3 +254,135 @@ class GenericInferenceDrawer:
                 label_names, enable_pts_names, enable_skeleton
             )
         return display_image
+
+
+"""
+import sys
+import cv2
+import os  # Import os for path manipulation
+
+from pyengine.visualization.inference_drawer import GenericInferenceDrawer
+from pyengine.inference.unified_structs.pipeline_converter import convert_pipeline_v1_to_skeletons
+from pyengine.inference.c_pipeline.pose_pipeline_v1 import PosePipeline
+
+
+if __name__ == "__main__":
+    # Your shared library path
+    LIBRARY_PATH = "/home/user/projects/TrtEngineToolkits/build/lib/libjetson.so"
+
+    # Your TensorRT engine file path
+    YOLO_ENGINE = "/opt/models/yolov8n-pose.engine"
+    EFFICIENT_ENGINE = "/opt/models/efficientnet_b0_feat_logits.engine"
+
+    # Create GenericInferenceDrawer instance
+    drawer = GenericInferenceDrawer("./configs/schema.json")
+
+    pipeline = None
+    try:
+        pipeline = PosePipeline(LIBRARY_PATH)
+
+        # Register models (call once)
+        pipeline.register_models()
+
+        # Create pipeline instance
+        pipeline.create_pipeline(
+            yolo_engine_path=YOLO_ENGINE,
+            efficient_engine_path=EFFICIENT_ENGINE,
+            yolo_max_batch=4,
+            efficient_max_batch=32,
+            yolo_cls_thresh=0.5,
+            yolo_iou_thresh=0.4
+        )
+
+        # Load images (call once)
+        image_paths = [
+            "/opt/images/supermarket/customer1.png",
+            "/opt/images/supermarket/customer2.png",
+            "/opt/images/supermarket/customer3.png",
+            "/opt/images/supermarket/customer4.png",
+        ]
+
+        # Store original image info, including original dimensions, for drawing
+        original_images_info = []
+        loaded_images_for_pipeline = []
+
+        print("Loading images for test (once)...")
+        for i, path in enumerate(image_paths):
+            img = cv2.imread(path)
+            if img is None:
+                print(f"Warning: Could not load image from {path}. Skipping.")
+                continue
+
+            original_h, original_w = img.shape[:2]  # Record original dimensions
+
+            # Resize image to 640x640 for the pipeline
+            img_resized_for_pipeline = cv2.resize(img, (640, 640))
+            loaded_images_for_pipeline.append(img_resized_for_pipeline)
+
+            original_images_info.append({
+                'idx': i,
+                'path': path,
+                'original_data': img.copy(),  # Store a copy of the original image for drawing
+                'original_shape': (original_h, original_w)
+            })
+            print(
+                f"Loaded and resized {path} to {img_resized_for_pipeline.shape[1]}x{img_resized_for_pipeline.shape[0]} (Shape: {img_resized_for_pipeline.shape})"
+            )
+
+        if not loaded_images_for_pipeline:
+            print("No images loaded. Exiting.")
+            sys.exit(0)
+
+        # Command pipeline to perform inference
+        raw_pipeline_results = pipeline.process_batched_images(loaded_images_for_pipeline)
+
+        # Convert results to skeleton data
+        # raw_pipeline_results is List[Dict], where each Dict corresponds to one image
+        # all_skeletons_per_image is List[List[Skeleton]], outer List for images, inner List for Skeleton objects in that image
+        all_skeletons_per_image = convert_pipeline_v1_to_skeletons(raw_pipeline_results)
+
+        # --- Drawing Part ---
+        print("\nDrawing results...")
+        for i, skeletons_for_image in enumerate(all_skeletons_per_image):
+            original_image_info = original_images_info[i]
+            original_image = original_image_info['original_data']
+            original_shape = original_image_info['original_shape']
+            image_path = original_image_info['path']
+
+            display_image = original_image.copy()
+
+            # Example: Assuming we only want to draw Skeleton objects
+            # If you also want to draw ObjectDetection (non-Skeleton) objects, you'll need additional logic to distinguish
+            if skeletons_for_image:
+                # Call the new batch drawing function
+                display_image = drawer.draw_skeletons_batch(
+                    display_image,
+                    skeletons_for_image,
+                    original_shape,
+                    enable_track_id=False,  # Example: No tracking performed here, so no track_id displayed
+                    label_names=['Person', 'Salesperson'],  # Example: classification labels
+                    enable_pts_names=False,  # Display keypoint names
+                    enable_skeleton=True  # Draw skeleton connections and keypoints
+                )
+            else:
+                print(f"No skeletons to draw for image {i + 1} ({os.path.basename(image_path)})")
+
+            # Show each image in its own window
+            window_name = f"Result for {os.path.basename(image_path)}"
+            cv2.imshow(window_name, display_image)
+
+        # After showing all images, wait for a single key press to close all windows
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+
+    except RuntimeError as e:
+        print(f"Runtime Error: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+    finally:
+        # Ensure the pipeline is destroyed when the program exits
+        if pipeline:
+            pipeline.destroy_pipeline()
+            print("Pipeline destroyed.")
+"""
