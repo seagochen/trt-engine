@@ -100,12 +100,14 @@ class GenericInferenceDrawer:
         class_label_display = str(detection.classification)  # 默认显示分类ID
         if label_names and 0 <= detection.classification < len(label_names):
             class_label_display = label_names[detection.classification]  # 如果有标签名，显示名称
+        else:
+            class_label_display = "Class {}".format(detection.classification)  # 如果没有标签名，显示默认格式
 
         # 标签格式调整
         label_text = ""
-        if enable_track_id and detection.track_id != 0:  # 只有当 track_id 非0时才显示 ID
+        if enable_track_id and detection.track_id > 0:  # 只有当 track_id 非0时才显示 ID
             label_text = f"#{detection.track_id} "
-        label_text += f"Class: {class_label_display} Score: {detection.confidence:.2f}"
+        label_text += f"{class_label_display} {detection.confidence:.2f}"
 
         # 绘制边界框
         cv2.rectangle(display_image, (x1, y1), (x2, y2), bbox_color, self.thickness)

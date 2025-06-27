@@ -129,7 +129,7 @@ target_link_libraries(jetson_shared PRIVATE
         ${TENSORRT_LIBS}
         ${OpenCV_LIBRARIES}
         ${OpenMP_LIBS} # 添加 OpenMP 链接库
-        Threads::Threads # Link Threads for std::thread support
+        # Threads::Threads # Link Threads for std::thread support
 )
 
 # 设置编译选项
@@ -165,7 +165,7 @@ target_link_libraries(jetson_static PRIVATE
         ${TENSORRT_LIBS}
         ${OpenCV_LIBRARIES}
         ${OpenMP_LIBS} # 添加 OpenMP 链接库
-        Threads::Threads # Link Threads for std::thread support
+        # Threads::Threads # Link Threads for std::thread support
 )
 
 # 设置编译选项
@@ -174,21 +174,21 @@ target_compile_options(jetson_static PRIVATE
 )
 
 # ====================================================================
-#                 benchmark_multi_threads (可执行文件)
+#                 function_test_pipeline (可执行文件)
 # ====================================================================
 set(TEST_SPECIAL_SOURCES
-        "benchmark_multi_threads.cpp"
+        "function_test_pipeline.cpp"
 )
 
 list(APPEND TEST_SPECIAL_SOURCES ${COMMON_SOURCE_FILES})
 
-add_executable(benchmark_multi_threads ${TEST_SPECIAL_SOURCES})
+add_executable(function_test_pipeline ${TEST_SPECIAL_SOURCES})
 
-set_target_properties(benchmark_multi_threads PROPERTIES
-        OUTPUT_NAME "benchmark_multi_threads"
+set_target_properties(function_test_pipeline PROPERTIES
+        OUTPUT_NAME "function_test_pipeline"
 )
 
-target_include_directories(benchmark_multi_threads PRIVATE
+target_include_directories(function_test_pipeline PRIVATE
         ${CUDA_INCLUDE_DIRS}
         ${SIMPLE_CUDA_TOOLKITS_INC}
         ${TENSORRT_INCLUDE_DIRS}
@@ -196,16 +196,15 @@ target_include_directories(benchmark_multi_threads PRIVATE
         "${PROJECT_SOURCE_DIR}/include"
 )
 
-target_link_libraries(benchmark_multi_threads PRIVATE
+target_link_libraries(function_test_pipeline PRIVATE
         ${CUDA_LIBRARIES}
         "${SIMPLE_CUDA_TOOLKITS_LIB}/libsimplecuda.a"
         ${TENSORRT_LIBS}
         ${OpenCV_LIBRARIES}
         ${OpenMP_LIBS} # Add OpenMP link libraries
-        Threads::Threads # Link Threads for std::thread support
 )
 
-target_compile_options(benchmark_multi_threads PRIVATE
+target_compile_options(function_test_pipeline PRIVATE
         ${OpenMP_FLAGS} # Add OpenMP compile options
 )
 

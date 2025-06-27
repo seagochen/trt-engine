@@ -110,10 +110,11 @@ class PosePipeline:
         self.lib.c_process_batched_images.argtypes = [
             ctypes.c_void_p,  # YoloEfficientContext* context, 直接传递 void*
             ctypes.POINTER(ctypes.POINTER(ctypes.c_ubyte)),  # const unsigned char* const* input_images_data
-            ctypes.POINTER(ctypes.c_int),  # const int* widths
-            ctypes.POINTER(ctypes.c_int),  # const int* heights
-            ctypes.POINTER(ctypes.c_int),  # const int* channels
-            ctypes.c_int  # int num_images
+            ctypes.POINTER(ctypes.c_int),   # const int* widths
+            ctypes.POINTER(ctypes.c_int),   # const int* heights
+            ctypes.POINTER(ctypes.c_int),   # const int* channels
+            ctypes.c_int,                   # int num_images
+            ctypes.c_float                  # float scale_factor
         ]
         self.lib.c_process_batched_images.restype = C_BatchedPoseResults
 
@@ -183,7 +184,7 @@ class PosePipeline:
 
         logger.info("PosePipeline", "Pipeline created successfully.")
 
-    def process_batched_images(self, images: List[np.ndarray]) -> List[Dict]:
+    def process_batched_images(self, images: List[np.ndarray], scale_factor: float) -> List[Dict]:
         """
         批量处理图像，经过YoloPose和EfficientNet pipeline。
 
@@ -259,7 +260,8 @@ class PosePipeline:
             widths,
             heights,
             channels,
-            num_images
+            num_images,
+            scale_factor
         )
 
         # --------------------------- 处理C端结果 ---------------------------

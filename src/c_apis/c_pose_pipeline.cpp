@@ -269,9 +269,12 @@ perform_yolo_inference(YoloEfficientContextImpl* context,
 
 // Helper function to crop images based on YoloPose detections for EfficientNet
 static std::vector<FlattenedPoseData>
-crop_images_for_efficientnet(const std::map<int, std::vector<YoloPose>>& yolo_detections,
-                             const std::vector<cv::Mat>& original_images,
-                             const std::map<int, int>& processed_to_original_idx_map) {
+crop_images_for_efficientnet(
+                            const std::map<int, std::vector<YoloPose>>& yolo_detections,
+                            const std::vector<cv::Mat>& original_images,
+                            const std::map<int, int>& processed_to_original_idx_map,
+                            const float scale_factor = 1.2f
+                        ) {
 
     std::vector<FlattenedPoseData> all_flattened_poses_with_crops;
 
@@ -295,7 +298,6 @@ crop_images_for_efficientnet(const std::map<int, std::vector<YoloPose>>& yolo_de
         if (source_image.empty()) continue; // Skip if source image invalid
 
         for (size_t i = 0; i < poses_in_image.size(); ++i) {
-            constexpr float scale_factor = 1.2f;
             const auto& pose = poses_in_image[i];
             if (pose.pts.empty()) continue; // Skip if no keypoints
 
@@ -415,7 +417,8 @@ C_BatchedPoseResults c_process_batched_images(
     const int* widths,
     const int* heights,
     const int* channels,
-    int num_images) {
+    int num_images,
+    float crop_scale_factor) {
 
     C_BatchedPoseResults c_results = {0, nullptr};
 
@@ -449,7 +452,8 @@ C_BatchedPoseResults c_process_batched_images(
 
     // 3. Flatten detections and crop images for EfficientNet
     std::vector<FlattenedPoseData> all_flattened_poses_with_crops =
-        crop_images_for_efficientnet(cpp_batched_pose_detections, valid_original_images_for_cropping, processed_to_original_idx_map);
+        crop_images_for_efficientnet(cpp_batched_pose_detections, valid_original_images_for_cropping,
+            processed_to_original_idx_map, crop_scale_factor);
 
     // 4. Perform EfficientNet inference on cropped images
     std::vector<std::vector<float>> efficient_net_all_results =

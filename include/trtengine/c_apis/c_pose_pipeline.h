@@ -89,6 +89,7 @@ extern "C" {
      * @param heights An array containing the height of each image in pixels.
      * @param channels An array containing the number of channels for each image (e.g., 3 for RGB).
      * @param num_images The number of images in the input batch.
+     * @param crop_scale_factor A scaling factor for cropping the detected persons.
      * @return A C_BatchedPoseResults structure containing the processed pose detections
      * with updated classification scores. The caller is responsible for freeing
      * the memory using free_batched_pose_results().
@@ -100,7 +101,8 @@ extern "C" {
         const int* widths,
         const int* heights,
         const int* channels,
-        int num_images
+        int num_images,
+        float crop_scale_factor
     );
 
     /**

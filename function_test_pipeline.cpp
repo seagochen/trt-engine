@@ -132,7 +132,8 @@ void benchmark_yolo_pose_efficient_api(int num_iterations = 100, bool display_re
             widths.data(),
             heights.data(),
             channels.data(),
-            static_cast<int>(loaded_original_images.size())
+            static_cast<int>(loaded_original_images.size()),
+            1.2f // Crop scale factor for EfficientNet
         );
 
         auto end_iteration_time = std::chrono::high_resolution_clock::now();

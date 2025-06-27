@@ -87,8 +87,10 @@ std::vector<T> nms(const std::vector<T>& boxes, float iouThreshold) {
             if constexpr (HasClassMember<T>::value) {
                 same_class = (sortedBoxes[i].cls == sortedBoxes[j].cls);
             }
-            
-            if (same_class && iou<T>(sortedBoxes[i], sortedBoxes[j]) > iouThreshold) {
+
+            // 如果是同一类且 且当前框和下一个框的 IoU 大于等于阈值，则抑制下一个框
+            // 否则直接跳过
+            if (same_class && iou<T>(sortedBoxes[i], sortedBoxes[j]) >= iouThreshold) {
                 suppressed[j] = true;
             }
         }

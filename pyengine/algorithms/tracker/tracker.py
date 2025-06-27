@@ -10,144 +10,146 @@ from pyengine.inference.unified_structs.inference_results import ObjectDetection
 
 class UnifiedTrack:
     """
-    一个统一的 Track 类，可以用于 DeepSORT 和 SORT。
-    通过 'use_reid' 参数控制是否存储和使用 Re-ID 特征。
+    A unified Track class, now using a more stable Kalman Filter state representation
+    inspired by the original SORT algorithm. It can be used for both DeepSORT and SORT.
     """
-    _next_id = 0  # 静态变量，用于生成唯一的轨迹ID
+    _next_id = 0  # Static variable for unique track IDs
 
     def __init__(self, detection: ObjectDetection, use_reid: bool = True):
         """
-        初始化一个新的轨迹。
+        Initializes a new track.
         Args:
-            detection (ObjectDetection): 用于初始化轨迹的第一个检测结果。
-            use_reid (bool): 如果为 True，将存储和更新 Re-ID 特征。
-                             用于 DeepSORT 时设为 True，用于 SORT 时设为 False。
+            detection (ObjectDetection): The first detection to initialize the track.
+            use_reid (bool): If True, stores and updates Re-ID features (for DeepSORT).
         """
         self.track_id = UnifiedTrack._next_id
         UnifiedTrack._next_id += 1
-
         self.use_reid = use_reid
 
-        # Kalman Filter for state estimation
-        # 8D 状态: [x, y, aspect_ratio, height, vx, vy, vaspect_ratio, vheight]
-        # x,y: 边界框中心坐标
-        # aspect_ratio: 边界框宽高比 (width / height)
-        # height: 边界框高度
-        # vx,vy,vaspect_ratio,vheight: 对应的速度
-        self.kf = KalmanFilter(dim_x=8, dim_z=4)  # 8D 状态，4D 测量 (x, y, a, h)
+        # --- Refactored Kalman Filter based on old_sort.py's principles ---
+        # 7D State: [cx, cy, s, r, dcx, dcy, ds]
+        # cx, cy: center coordinates
+        # s: scale (area = w * h)
+        # r: aspect ratio (w / h)
+        # dcx, dcy, ds: respective velocities
+        self.kf = KalmanFilter(dim_x=7, dim_z=4)
 
-        # 状态转移矩阵 (F): 假设恒定速度模型
-        dt = 1.0  # 假设帧间隔为1
+        # State Transition Matrix (F)
+        dt = 1.0
         self.kf.F = np.array([
-            [1, 0, 0, 0, dt, 0, 0, 0],
-            [0, 1, 0, 0, 0, dt, 0, 0],
-            [0, 0, 1, 0, 0, 0, dt, 0],
-            [0, 0, 0, 1, 0, 0, 0, dt],
-            [0, 0, 0, 0, 1, 0, 0, 0],
-            [0, 0, 0, 0, 0, 1, 0, 0],
-            [0, 0, 0, 0, 0, 0, 1, 0],
-            [0, 0, 0, 0, 0, 0, 0, 1]
+            [1, 0, 0, 0, dt, 0, 0],
+            [0, 1, 0, 0, 0, dt, 0],
+            [0, 0, 1, 0, 0, 0, dt],
+            [0, 0, 0, 1, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 0],
+            [0, 0, 0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 0, 0, 1]
         ])
 
-        # 测量矩阵 (H): 我们直接测量 [x, y, a, h]
+        # Measurement Matrix (H) - we only measure position, area, and ratio
         self.kf.H = np.array([
-            [1, 0, 0, 0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0, 0, 0, 0],
-            [0, 0, 1, 0, 0, 0, 0, 0],
-            [0, 0, 0, 1, 0, 0, 0, 0]
+            [1, 0, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0, 0],
+            [0, 0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0, 0]
         ])
 
-        # 过程噪声协方差 (Q): 模型的噪声，需要根据实际情况调优
-        # 通常速度分量的噪声会大一些
-        self.kf.Q = np.diag([1., 1., 1., 1., 0.1, 0.1, 0.1, 0.1]) * 0.01
+        # Noise Covariances (tuned for stability)
+        self.kf.R[2:, 2:] *= 10.  # Measurement noise
+        self.kf.Q[-1, -1] *= 0.01 # Process noise
+        self.kf.Q[4:, 4:] *= 0.01
 
-        # 测量噪声协方差 (R): 检测器的噪声
-        self.kf.R = np.diag([1., 1., 1., 1.]) * 10
+        # Initial State Covariance (P) - high uncertainty
+        self.kf.P[4:, 4:] *= 1000.
+        self.kf.P *= 10.
 
-        # 初始状态协方差 (P): 初始不确定性
-        self.kf.P *= 1000.
-
-        # 从第一个检测结果初始化 Kalman 滤波器的状态 x
-        # 你的 ObjectDetection 现在包含一个 Rect 对象
-        box = detection.rect # 获取 Rect 对象
-        center_x = (box.x1 + box.x2) / 2
-        center_y = (box.y1 + box.y2) / 2
-        width = box.x2 - box.x1
-        height = box.y2 - box.y1
-        aspect_ratio = width / height if height > 0 else 0  # 避免除以零
-
-        # 初始速度设为0
-        self.kf.x = np.array([center_x, center_y, aspect_ratio, height, 0, 0, 0, 0]).reshape((8, 1))
+        # Initialize state from the first detection
+        self._init_state(detection)
 
         if self.use_reid:
-            # 存储最近的 Re-ID 特征，用于 DeepSORT
-            # detection.features 现在是一个 List[float]，需要转换为 np.array
             self.features = deque([np.array(detection.features)], maxlen=100) if detection.features else deque(maxlen=100)
         else:
-            self.features = None  # SORT模式下不存储特征
+            self.features = None
 
-        self.time_since_update = 0  # 距离上次成功更新的帧数
-        self.hits = 1  # 轨迹被检测命中的总次数
-        self.age = 0  # 轨迹存在的总帧数
+        self.time_since_update = 0
+        self.hits = 1
+        self.age = 0
+
+    def _rect_to_z(self, rect: Rect) -> np.ndarray:
+        """Converts a Rect object to a measurement vector [cx, cy, s, r]."""
+        w = rect.x2 - rect.x1
+        h = rect.y2 - rect.y1
+        cx = rect.x1 + w / 2.0
+        cy = rect.y1 + h / 2.0
+        s = w * h  # Area
+        r = w / float(h) if h > 0 else 0  # Aspect Ratio
+        return np.array([cx, cy, s, r]).reshape((4, 1))
+
+    def _init_state(self, detection: ObjectDetection):
+        """Initializes the Kalman Filter state from a detection."""
+        measurement = self._rect_to_z(detection.rect)
+        self.kf.x = np.vstack([measurement, np.zeros((3, 1))])  # Initial velocities are zero
 
     def predict(self):
-        """预测轨迹在下一帧的状态。"""
+        """Predicts the track state for the next frame."""
         self.kf.predict()
         self.age += 1
         self.time_since_update += 1
 
     def update(self, detection: ObjectDetection):
-        """
-        根据新的检测结果更新轨迹状态。
-        Args:
-            detection (ObjectDetection): 匹配到的新检测结果。
-        """
-        # 你的 ObjectDetection 现在包含一个 Rect 对象
-        box = detection.rect # 获取 Rect 对象
-        center_x = (box.x1 + box.x2) / 2
-        center_y = (box.y1 + box.y2) / 2
-        width = box.x2 - box.x1
-        height = box.y2 - box.y1
-        aspect_ratio = width / height if height > 0 else 0
+        """Updates the track state with a new matched detection."""
+        measurement = self._rect_to_z(detection.rect)
+        self.kf.update(measurement)
 
-        measurement = np.array([center_x, center_y, aspect_ratio, height]).reshape((4, 1))
-
-        self.kf.update(measurement)  # 更新 Kalman 滤波器状态
-
-        # 将新的检测结果的特征添加到特征队列中
         if self.use_reid and detection.features:
-            self.features.append(np.array(detection.features))  # 确保转换为 np.array
+            self.features.append(np.array(detection.features))
 
         self.hits += 1
-        self.time_since_update = 0  # 重置未更新计数
+        self.time_since_update = 0
 
     def get_state(self) -> Rect:
-        """从 Kalman 滤波器的当前状态中获取预测的边界框。"""
-        x, y, a, h = self.kf.x[:4].flatten()
-        w = a * h  # 从宽高比和高度计算宽度
-        # 返回 Rect 对象
-        return Rect(x1=x - w / 2, y1=y - h / 2, x2=x + w / 2, y2=y + h / 2)
+        """
+        Gets the predicted bounding box (Rect) from the Kalman Filter state.
+        Includes safeguards against invalid values.
+        """
+        cx, cy, s, r = self.kf.x[:4].flatten()
+
+        # --- FIX: Add robust checks to prevent invalid values ---
+        # Clamp state variables to be physically plausible.
+        s = max(0, s)
+        r = max(0.01, r)
+
+        w = np.sqrt(s * r)
+        
+        # Avoid division by zero if width is zero.
+        if w < 1e-6:
+            h = 0
+        else:
+            h = s / w
+        
+        # Final safeguard against NaN from sqrt of a negative number (though s is clamped).
+        if np.isnan(w) or np.isnan(h):
+            w, h = 0, 0
+        # --- END FIX ---
+        
+        return Rect(x1=cx - w / 2, y1=cy - h / 2, x2=cx + w / 2, y2=cy + h / 2)
 
     def get_mean_feature(self) -> Optional[np.ndarray]:
-        """
-        如果 use_reid 为 True，则返回平均 Re-ID 特征，否则返回 None。
-        """
-        if self.use_reid and self.features and len(self.features) > 0:
+        """Returns the mean of stored Re-ID features."""
+        if self.use_reid and self.features:
             return np.mean(list(self.features), axis=0)
         return None
 
     def get_last_feature(self) -> Optional[np.ndarray]:
-        """
-        如果 use_reid 为 True，则返回最新的 Re-ID 特征，否则返回 None。
-        """
-        if self.use_reid and self.features and len(self.features) > 0:
+        """Returns the last stored Re-ID feature."""
+        if self.use_reid and self.features:
             return self.features[-1]
         return None
 
     def is_confirmed(self, min_hits: int) -> bool:
-        """检查轨迹是否被确认（达到最小命中次数）。"""
+        """Checks if the track is confirmed (has enough hits)."""
         return self.hits >= min_hits
 
     def is_deleted(self, max_age: int) -> bool:
-        """检查轨迹是否应该被删除（长时间未更新）。"""
+        """Checks if the track should be deleted (lost for too long)."""
         return self.time_since_update > max_age

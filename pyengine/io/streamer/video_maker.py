@@ -5,7 +5,7 @@ import os
 
 class VideoMaker:
 
-    def __init__(self, cap, base_filename=None, fps=None, width=None, height=None):
+    def __init__(self, cap, output_trunk_name=None, fps=None, width=None, height=None, append_date=True):
 
         if not cap or not cap.isOpened():
             raise ValueError('Invalid video capture object')
@@ -15,10 +15,12 @@ class VideoMaker:
         # 获取当前日期时间的字符串
         date_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
         # 根据是否提供 filename_trunk 决定文件名的格式
-        if base_filename is None:
+        if output_trunk_name is None:
             self.filename = date_str
+        elif append_date:
+            self.filename = f"{output_trunk_name}_{date_str}"
         else:
-            self.filename = f"{base_filename}_{date_str}"
+            self.filename = output_trunk_name
 
         # 如果没有提供 FPS，则从摄像头中获取
         if not fps:
@@ -40,6 +42,10 @@ class VideoMaker:
 
         # 初始化 VideoWriter
         self.video = self.initialize_video_writer()
+
+    def generated_filename(self):
+        # 返回生成的视频文件名
+        return self.filename
 
     def initialize_video_writer(self):
         # 尝试使用 MP4 编码器初始化 VideoWriter
