@@ -1,18 +1,15 @@
 import json
 import os
-from typing import Dict, List, Tuple, Optional # Added Optional for type hints
-
-# --- Assumed structures from pyengine.utils.load_schema ---
-# (If these are different, the parsing logic might need minor adjustments)
+from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 
 @dataclass
-class KeyPoint:
+class KeyPointSchema:
     name: str
     color: Tuple[int, int, int]
 
 @dataclass
-class Skeleton:
+class SkeletonSchema:
     srt_kpt_id: int
     dst_kpt_id: int
     color: Tuple[int, int, int]
@@ -26,8 +23,8 @@ class SchemaLoader:
 
     def __init__(self, schema_file: Optional[str] = None):
         # Type hints for clarity
-        self.kpt_color_map: Dict[int, KeyPoint] = {}
-        self.skeleton_map: List[Skeleton] = []
+        self.kpt_color_map: Dict[int, KeyPointSchema] = {}
+        self.skeleton_map: List[SkeletonSchema] = []
         self.bbox_colors: List[Tuple[int, int, int]] = []
 
         if schema_file and os.path.exists(schema_file):
@@ -53,29 +50,29 @@ class SchemaLoader:
     def _load_default_kpt_color_map(self):
         # Default keypoint definitions
         self.kpt_color_map = {
-            0: KeyPoint("Nose", (0, 0, 255)), 1: KeyPoint("Right Eye", (255, 0, 0)),
-            2: KeyPoint("Left Eye", (255, 0, 0)), 3: KeyPoint("Right Ear", (0, 255, 0)),
-            4: KeyPoint("Left Ear", (0, 255, 0)), 5: KeyPoint("Right Shoulder", (193, 182, 255)),
-            6: KeyPoint("Left Shoulder", (193, 182, 255)), 7: KeyPoint("Right Elbow", (16, 144, 247)),
-            8: KeyPoint("Left Elbow", (16, 144, 247)), 9: KeyPoint("Right Wrist", (1, 240, 255)),
-            10: KeyPoint("Left Wrist", (1, 240, 255)), 11: KeyPoint("Right Hip", (140, 47, 240)),
-            12: KeyPoint("Left Hip", (140, 47, 240)), 13: KeyPoint("Right Knee", (223, 155, 60)),
-            14: KeyPoint("Left Knee", (223, 155, 60)), 15: KeyPoint("Right Ankle", (139, 0, 0)),
-            16: KeyPoint("Left Ankle", (139, 0, 0))
+            0: KeyPointSchema("Nose", (0, 0, 255)), 1: KeyPointSchema("Right Eye", (255, 0, 0)),
+            2: KeyPointSchema("Left Eye", (255, 0, 0)), 3: KeyPointSchema("Right Ear", (0, 255, 0)),
+            4: KeyPointSchema("Left Ear", (0, 255, 0)), 5: KeyPointSchema("Right Shoulder", (193, 182, 255)),
+            6: KeyPointSchema("Left Shoulder", (193, 182, 255)), 7: KeyPointSchema("Right Elbow", (16, 144, 247)),
+            8: KeyPointSchema("Left Elbow", (16, 144, 247)), 9: KeyPointSchema("Right Wrist", (1, 240, 255)),
+            10: KeyPointSchema("Left Wrist", (1, 240, 255)), 11: KeyPointSchema("Right Hip", (140, 47, 240)),
+            12: KeyPointSchema("Left Hip", (140, 47, 240)), 13: KeyPointSchema("Right Knee", (223, 155, 60)),
+            14: KeyPointSchema("Left Knee", (223, 155, 60)), 15: KeyPointSchema("Right Ankle", (139, 0, 0)),
+            16: KeyPointSchema("Left Ankle", (139, 0, 0))
         }
         print(f"Loaded {len(self.kpt_color_map)} default keypoints.")
 
     def _load_default_skeleton_map(self):
          # Default skeleton definitions
         self.skeleton_map = [
-            Skeleton(0, 1, (0, 0, 255)), Skeleton(0, 2, (0, 0, 255)),
-            Skeleton(1, 3, (0, 0, 255)), Skeleton(2, 4, (0, 0, 255)),
-            Skeleton(15, 13, (0, 100, 255)), Skeleton(13, 11, (0, 255, 0)),
-            Skeleton(16, 14, (255, 0, 0)), Skeleton(14, 12, (0, 0, 255)),
-            Skeleton(11, 12, (122, 160, 255)), Skeleton(5, 11, (139, 0, 139)),
-            Skeleton(6, 12, (237, 149, 100)), Skeleton(5, 6, (152, 251, 152)),
-            Skeleton(5, 7, (148, 0, 69)), Skeleton(6, 8, (0, 75, 255)),
-            Skeleton(7, 9, (56, 230, 25)), Skeleton(8, 10, (0, 240, 240))
+            SkeletonSchema(0, 1, (0, 0, 255)), SkeletonSchema(0, 2, (0, 0, 255)),
+            SkeletonSchema(1, 3, (0, 0, 255)), SkeletonSchema(2, 4, (0, 0, 255)),
+            SkeletonSchema(15, 13, (0, 100, 255)), SkeletonSchema(13, 11, (0, 255, 0)),
+            SkeletonSchema(16, 14, (255, 0, 0)), SkeletonSchema(14, 12, (0, 0, 255)),
+            SkeletonSchema(11, 12, (122, 160, 255)), SkeletonSchema(5, 11, (139, 0, 139)),
+            SkeletonSchema(6, 12, (237, 149, 100)), SkeletonSchema(5, 6, (152, 251, 152)),
+            SkeletonSchema(5, 7, (148, 0, 69)), SkeletonSchema(6, 8, (0, 75, 255)),
+            SkeletonSchema(7, 9, (56, 230, 25)), SkeletonSchema(8, 10, (0, 240, 240))
         ]
         print(f"Loaded {len(self.skeleton_map)} default skeleton links.")
 
@@ -115,7 +112,7 @@ class SchemaLoader:
                     color_list = item_data.get("color")
                     if name and isinstance(color_list, list) and len(color_list) == 3:
                         # Create KeyPoint object (assuming this structure)
-                        parsed_kpt_map[key_int] = KeyPoint(name=name, color=tuple(color_list))
+                        parsed_kpt_map[key_int] = KeyPointSchema(name=name, color=tuple(color_list))
                     else:
                         print(f"Warning: Skipping invalid kpt_color_map item with key '{key_str}': {item_data}")
                 except (ValueError, TypeError) as e:
@@ -143,7 +140,7 @@ class SchemaLoader:
                      if (isinstance(srt_id, int) and isinstance(dst_id, int) and
                          isinstance(color_list, list) and len(color_list) == 3):
                          # Create Skeleton object (assuming this structure)
-                         parsed_skeleton_map.append(Skeleton(
+                         parsed_skeleton_map.append(SkeletonSchema(
                              srt_kpt_id=srt_id,
                              dst_kpt_id=dst_id,
                              color=tuple(color_list)

@@ -87,8 +87,10 @@ class ObjectDetection(InferenceResult):
         # 我们必须手动将 'rect' 字典转换为一个 Rect 对象。
         if 'rect' in data and isinstance(data.get('rect'), dict):
             data['rect'] = Rect(**data['rect'])
-        # 现在嵌套的对象已经被修正，我们可以安全地创建实例了。
-        return cls(**data)
+
+        # 调用父类的 from_dict，让它处理通用逻辑。
+        # 这里 super().from_dict 实际上是 InferenceResult.from_dict
+        return super().from_dict(data)
 
 @dataclass
 class Point(InferenceResult):
@@ -117,5 +119,6 @@ class Skeleton(ObjectDetection):
         if 'rect' in data and isinstance(data.get('rect'), dict):
             data['rect'] = Rect(**data['rect'])
 
-        # 现在所有嵌套的对象都已被修正，可以创建实例了。
-        return cls(**data)
+        # 调用父类 ObjectDetection 的 from_dict，让它去处理 'rect' 字段。
+        # 这样就无需在此重复 'rect' 的转换逻辑。
+        return super().from_dict(data)
