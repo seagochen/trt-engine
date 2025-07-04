@@ -1,5 +1,6 @@
+import json
 from dataclasses import dataclass, field, asdict, astuple
-from typing import List, Any, Type, TypeVar, Tuple
+from typing import List, Any, Type, TypeVar, Tuple, Union
 
 # 为泛型类方法定义 TypeVar
 T = TypeVar('T', bound='InferenceResults')
@@ -27,6 +28,27 @@ class InferenceResults:
     def from_dict(cls: Type[T], data: dict[str, Any]) -> T:
         """从字典创建数据类实例。"""
         return cls(**data)
+
+    def to_json(self, indent: int = 4) -> str:
+        """将数据类实例转换为 JSON 字符串。"""
+        return json.dumps(self.to_dict(), indent=indent)
+
+    @classmethod
+    def from_json(cls: Type[T], data: str) -> Union[T, List[T]]:
+        """从 JSON 字符串创建一个或多个数据类实例。"""
+        try:
+            data_parsed = json.loads(data)
+        except json.JSONDecodeError as e:
+            raise ValueError("无效的 JSON 数据") from e
+
+        if isinstance(data_parsed, list):
+            if not all(isinstance(item, dict) for item in data_parsed):
+                raise TypeError("JSON 列表必须只包含字典")
+            return [cls.from_dict(item) for item in data_parsed]
+        elif isinstance(data_parsed, dict):
+            return cls.from_dict(data_parsed)
+        else:
+            raise TypeError("JSON 必须表示一个字典或字典列表")
 
 
 @dataclass

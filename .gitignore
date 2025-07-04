@@ -74,3 +74,6 @@ notes/
 # Ignore the protobuf generated files
 protobufs/inference_result_pb2.py
 protobufs/video_frame_pb2.py
+
+# Ignore the generated __pycache__ folders
+__pycache__/
