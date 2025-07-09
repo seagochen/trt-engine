@@ -34,6 +34,10 @@ class ExpandedSkeleton(Skeleton):
     # 用于标记姿态
     posture_type: Pose = Pose.Unknown
 
+    # 用于表示目标的中心点
+    cx: float = 0.0
+    cy: float = 0.0
+
     # 用于记录面部朝向
     direction_type: FaceDirection = FaceDirection.Unknown
 
@@ -55,6 +59,11 @@ class ExpandedSkeleton(Skeleton):
             self.direction_type = FaceDirection.from_value(self.direction_type)
         if not isinstance(self.posture_type, Pose):
             self.posture_type = Pose.from_value(self.posture_type)
+
+        # 中心点计算，以 rect 的底边的中心点表示目标中心点
+        self.cx = (self.rect.x1 + self.rect.x2) / 2.0
+        self.cy = self.rect.y2
+
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ExpandedSkeleton":
