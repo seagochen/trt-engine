@@ -25,7 +25,8 @@ class InferenceResults:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls: Type[T], data: dict[str, Any]) -> T:
+    # 将 dict[str, Any] 改为 Dict[str, Any]
+    def from_dict(cls: Type[T], data: Dict[str, Any]) -> T:
         """从字典创建数据类实例。"""
         return cls(**data)
 
@@ -63,6 +64,7 @@ class Rect:
         return asdict(self)
 
     @classmethod
+    # 将 Dict[str, Any] 改为 Dict[str, Any]
     def from_dict(cls, data: Dict[str, Any]) -> "Rect":
         return cls(**data)
 
@@ -77,7 +79,8 @@ class ObjectDetection(InferenceResults):
     features: List[float] = field(default_factory=list)  # Stored as JSON string in DB
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ObjectDetection":
+    # 将 dict[str, Any] 改为 Dict[str, Any]
+    def from_dict(cls, data: Dict[str, Any]) -> "ObjectDetection":
         """从字典创建实例，并手动将嵌套的 'rect' 字典转换为 Rect 对象。"""
         if 'rect' in data and isinstance(data.get('rect'), dict):
             data['rect'] = Rect.from_dict(data['rect'])
@@ -98,7 +101,8 @@ class Skeleton(ObjectDetection):
     points: List[Point] = field(default_factory=list)  # Stored as JSON string in DB
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Skeleton":
+    # 将 dict[str, Any] 改为 Dict[str, Any]
+    def from_dict(cls, data: Dict[str, Any]) -> "Skeleton":
         """
         从字典创建实例。
         仅处理本类定义的嵌套对象 'points'，然后将其他字段交由父类处理。
