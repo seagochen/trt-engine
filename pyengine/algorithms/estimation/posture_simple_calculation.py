@@ -47,7 +47,7 @@ def calculate_bbox_aspect_ratio(skeleton: Skeleton) -> Pose:
     if aspect_ratio >= standing_threshold:
         return Pose.Standing
     else:
-        return Pose.Sitting  # 坐/下蹲
+        return Pose.Squatting  # 坐/下蹲
 
 
 def calculate_direction_and_posture(skeleton: Skeleton) -> ExpandedSkeleton:

@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field, asdict, astuple
-from typing import List, Any, Type, TypeVar, Tuple, Union
+from typing import Dict, List, Any, Type, TypeVar, Tuple, Union
 
 # 为泛型类方法定义 TypeVar
 T = TypeVar('T', bound='InferenceResults')
@@ -19,7 +19,7 @@ class InferenceResults:
         """从值列表创建数据类实例。"""
         return cls(*data)
 
-    def to_dict(self: T) -> dict[str, Any]:
+    def to_dict(self: T) -> Dict[str, Any]:
         """将数据类实例转换为字段名和值的字典。"""
         # asdict 可以正确处理嵌套的dataclass
         return asdict(self)
@@ -59,11 +59,11 @@ class Rect:
     x2: float = 0.0
     y2: float = 0.0
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Rect":
+    def from_dict(cls, data: Dict[str, Any]) -> "Rect":
         return cls(**data)
 
 

@@ -19,8 +19,7 @@ class FaceDirection(IntEnum):
 
 class Pose(IntEnum):
     Standing = 0
-    Bending = 1
-    Sitting = 2
+    Squatting = 1
     Unknown = -1
 
     def __str__(self): return self.name.lower()
