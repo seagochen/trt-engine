@@ -82,10 +82,14 @@ class ObjectDetection(InferenceResults):
     # 将 dict[str, Any] 改为 Dict[str, Any]
     def from_dict(cls, data: Dict[str, Any]) -> "ObjectDetection":
         """从字典创建实例，并手动将嵌套的 'rect' 字典转换为 Rect 对象。"""
-        if 'rect' in data and isinstance(data.get('rect'), dict):
-            data['rect'] = Rect.from_dict(data['rect'])
-        return super().from_dict(data)
-
+        # 创建一个浅拷贝以避免修改原始字典
+        data_copy = data.copy()
+        if 'rect' in data_copy and isinstance(data_copy.get('rect'), dict):
+            data_copy['rect'] = Rect.from_dict(data_copy['rect'])
+        
+        # 将副本传递给父类
+        return super().from_dict(data_copy)
+    
 
 @dataclass
 class Point(InferenceResults):
@@ -107,7 +111,12 @@ class Skeleton(ObjectDetection):
         从字典创建实例。
         仅处理本类定义的嵌套对象 'points'，然后将其他字段交由父类处理。
         """
-        if 'points' in data and isinstance(data.get('points'), list):
-            data['points'] = [Point.from_dict(p) for p in data['points']]
+        # 创建一个浅拷贝以避免修改原始字典
+        data_copy = data.copy()
+        if 'points' in data_copy and isinstance(data_copy.get('points'), list):
+            # 确保列表中的元素是字典而不是已转换的对象
+            if all(isinstance(p, dict) for p in data_copy['points']):
+                data_copy['points'] = [Point.from_dict(p) for p in data_copy['points']]
 
-        return super().from_dict(data)
+        # 将副本传递给父类
+        return super().from_dict(data_copy)

@@ -185,6 +185,15 @@ class SchemaLoader:
             print("Warning: 'bbox_color' not found or invalid in JSON. Loading defaults.")
             self._load_default_bbox_colors() # Fallback if key missing
 
+   # --- NEW METHOD ---
+    def load_default_schema(self):
+        """
+        Explicitly loads all default schemas for keypoints, skeletons, and bbox colors,
+        overwriting any currently loaded values.
+        """
+        print("Explicitly loading all default schemas...")
+        self._load_defaults()
+
 
 # --- Example Usage ---
 if __name__ == '__main__':

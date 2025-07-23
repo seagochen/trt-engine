@@ -50,18 +50,18 @@ def calculate_bbox_aspect_ratio(skeleton: Skeleton) -> Pose:
         return Pose.Squatting  # 坐/下蹲
 
 
-def calculate_direction_and_posture(skeleton: Skeleton) -> ExpandedSkeleton:
+def calculate_direction_and_posture(skeleton: Skeleton, default_confidence:float = 0.3) -> ExpandedSkeleton:
     """
     根据 pose_extend 中的面部关键点信息分析面部朝向，返回 FacialDirection 对象。
     """
     modulus = compute_modulus(skeleton, divisor=3.0)
     nose, right_eye, left_eye, right_ear, left_ear = skeleton.points[:5]
 
-    valid_nose = is_valid_point(nose)
-    valid_right_eye = is_valid_point(right_eye)
-    valid_left_eye = is_valid_point(left_eye)
-    valid_right_ear = is_valid_point(right_ear)
-    valid_left_ear = is_valid_point(left_ear)
+    valid_nose = is_valid_point(nose, default_confidence)
+    valid_right_eye = is_valid_point(right_eye, default_confidence)
+    valid_left_eye = is_valid_point(left_eye, default_confidence)
+    valid_right_ear = is_valid_point(right_ear, default_confidence)
+    valid_left_ear = is_valid_point(left_ear, default_confidence)
 
     orientation = FaceDirection.Unknown
     # (修改) 初始化角度变量
