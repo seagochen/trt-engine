@@ -8,6 +8,7 @@ import numpy as np
 # 假设这些导入路径在您的项目中是正确的
 from pyengine.inference.unified_structs.auxiliary_structs import ExpandedSkeleton, FaceDirection
 from pyengine.inference.unified_structs.inference_results import Skeleton, Rect
+from pyengine.visualization import text_painter
 from pyengine.visualization.schema_loader import SchemaLoader
 
 
@@ -175,9 +176,10 @@ class InferenceDrawer:
         bbox_color = bbox_colors[skeleton.classification % len(bbox_colors)]
 
         # 绘制标签背景和文本
-        (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+        (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
         cv2.rectangle(image, (x1, y1 - h - 10), (x1 + w, y1), bbox_color, -1)
-        cv2.putText(image, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, [255, 255, 255], 2)
+        # cv2.putText(image, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, [255, 255, 255], 2)
+        text_painter.draw_text(image, label, (x1, y1 - h - 5), font_scale=0.5, thickness=1)
 
     def _draw_bbox_with_highlight(self, image: np.ndarray, skeleton: ExpandedSkeleton, highlight_classname:str):
         """
