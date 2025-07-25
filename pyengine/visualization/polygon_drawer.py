@@ -11,7 +11,7 @@ def hex_to_bgr(hex_color: str) -> Tuple[int, int, int]:
     return b, g, r  # Return in BGR order for OpenCV
 
 
-def fill_area(image: np.ndarray, area: list, area_color: str, transparency: float) -> np.ndarray:
+def fill_area(image: np.ndarray, area: list, color: str, transparency: float) -> np.ndarray:
     """
     If the provided area represents a closed shape, fill that polygon on the image with
     the specified color and transparency.
@@ -19,7 +19,7 @@ def fill_area(image: np.ndarray, area: list, area_color: str, transparency: floa
     Parameters:
       image (np.ndarray): The image on which to draw (assumed to be in BGR format).
       area (list): A list of (x, y) coordinates defining the polygon.
-      area_color (str): Color of the area as a hex string (e.g. "#FF00AA").
+      color (str): Color of the area as a hex string (e.g. "#FF00AA").
       transparency (float): Transparency level (0 to 1), where 0 is fully transparent and 1 is fully opaque.
 
     Returns:
@@ -41,7 +41,7 @@ def fill_area(image: np.ndarray, area: list, area_color: str, transparency: floa
 
     # Convert the points to a NumPy array in the format required by cv2.fillPoly.
     pts = np.array(area, dtype=np.int32).reshape((-1, 1, 2))
-    bgr_color = hex_to_bgr(area_color)
+    bgr_color = hex_to_bgr(color)
 
     # Create an overlay of the image to draw the polygon with transparency.
     overlay = image.copy()

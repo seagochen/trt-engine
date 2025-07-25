@@ -195,7 +195,7 @@ class SchemaLoader:
 
 # --- 示例用法 ---
 if __name__ == '__main__':
-    # 创建一个包含所有部分的虚拟 schema.json 文件
+    # 创建一个包含所有部分的虚拟 scheme.json 文件
     schema_content = """
     {
     "kpt_color_map": {

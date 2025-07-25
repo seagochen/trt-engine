@@ -63,7 +63,6 @@ class ExpandedSkeleton(Skeleton):
         self.cx = (self.rect.x1 + self.rect.x2) / 2.0
         self.cy = self.rect.y2
 
-
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ExpandedSkeleton":
         """

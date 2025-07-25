@@ -9,7 +9,7 @@ import numpy as np
 from pyengine.inference.unified_structs.auxiliary_structs import ExpandedSkeleton, FaceDirection
 from pyengine.inference.unified_structs.inference_results import Skeleton, Rect
 from pyengine.visualization import text_painter
-from pyengine.visualization.schema_loader import SchemaLoader
+from pyengine.visualization.scheme_loader import SchemaLoader
 
 
 
@@ -86,7 +86,7 @@ class InferenceDrawer:
                 int(rect.y2)
             )
 
-    def _draw_bbox(self, image: np.ndarray, skeleton: Skeleton):
+    def _draw_bbox(self, image: np.ndarray, skeleton: Skeleton, bbox_color: Tuple[int, int, int] = None):
         """
         绘制单个边界框和标签，支持闪烁风格
         """
@@ -94,8 +94,9 @@ class InferenceDrawer:
         x1, y1, x2, y2 = self._scale_rect(skeleton.rect, image_size=(image.shape[1], image.shape[0]))
 
         # 根据目标所属类别，选择bbox的颜色
-        bbox_colors = self.schema.bbox_colors
-        bbox_color = bbox_colors[skeleton.classification % len(bbox_colors)]
+        if bbox_color is None:
+            bbox_colors = self.schema.bbox_colors
+            bbox_color = bbox_colors[skeleton.classification % len(bbox_colors)]
 
         # 绘制bbox
         cv2.rectangle(image, (x1, y1), (x2, y2), bbox_color, 2)
@@ -141,8 +142,10 @@ class InferenceDrawer:
 
             # 向量本身是方向和长度，不应缩放
             vec_x, vec_y = skeleton.direction_vector
-            end_x = int(origin_x + vec_x * 50)
-            end_y = int(origin_y + vec_y * 50)
+            end_x = int(skeleton.direction_modulus * vec_x + origin_x)
+            end_y = int(skeleton.direction_modulus * vec_y + origin_y)
+            # end_x = int(origin_x + vec_x * 50)
+            # end_y = int(origin_y + vec_y * 50)
 
             # 绘制箭头
             cv2.arrowedLine(image, (origin_x, origin_y), (end_x, end_y), (0, 255, 255), 2, tipLength=0.3)
@@ -152,6 +155,7 @@ class InferenceDrawer:
                     image: np.ndarray,
                     skeleton: ExpandedSkeleton,
                     label_map: Dict = None,
+                    background_color: Tuple[int, int, int] = None,
                     append_track_id: bool = False):
 
         """
@@ -172,8 +176,11 @@ class InferenceDrawer:
         x1, y1 = self._scale_point((skeleton.rect.x1, skeleton.rect.y1), image_size=(image.shape[1], image.shape[0]))
 
         # 选择标签颜色
-        bbox_colors = self.schema.bbox_colors
-        bbox_color = bbox_colors[skeleton.classification % len(bbox_colors)]
+        if background_color is None:
+            bbox_colors = self.schema.bbox_colors
+            bbox_color = bbox_colors[skeleton.classification % len(bbox_colors)]
+        else:
+            bbox_color = background_color
 
         # 绘制标签背景和文本
         (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
@@ -208,6 +215,7 @@ class InferenceDrawer:
                        draw_direction: bool = True,
                        label_map: Dict = None,
                        enable_track_id: bool = False,
+                       bbox_color: Tuple[int, int, int] = None,
                        highlight_classes: List[Tuple[bool, str]] = None) -> np.ndarray:
         """
         在图像上绘制所有给定的骨架信息，支持高亮闪烁。
@@ -219,7 +227,7 @@ class InferenceDrawer:
                 continue
 
             if draw_bbox:
-                self._draw_bbox(display_image, skeleton)
+                self._draw_bbox(display_image, skeleton, bbox_color=bbox_color)
 
             if draw_links:
                 self._draw_skeleton_links(display_image, skeleton)
@@ -231,7 +239,9 @@ class InferenceDrawer:
                 self._draw_face_direction(display_image, skeleton)
 
             if label_map:
-                self._draw_label(display_image, skeleton, label_map, append_track_id=enable_track_id)
+                self._draw_label(display_image, skeleton, label_map,
+                                 background_color=bbox_color,
+                                 append_track_id=enable_track_id)
 
             if highlight_classes:
                 enable_highlight, highlight_classname = highlight_classes[idx]
