@@ -1,14 +1,7 @@
-from typing import Tuple
 import cv2
 import numpy as np
 
-def hex_to_bgr(hex_color: str) -> Tuple[int, int, int]:
-    """
-    Convert a hex color string (e.g. "#FF00AA") to a BGR tuple.
-    """
-    hex_color = hex_color.lstrip('#')
-    r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    return b, g, r  # Return in BGR order for OpenCV
+from pyengine.visualization.color_utils import hex_to_bgr
 
 
 def fill_area(image: np.ndarray, area: list, color: str, transparency: float) -> np.ndarray:

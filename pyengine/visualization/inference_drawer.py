@@ -12,9 +12,6 @@ from pyengine.visualization import text_painter
 from pyengine.visualization.scheme_loader import SchemaLoader
 
 
-
-
-
 class InferenceDrawer:
     """
     一个统一、模块化、可配置的推理结果绘制类。
@@ -250,3 +247,20 @@ class InferenceDrawer:
 
         self.blink_counter += 1
         return display_image
+    
+    def draw_bbox_with_custom_color(self,
+                                  image: np.ndarray,
+                                  skeleton: ExpandedSkeleton,
+                                  bbox_color: Tuple[int, int, int] = (0, 255, 0)) -> np.ndarray:
+        """
+        绘制边界框，使用自定义颜色。
+        """
+        display_image = image.copy()
+
+        if skeleton.confidence < self.bbox_conf_thresh:
+            return display_image
+
+        self._draw_bbox(display_image, skeleton, bbox_color=bbox_color)
+
+        return display_image
+    
