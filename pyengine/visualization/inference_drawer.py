@@ -9,7 +9,7 @@ import numpy as np
 from pyengine.inference.unified_structs.auxiliary_structs import ExpandedSkeleton, FaceDirection
 from pyengine.inference.unified_structs.inference_results import Skeleton, Rect
 from pyengine.visualization import text_painter
-from pyengine.visualization.scheme_loader import SchemaLoader
+from pyengine.visualization.scheme_loader import SchemeLoader
 
 
 class InferenceDrawer:
@@ -20,7 +20,7 @@ class InferenceDrawer:
     """
 
     def __init__(self,
-                 schema_loader: SchemaLoader,
+                 scheme_loader: SchemeLoader,
                  image_width: int,
                  image_height: int,
                  bbox_confidence_threshold: float = 0.5,
@@ -30,7 +30,7 @@ class InferenceDrawer:
         初始化绘制器。
 
         Args:
-            schema_loader (SchemaLoader): 用于加载可视化配置的实例。
+            scheme_loader (SchemeLoader): 用于加载可视化配置的实例。
             image_width (int): 目标图像的固定宽度。
             image_height (int): 目标图像的固定高度。
             ...
@@ -38,7 +38,7 @@ class InferenceDrawer:
         self.bbox_conf_thresh = bbox_confidence_threshold
         self.kpt_conf_thresh = kpt_confidence_threshold
         self.link_conf_thresh = link_confidence_threshold
-        self.schema = schema_loader
+        self.schema = scheme_loader
 
         # --- NEW: 存储固定的图像尺寸 ---
         self.image_width = image_width

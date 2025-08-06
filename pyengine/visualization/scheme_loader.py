@@ -18,7 +18,7 @@ class SkeletonSchema:
 
 # -----------------------------------------------------------
 
-class SchemaLoader:
+class SchemeLoader:
     """
     加载并管理关键点、骨骼、Bbox 和高亮颜色的类。
     它会解析指定的 JSON 文件，并将所有颜色从 RGB 格式转换为 BGR 格式。
@@ -221,7 +221,7 @@ if __name__ == '__main__':
 
     print("--- 正在使用虚拟 Schema 文件进行加载 ---")
     try:
-        loader = SchemaLoader(dummy_schema_file)
+        loader = SchemeLoader(dummy_schema_file)
         
         print("\n🎨 已加载的关键点 (BGR 格式):")
         for idx, kp in loader.kpt_color_map.items():
