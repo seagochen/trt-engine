@@ -12,6 +12,8 @@ class UnifiedTrack:
     """
     A unified Track class, now using a more stable Kalman Filter state representation
     inspired by the original SORT algorithm. It can be used for both DeepSORT and SORT.
+
+    MODIFIED: The state's 'cy' now represents the Y-coordinate of the bottom-center of the bounding box.
     """
     _next_id = 0  # Static variable for unique track IDs
 
@@ -28,7 +30,8 @@ class UnifiedTrack:
 
         # --- Refactored Kalman Filter based on old_sort.py's principles ---
         # 7D State: [cx, cy, s, r, dcx, dcy, ds]
-        # cx, cy: center coordinates
+        # cx: center_x of the bbox
+        # cy: y-coordinate of the bbox's bottom edge (bottom_center_y) <-- MODIFIED
         # s: scale (area = w * h)
         # r: aspect ratio (w / h)
         # dcx, dcy, ds: respective velocities
@@ -56,7 +59,7 @@ class UnifiedTrack:
 
         # Noise Covariances (tuned for stability)
         self.kf.R[2:, 2:] *= 10.  # Measurement noise
-        self.kf.Q[-1, -1] *= 0.01 # Process noise
+        self.kf.Q[-1, -1] *= 0.01  # Process noise
         self.kf.Q[4:, 4:] *= 0.01
 
         # Initial State Covariance (P) - high uncertainty
@@ -67,7 +70,8 @@ class UnifiedTrack:
         self._init_state(detection)
 
         if self.use_reid:
-            self.features = deque([np.array(detection.features)], maxlen=100) if detection.features else deque(maxlen=100)
+            self.features = deque([np.array(detection.features)], maxlen=100) if detection.features else deque(
+                maxlen=100)
         else:
             self.features = None
 
@@ -76,11 +80,16 @@ class UnifiedTrack:
         self.age = 0
 
     def _rect_to_z(self, rect: Rect) -> np.ndarray:
-        """Converts a Rect object to a measurement vector [cx, cy, s, r]."""
+        """
+        Converts a Rect object to a measurement vector [cx, cy, s, r].
+        'cy' is now the bottom-center y-coordinate.
+        """
         w = rect.x2 - rect.x1
         h = rect.y2 - rect.y1
         cx = rect.x1 + w / 2.0
-        cy = rect.y1 + h / 2.0
+        # --- CHANGED: Use the bottom edge y-coordinate (y2) instead of the center ---
+        cy = rect.y2
+        # --- END CHANGE ---
         s = w * h  # Area
         r = w / float(h) if h > 0 else 0  # Aspect Ratio
         return np.array([cx, cy, s, r]).reshape((4, 1))
@@ -111,6 +120,7 @@ class UnifiedTrack:
         """
         Gets the predicted bounding box (Rect) from the Kalman Filter state.
         Includes safeguards against invalid values.
+        This now interprets 'cy' as the bottom edge y-coordinate.
         """
         cx, cy, s, r = self.kf.x[:4].flatten()
 
@@ -120,19 +130,28 @@ class UnifiedTrack:
         r = max(0.01, r)
 
         w = np.sqrt(s * r)
-        
+
         # Avoid division by zero if width is zero.
         if w < 1e-6:
             h = 0
         else:
             h = s / w
-        
+
         # Final safeguard against NaN from sqrt of a negative number (though s is clamped).
         if np.isnan(w) or np.isnan(h):
             w, h = 0, 0
         # --- END FIX ---
-        
-        return Rect(x1=cx - w / 2, y1=cy - h / 2, x2=cx + w / 2, y2=cy + h / 2)
+
+        # --- CHANGED: Convert from bottom-center coordinates back to a Rect ---
+        # cx is still the center, so x1 and x2 are calculated as before.
+        x1 = cx - w / 2
+        x2 = cx + w / 2
+        # cy is the bottom edge (y2), so y1 is calculated from it.
+        y2 = cy
+        y1 = cy - h
+        # --- END CHANGE ---
+
+        return Rect(x1=x1, y1=y1, x2=x2, y2=y2)
 
     def get_mean_feature(self) -> Optional[np.ndarray]:
         """Returns the mean of stored Re-ID features."""
