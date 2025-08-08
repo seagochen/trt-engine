@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import Enum, IntEnum
 from typing import Any, Tuple
 from pyengine.inference.unified_structs.inference_results import Skeleton, Rect, Point
 
@@ -26,6 +26,13 @@ class Pose(IntEnum):
 
     @classmethod
     def from_value(cls, value): return cls(value)
+
+
+# 为了清晰，我们为身体朝向创建一个新的枚举类型
+class BodyOrientation(Enum):
+    Frontal = 0
+    Side = 1
+    Unknown = -1
 
 
 @dataclass
