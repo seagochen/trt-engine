@@ -2,11 +2,11 @@
 // Created by user on 6/17/25.
 //
 
-#ifndef YOLO_DRAWER_H
-#define YOLO_DRAWER_H
+#ifndef COMBINEDPROJECT_YOLO_DRAWER_H
+#define COMBINEDPROJECT_YOLO_DRAWER_H
 
 #include <opencv2/opencv.hpp>
-#include "trtengine/serverlet/models/common/yolo_dstruct.h"
+#include "trtengine/servlet/models/common/yolo_dstruct.h"
 
 
 // Define colors in BGR format
@@ -72,4 +72,4 @@ private:
                               int thickness = 1);
 };
 
-#endif //YOLO_DRAWER_H
+#endif // COMBINEDPROJECT_YOLO_DRAWER_H

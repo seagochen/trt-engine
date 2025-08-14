@@ -1,13 +1,13 @@
 // infer_efficientnet.hpp
-#ifndef INFER_EFFICIENTNET_HPP
-#define INFER_EFFICIENTNET_HPP
+#ifndef COMBINEDPROJECT_INFER_EFFICIENTNET_HPP
+#define COMBINEDPROJECT_INFER_EFFICIENTNET_HPP
 
 #include <vector>
 #include <string>
 #include <opencv2/opencv.hpp>
 
-#include "trtengine/serverlet/models/infer_model_multi.h"
-#include "trtengine/serverlet/models/cuda_tensor_processor.h"
+#include "trtengine/servlet/models/infer_model_multi.h"
+#include "trtengine/servlet/models/cuda_tensor_processor.h"
 #include "trtengine/utils/logger.h"
 
 
@@ -155,4 +155,4 @@ inline void EfficientFeats::postprocess(int batchIdx, const std::map<std::string
     results_out = result;
 }
 
-#endif //INFER_EFFICIENTNET_HPP
+#endif // COMBINEDPROJECT_INFER_EFFICIENTNET_HPP

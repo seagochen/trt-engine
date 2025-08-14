@@ -2,15 +2,15 @@
 // Created by user on 4/22/25.
 //
 
-#ifndef INFERENCE_INFER_MODEL_MULTI_H
-#define INFERENCE_INFER_MODEL_MULTI_H
+#ifndef COMBINEDPROJECT_INFER_MODEL_MULTI_H
+#define COMBINEDPROJECT_INFER_MODEL_MULTI_H
 
 #include <string>
 #include <vector>
 #include <map>
 #include <any>
 #include <opencv2/opencv.hpp>
-#include "trtengine/serverlet/trt_engine/trt_engine_multi.h"
+#include "trtengine/servlet/trt_engine/trt_engine_multi.h"
 
 // 前向声明：Tensor 模板类
 template<typename T>
@@ -118,5 +118,5 @@ protected:
     std::map<std::string, Tensor<float>>    g_map_trtTensors;                   // TensorRT 张量映射, <name, Tensor>
 };
 
-#endif // INFERENCE_INFER_MODEL_MULTI_H
+#endif // COMBINEDPROJECT_INFER_MODEL_MULTI_H
 

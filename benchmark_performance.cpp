@@ -1,6 +1,6 @@
 #include <opencv2/opencv.hpp>
-#include "trtengine/serverlet/models/inference/model_init_helper.hpp"
-#include "trtengine/serverlet/models/common/yolo_drawer.h"
+#include "trtengine/servlet/models/inference/model_init_helper.hpp"
+#include "trtengine/servlet/models/common/yolo_drawer.h"
 #include "trtengine/utils/system.h" // Assuming getCurrentRSS is in this header
 
 // Example usage

@@ -2,8 +2,8 @@
 // Created by user on 3/21/25.
 //
 
-#ifndef INFER_NMS_HPP
-#define INFER_NMS_HPP
+#ifndef COMBINEDPROJECT_INFER_NMS_HPP
+#define COMBINEDPROJECT_INFER_NMS_HPP
 
 
 #include <algorithm>
@@ -99,4 +99,4 @@ std::vector<T> nms(const std::vector<T>& boxes, float iouThreshold) {
     return result;
 }
 
-#endif //INFER_NMS_HPP
+#endif // COMBINEDPROJECT_INFER_NMS_HPP

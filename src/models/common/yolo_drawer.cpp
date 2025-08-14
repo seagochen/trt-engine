@@ -2,7 +2,7 @@
 // Created by user on 6/17/25.
 //
 
-#include "trtengine/serverlet/models/common/yolo_drawer.h"
+#include "trtengine/servlet/models/common/yolo_drawer.h"
 
 // Constructor
 YoloDrawer::YoloDrawer(float object_conf_threshold, float point_conf_threshold)

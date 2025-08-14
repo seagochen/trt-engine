@@ -2,8 +2,8 @@
 // Created by user on 3/21/25.
 //
 
-#ifndef INFER_YOLO_DEF_H
-#define INFER_YOLO_DEF_H
+#ifndef COMBINEDPROJECT_INFER_YOLO_DEF_H
+#define COMBINEDPROJECT_INFER_YOLO_DEF_H
 
 #include <vector>
 
@@ -75,4 +75,4 @@ struct YoloPose final : Yolo {
 // 这样可以确保 YoloPose 只用于 YOLO Pose 任务，避免其他类错误地继承它。
 // 该写法在 C++17 中是合法的，且符合 C++ 的继承和多态原则。
 
-#endif //INFER_YOLO_DEF_H
+#endif // COMBINEDPROJECT_INFER_YOLO_DEF_H

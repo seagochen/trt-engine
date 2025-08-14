@@ -2,8 +2,8 @@
 // Created by user on 3/21/25.
 //
 
-#ifndef INFER_LOGGER_H
-#define INFER_LOGGER_H
+#ifndef COMBINEDPROJECT_INFER_LOGGER_H
+#define COMBINEDPROJECT_INFER_LOGGER_H
 
 #include <string>
 
@@ -59,4 +59,4 @@ private:
 #define LOG_DEBUG_V5(module, message) Logger::log(DEBUG_LV5, module, message)
 #define LOG_DEBUG_V5_TOPIC(module, topic, message) Logger::log(DEBUG_LV5, module, topic, message)
 
-#endif //INFER_LOGGER_H
+#endif // COMBINEDPROJECT_INFER_LOGGER_H

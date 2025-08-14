@@ -2,8 +2,8 @@
 // Created by user on 4/22/25.
 //
 
-#ifndef INFER_TRT_ENGINE_MULTI_TS_H
-#define INFER_TRT_ENGINE_MULTI_TS_H
+#ifndef COMBINEDPROJECT_INFER_TRT_ENGINE_MULTI_TS_H
+#define COMBINEDPROJECT_INFER_TRT_ENGINE_MULTI_TS_H
 
 #include <NvInfer.h>
 #include <NvOnnxParser.h>
@@ -73,4 +73,4 @@ private:
     void cleanup();
 };
 
-#endif //INFER_TRT_ENGINE_MULTI_TS_H
+#endif // COMBINEDPROJECT_INFER_TRT_ENGINE_MULTI_TS_H

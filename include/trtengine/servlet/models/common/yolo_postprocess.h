@@ -2,8 +2,8 @@
 // Created by user on 6/18/25.
 //
 
-#ifndef YOLO_POSTPROCESS_H
-#define YOLO_POSTPROCESS_H
+#ifndef COMBINEDPROJECT_YOLO_POSTPROCESS_H
+#define COMBINEDPROJECT_YOLO_POSTPROCESS_H
 
 #include <vector>
 
@@ -28,4 +28,4 @@ int inferPostProcForYolo(
     bool use_pose = false
 );
 
-#endif //YOLO_POSTPROCESS_H
+#endif // COMBINEDPROJECT_YOLO_POSTPROCESS_H

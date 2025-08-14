@@ -1,8 +1,8 @@
-#ifndef YOLO_COORDS_H
-#define YOLO_COORDS_H
+#ifndef COMBINEDPROJECT_YOLO_COORDS_H
+#define COMBINEDPROJECT_YOLO_COORDS_H
 
 #include <vector>
-#include "trtengine/serverlet/models/common/yolo_dstruct.h" // For Yolo and Yolo
+#include "trtengine/servlet/models/common/yolo_dstruct.h" // For Yolo and Yolo
 
 /**
  * @brief 将数据的坐标格式(cx,cy,w,h)转换为(lx,ly,rx,ry)，解析后并返回为Yolo对象向量
@@ -30,4 +30,4 @@ void cvtXYWHCoordsToYoloPose(const std::vector<float>& input, std::vector<YoloPo
                             int features, int samples, float target_width = 1.0, float target_height = 1.0);
 
 
-#endif //YOLO_COORDS_H
+#endif // COMBINEDPROJECT_YOLO_COORDS_H

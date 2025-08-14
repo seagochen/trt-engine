@@ -92,8 +92,8 @@
  *   std::cout << CONSOLE_COLOR_RED << "Error!" << CONSOLE_COLOR_RESET << std::endl;
  */
 
-#ifndef CONSOLE_COLOR_H
-#define CONSOLE_COLOR_H
+#ifndef COMBINEDPROJECT_CONSOLE_COLOR_H
+#define COMBINEDPROJECT_CONSOLE_COLOR_H
 
 // Reset
 #define CONSOLE_COLOR_RESET        "\033[0m"
@@ -176,4 +176,4 @@
 #define CONSOLE_COLOR_ON_ICYAN     "\033[0;106m"
 #define CONSOLE_COLOR_ON_IWHITE    "\033[0;107m"
 
-#endif // CONSOLE_COLOR_H
+#endif // COMBINEDPROJECT_CONSOLE_COLOR_H

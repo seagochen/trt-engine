@@ -214,6 +214,9 @@ target_compile_options(function_test_pipeline PRIVATE
 # 测试专用源文件
 set(TEST_SPECIAL_SOURCES
         "${PROJECT_SOURCE_DIR}/benchmark_performance.cpp"
+        include/trtengine/c_apis/c_yolopose_detection.h
+        src/c_apis/c_yolopose_detection.cpp
+        include/trtengine/c_apis/c_structs.h
 )
 
 # 合并公共源和测试专用源

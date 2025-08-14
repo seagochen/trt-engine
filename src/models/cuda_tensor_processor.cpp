@@ -5,7 +5,7 @@
 #include <simple_cuda_toolkits/vision/image_permute.h> // 假设这些函数能够接受 cudaStream_t
 #include <simple_cuda_toolkits/vision/image_ops.h>     // 假设这些函数能够接受 cudaStream_t
 
-#include "trtengine/serverlet/models/cuda_tensor_processor.h"
+#include "trtengine/servlet/models/cuda_tensor_processor.h"
 
 
 // Implementations for CudaTensorProcessor

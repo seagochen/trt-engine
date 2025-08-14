@@ -1,7 +1,7 @@
 // benchmark_api_impl.cpp
 // Implementation of the C-compatible API for YoloPose and EfficientNet inference.
 
-#include "trtengine/serverlet/models/inference/model_init_helper.hpp" // For ModelFactory and YoloPose
+#include "trtengine/servlet/models/inference/model_init_helper.hpp" // For ModelFactory and YoloPose
 #include "trtengine/c_apis/c_pose_pipeline.h"
 #include <opencv2/opencv.hpp>
 #include <iostream>
@@ -29,82 +29,6 @@ struct YoloEfficientContextImpl {
     std::map<std::string, std::any> efficient_params;
 };
 
-// Forward declaration for the helper function
-static void free_batched_pose_results_single_image(C_ImagePoseResults* single_image_results);
-// Helper function to convert std::vector<YoloPose> to C_YoloPose*
-// This function is still responsible for C-style memory allocation, which the caller must free.
-static C_YoloPose* convert_yolo_poses_to_c(const std::vector<YoloPose>& cpp_poses) {
-    if (cpp_poses.empty()) {
-        return nullptr;
-    }
-
-    // Allocate the main array. Use a raw pointer as ownership will be released.
-    auto* c_poses_raw = static_cast<C_YoloPose*>(malloc(cpp_poses.size() * sizeof(C_YoloPose)));
-    if (!c_poses_raw) {
-        std::cerr << "Memory allocation failed for C_YoloPose array." << std::endl;
-        return nullptr;
-    }
-
-    // Initialize pointers to nullptr to ensure safe free() calls later
-    // 使用 OpenMP 加速
-    // #pragma omp parallel for
-    for (size_t i = 0; i < cpp_poses.size(); ++i) {
-        c_poses_raw[i].pts = nullptr;
-        c_poses_raw[i].feats = nullptr;
-    }
-
-    // Loop to populate the C_YoloPose array
-    // 使用 OpenMP 并行化处理
-    for (size_t i = 0; i < cpp_poses.size(); ++i) {
-        c_poses_raw[i].lx = cpp_poses[i].lx;
-        c_poses_raw[i].ly = cpp_poses[i].ly;
-        c_poses_raw[i].rx = cpp_poses[i].rx;
-        c_poses_raw[i].ry = cpp_poses[i].ry;
-        c_poses_raw[i].cls = static_cast<float>(cpp_poses[i].cls);
-        c_poses_raw[i].num_pts = static_cast<int>(cpp_poses[i].pts.size());
-        c_poses_raw[i].conf = cpp_poses[i].conf;
-
-        // Allocate memory for keypoints
-        if (!cpp_poses[i].pts.empty()) {
-            c_poses_raw[i].pts = static_cast<C_KeyPoint*>(malloc(cpp_poses[i].pts.size() * sizeof(C_KeyPoint)));
-            if (!c_poses_raw[i].pts) {
-                std::cerr << "Memory allocation failed for C_KeyPoint array for pose " << i << "." << std::endl;
-                // Cleanup all previously allocated pts and feats, and the main c_poses_raw array
-                // before returning nullptr.
-                for (size_t j = 0; j <= i; ++j) { // Crucial: loop up to current 'i'
-                    free(c_poses_raw[j].pts);
-                    free(c_poses_raw[j].feats);
-                }
-                free(c_poses_raw);
-                return nullptr;
-            }
-
-            for (size_t k = 0; k < cpp_poses[i].pts.size(); ++k) {
-                c_poses_raw[i].pts[k].x = static_cast<float>(cpp_poses[i].pts[k].x);
-                c_poses_raw[i].pts[k].y = static_cast<float>(cpp_poses[i].pts[k].y);
-                c_poses_raw[i].pts[k].conf = cpp_poses[i].pts[k].conf;
-            }
-        }
-
-        // Allocate memory for features if they exist
-        if (!cpp_poses[i].feats.empty()) {
-            c_poses_raw[i].feats = static_cast<float*>(malloc(cpp_poses[i].feats.size() * sizeof(float)));
-            if (!c_poses_raw[i].feats) {
-                std::cerr << "Memory allocation failed for C_YoloPose feats array for pose " << i << "." << std::endl;
-                // Cleanup all previously allocated pts and feats, and the main c_poses_raw array
-                // before returning nullptr.
-                for (size_t j = 0; j <= i; ++j) { // Crucial: loop up to current 'i'
-                    free(c_poses_raw[j].pts);
-                    free(c_poses_raw[j].feats);
-                }
-                free(c_poses_raw);
-                return nullptr;
-            }
-            std::memcpy(c_poses_raw[i].feats, cpp_poses[i].feats.data(), cpp_poses[i].feats.size() * sizeof(float));
-        }
-    }
-    return c_poses_raw; // Return the raw pointer, ownership transferred to caller
-}
 
 // ------------------------------------------ C API Functions ------------------------------------------
 void c_register_models() {
@@ -394,59 +318,6 @@ perform_efficientnet_inference(YoloEfficientContextImpl* context,
     return efficient_net_all_results;
 }
 
-// // Helper function to merge EfficientNet results back into YoloPose detections
-// static std::map<int, std::vector<YoloPose>>
-// merge_efficientnet_results(int num_original_images,
-//                            const std::map<int, std::vector<YoloPose>>& initial_yolo_detections,
-//                            const std::vector<FlattenedPoseData>& flattened_poses_with_crops,
-//                            const std::vector<std::vector<float>>& efficient_net_results) {
-
-//     std::map<int, std::vector<YoloPose>> final_cpp_detections_map;
-
-//     // Initialize with all original image indices, potentially empty or with initial YoloPose detections
-//     for(int i = 0; i < num_original_images; ++i) {
-//         if (initial_yolo_detections.count(i)) {
-//             final_cpp_detections_map[i] = initial_yolo_detections.at(i);
-//         } else {
-//             final_cpp_detections_map[i] = {}; // No YoloPose detections for this image
-//         }
-//     }
-
-//     // Iterate through flattened poses and update with EfficientNet results
-//     for (size_t i = 0; i < flattened_poses_with_crops.size(); ++i) {
-//         const auto& flat_pose_with_crop = flattened_poses_with_crops[i];
-//         int original_image_idx = flat_pose_with_crop.original_image_idx_in_batch;
-//         size_t original_pose_idx = flat_pose_with_crop.original_pose_idx_in_image;
-
-//         // TODO
-//         // --- 在这里添加第三个检查点 START ---
-//         bool is_valid_feature = (i < efficient_net_results.size() && efficient_net_results[i].size() >= 257);
-//         std::cerr << "--- [DEBUG CHECKPOINT 3: PRE-MERGE] ---\n";
-//         std::cerr << "  Processing detection (ImgIdx=" << original_image_idx << ", PoseIdx=" << original_pose_idx << ")\n";
-//         std::cerr << "    Corresponding feature vector size: " 
-//                   << ((i < efficient_net_results.size()) ? std::to_string(efficient_net_results[i].size()) : "OUT OF BOUNDS")
-//                   << "\n";
-//         std::cerr << "    Is feature considered valid for merge? " << (is_valid_feature ? "Yes" : "No") << "\n";
-//         std::cerr << "----------------------------------------\n";
-//         // --- 第三遍检查点 END ---
-
-//         // if (i < efficient_net_results.size() && efficient_net_results[i].size() >= 257) {
-//         if (is_valid_feature) { // 使用我们刚才计算的布尔值
-//             // Update class and features
-//             if (final_cpp_detections_map.count(original_image_idx) &&
-//                 original_pose_idx < final_cpp_detections_map.at(original_image_idx).size()) {
-
-//                 YoloPose& updated_pose = final_cpp_detections_map.at(original_image_idx)[original_pose_idx];
-//                 updated_pose.cls = static_cast<int>(efficient_net_results[i][0]);
-//                 updated_pose.feats.assign(efficient_net_results[i].begin() + 1, efficient_net_results[i].end());
-//             }
-//         }
-//     }
-//     return final_cpp_detections_map;
-// }
-
-// Replace the entire merge_efficientnet_results function in c_pose_pipeline.cpp
-
 static std::map<int, std::vector<YoloPose>>
 merge_efficientnet_results(int num_original_images,
                            const std::map<int, std::vector<YoloPose>>& initial_yolo_detections, // This is no longer used but kept for signature consistency
@@ -638,23 +509,7 @@ C_BatchedPoseResults c_process_batched_images(
     return c_results;
 }
 
-// Helper to free a single C_ImagePoseResults structure's internal memory
-static void free_batched_pose_results_single_image(C_ImagePoseResults* single_image_results) {
-    if (single_image_results && single_image_results->detections) {
-        for (int i = 0; i < single_image_results->num_detections; ++i) {
-            if (single_image_results->detections[i].pts) {
-                free(single_image_results->detections[i].pts);
-                single_image_results->detections[i].pts = nullptr;
-            }
-            if (single_image_results->detections[i].feats) {
-                free(single_image_results->detections[i].feats);
-                single_image_results->detections[i].feats = nullptr;
-            }
-        }
-        free(single_image_results->detections);
-        single_image_results->detections = nullptr;
-    }
-}
+
 
 void c_free_batched_pose_results(C_BatchedPoseResults* results) {
     if (!results || !results->results) return;

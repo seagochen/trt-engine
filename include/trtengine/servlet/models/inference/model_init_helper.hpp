@@ -1,5 +1,5 @@
-#ifndef MODEL_INIT_HELPER_HPP
-#define MODEL_INIT_HELPER_HPP
+#ifndef COMBINEDPROJECT_MODEL_INIT_HELPER_HPP
+#define COMBINEDPROJECT_MODEL_INIT_HELPER_HPP
 
 #include <memory>       // For std::unique_ptr
 #include <string>
@@ -8,10 +8,10 @@
 #include <any>          // For std::any (C++17 onwards)
 #include <vector>
 
-#include "trtengine/serverlet/models/inference/infer_yolo_v8.hpp"
-#include "trtengine/serverlet/models/inference/infer_efficient_net.hpp"
-#include "trtengine/serverlet/models/common/yolo_coords.h"
-#include "trtengine/serverlet/models/infer_model_multi.h"
+#include "trtengine/servlet/models/inference/infer_yolo_v8.hpp"
+#include "trtengine/servlet/models/inference/infer_efficient_net.hpp"
+#include "trtengine/servlet/models/common/yolo_coords.h"
+#include "trtengine/servlet/models/infer_model_multi.h"
 
 
 // 辅助宏用于类型转换，简化参数获取
@@ -99,4 +99,4 @@ inline void registerModels()
     });
 };
 
-#endif // MODEL_INIT_HELPER_HPP
+#endif // COMBINEDPROJECT_MODEL_INIT_HELPER_HPP

@@ -7,7 +7,7 @@
 #include <fstream>
 
 #include "trtengine/utils/logger.h"
-#include "trtengine/serverlet/models/infer_model_multi.h"
+#include "trtengine/servlet/models/infer_model_multi.h"
 
 #define DEBUG 0
 

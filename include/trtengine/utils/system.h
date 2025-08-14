@@ -1,5 +1,5 @@
-#ifndef SYSTEM_H
-#define SYSTEM_H
+#ifndef COMBINEDPROJECT_SYSTEM_H
+#define COMBINEDPROJECT_SYSTEM_H
 
 
 /**
@@ -12,4 +12,4 @@
  */
 long getCurrentRSS();
 
-#endif // SYSTEM_H
+#endif // COMBINEDPROJECT_SYSTEM_H

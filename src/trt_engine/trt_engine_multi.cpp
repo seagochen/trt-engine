@@ -6,7 +6,7 @@
 #include <NvInferVersion.h>  // 一定要包含这个头，才能拿到 NV_TENSORRT_MAJOR 宏
 #include <fstream>
 
-#include "trtengine/serverlet/trt_engine/trt_engine_multi.h"
+#include "trtengine/servlet/trt_engine/trt_engine_multi.h"
 #include "trtengine/utils/logger.h"
 
 // Temporary debugging - Check macro values

@@ -1,5 +1,5 @@
-#ifndef INFER_YOLO_V8_HPP
-#define INFER_YOLO_V8_HPP
+#ifndef COMBINEDPROJECT_INFER_YOLO_V8_HPP
+#define COMBINEDPROJECT_INFER_YOLO_V8_HPP
 
 #include <vector>           // For std::vector
 #include <type_traits>      // For std::is_same_v
@@ -9,11 +9,11 @@
 #include <cuda_runtime.h>
 
 // Project-specific includes
-#include "trtengine/serverlet/models/infer_model_multi.h"
-#include "trtengine/serverlet/models/cuda_tensor_processor.h"
-#include "trtengine/serverlet/models/common/yolo_dstruct.h"
-#include "trtengine/serverlet/models/common/yolo_nms.hpp"
-#include "trtengine/serverlet/models/common/yolo_postprocess.h"
+#include "trtengine/servlet/models/infer_model_multi.h"
+#include "trtengine/servlet/models/cuda_tensor_processor.h"
+#include "trtengine/servlet/models/common/yolo_dstruct.h"
+#include "trtengine/servlet/models/common/yolo_nms.hpp"
+#include "trtengine/servlet/models/common/yolo_postprocess.h"
 #include "trtengine/utils/logger.h"
 
 
@@ -204,4 +204,4 @@ void InferYoloV8<YoloResultType, ConvertFunc>::postprocess(int batchIdx, const s
     results_out = yolo_results; // 将结果包装到 std::any
 }
 
-#endif // INFER_YOLO_V8_HPP
+#endif // COMBINEDPROJECT_INFER_YOLO_V8_HPP

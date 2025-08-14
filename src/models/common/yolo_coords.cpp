@@ -1,7 +1,7 @@
 #include <vector>
 #include <omp.h> // For OpenMP parallelization
-#include "trtengine/serverlet/models/common/yolo_coords.h"
-#include "trtengine/serverlet/models/common/yolo_dstruct.h"
+#include "trtengine/servlet/models/common/yolo_coords.h"
+#include "trtengine/servlet/models/common/yolo_dstruct.h"
 
 void cvtXYWHCoordsToYolo(const std::vector<float>& input, std::vector<Yolo>& output,
                             int features, int samples, float target_width, float target_height)

@@ -3,7 +3,7 @@
 //
 
 #include <opencv2/opencv.hpp>
-#include "trtengine/serverlet/models/inference/model_init_helper.hpp"
+#include "trtengine/servlet/models/inference/model_init_helper.hpp"
 #include "trtengine/c_apis/c_pose_pipeline.h"
 
 // Standard C++ headers (still needed for utilities, but threading primitives are now encapsulated)
