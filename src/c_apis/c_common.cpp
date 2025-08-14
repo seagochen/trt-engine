@@ -1,8 +1,9 @@
-#include "trtengine/c_apis/c_structs.h"
-#include "trtengine/servlet/models/common/yolo_dstruct.h"
+#include "trtengine/c_apis/c_common.h"
+
 #include <iostream>
 #include <vector>
 #include <cstring>
+#include <opencv2/opencv.hpp>
 
 
 
@@ -98,4 +99,39 @@ C_YoloPose* convert_yolo_poses_to_c(const std::vector<YoloPose>& cpp_poses) {
         }
     }
     return c_poses_raw; // Return the raw pointer, ownership transferred to caller
+}
+
+// Helper function to preprocess input images for YoloPose
+std::pair<std::vector<cv::Mat>, std::map<int, int>>
+preprocess_images_for_yolo(const unsigned char* const* input_images_data, const int* widths, const int* heights,
+                           const int* channels, int num_images) {
+
+    std::vector<cv::Mat> valid_original_images_for_cropping;
+    std::map<int, int> original_to_processed_idx_map;
+    int valid_count = 0;
+
+    // 使用 OpenMP 并行化处理图像预处理
+    // #pragma omp parallel for
+    for (int i = 0; i < num_images; ++i) {
+        if (!input_images_data[i] || widths[i] <= 0 || heights[i] <= 0 || channels[i] <= 0) {
+            std::cerr << "Invalid image data provided for image index " << i << ". Skipping." << std::endl;
+            continue;
+        }
+
+        cv::Mat original_img;
+        if (channels[i] == 3) {
+            original_img = cv::Mat(heights[i], widths[i], CV_8UC3, (void*)input_images_data[i]);
+        } else if (channels[i] == 1) {
+            original_img = cv::Mat(heights[i], widths[i], CV_8UC1, (void*)input_images_data[i]);
+        } else {
+            std::cerr << "Unsupported number of channels: " << channels[i] << " for image index " << i << ". Skipping." << std::endl;
+            continue;
+        }
+
+        original_img = original_img.clone(); // Ensure data ownership
+        valid_original_images_for_cropping.push_back(original_img);
+        original_to_processed_idx_map[i] = valid_count++;
+    }
+
+    return {valid_original_images_for_cropping, original_to_processed_idx_map};
 }

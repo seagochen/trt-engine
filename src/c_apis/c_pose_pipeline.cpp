@@ -2,7 +2,9 @@
 // Implementation of the C-compatible API for YoloPose and EfficientNet inference.
 
 #include "trtengine/servlet/models/inference/model_init_helper.hpp" // For ModelFactory and YoloPose
+#include "trtengine/c_apis/c_common.h"
 #include "trtengine/c_apis/c_pose_pipeline.h"
+
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <vector>
@@ -34,18 +36,23 @@ struct YoloEfficientContextImpl {
 void c_register_models() {
     ModelFactory::registerModel("YoloV8_Pose",
         [](const std::string& engine_path, const std::map<std::string, std::any>& params) {
+
+            // 从参数中获取配置
             int maximum_batch = GET_PARAM(params, "maximum_batch", int);
             int maximum_items = GET_PARAM(params, "maximum_items", int);
             int infer_features = GET_PARAM(params, "infer_features", int);
             int infer_samples = GET_PARAM(params, "infer_samples", int);
 
+            // 定义输出张量
             std::vector<TensorDefinition> output_tensor_defs = {{"output0",
                 {maximum_batch, infer_features, infer_samples}}};
 
+            // 定义转换器
             auto pose_converter = [](const std::vector<float>& input, std::vector<YoloPose>& output, int features, int results) {
                 cvtXYWHCoordsToYoloPose(input, output, features, results);
             };
 
+            // 定义推理器
             return std::make_unique<InferYoloV8<YoloPose, decltype(pose_converter)>>(
                 engine_path, maximum_batch, maximum_items, infer_features, output_tensor_defs, pose_converter
             );
@@ -103,6 +110,7 @@ YoloEfficientContext* c_create_pose_pipeline(
     return reinterpret_cast<YoloEfficientContext*>(context);
 }
 
+
 // Internal helper for pose and crop data
 struct FlattenedPoseData {
     int original_image_idx_in_batch; // Original index in the input_images_data array
@@ -111,43 +119,6 @@ struct FlattenedPoseData {
     cv::Mat crop_image; // The actual cropped image data
 };
 
-// Helper function to preprocess input images for YoloPose
-static std::pair<std::vector<cv::Mat>, std::map<int, int>>
-preprocess_images_for_yolo(const unsigned char* const* input_images_data,
-                           const int* widths,
-                           const int* heights,
-                           const int* channels,
-                           int num_images) {
-
-    std::vector<cv::Mat> valid_original_images_for_cropping;
-    std::map<int, int> original_to_processed_idx_map;
-    int valid_count = 0;
-
-    // 使用 OpenMP 并行化处理图像预处理
-    // #pragma omp parallel for
-    for (int i = 0; i < num_images; ++i) {
-        if (!input_images_data[i] || widths[i] <= 0 || heights[i] <= 0 || channels[i] <= 0) {
-            std::cerr << "Invalid image data provided for image index " << i << ". Skipping." << std::endl;
-            continue;
-        }
-
-        cv::Mat original_img;
-        if (channels[i] == 3) {
-            original_img = cv::Mat(heights[i], widths[i], CV_8UC3, (void*)input_images_data[i]);
-        } else if (channels[i] == 1) {
-            original_img = cv::Mat(heights[i], widths[i], CV_8UC1, (void*)input_images_data[i]);
-        } else {
-            std::cerr << "Unsupported number of channels: " << channels[i] << " for image index " << i << ". Skipping." << std::endl;
-            continue;
-        }
-
-        original_img = original_img.clone(); // Ensure data ownership
-        valid_original_images_for_cropping.push_back(original_img);
-        original_to_processed_idx_map[i] = valid_count++;
-    }
-
-    return {valid_original_images_for_cropping, original_to_processed_idx_map};
-}
 
 // Helper function to perform YoloPose inference
 static std::map<int, std::vector<YoloPose>>
@@ -190,6 +161,7 @@ perform_yolo_inference(YoloEfficientContextImpl* context,
     }
     return cpp_batched_pose_detections;
 }
+
 
 // Helper function to crop images based on YoloPose detections for EfficientNet
 static std::vector<FlattenedPoseData>

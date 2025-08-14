@@ -174,21 +174,21 @@ target_compile_options(jetson_static PRIVATE
 )
 
 # ====================================================================
-#                 function_test_pipeline (可执行文件)
+#                 functional_test_pipeline (可执行文件)
 # ====================================================================
 set(TEST_SPECIAL_SOURCES
-        "function_test_pipeline.cpp"
+        "functional_test_pipeline.cpp"
 )
 
 list(APPEND TEST_SPECIAL_SOURCES ${COMMON_SOURCE_FILES})
 
-add_executable(function_test_pipeline ${TEST_SPECIAL_SOURCES})
+add_executable(functional_test_pipeline ${TEST_SPECIAL_SOURCES})
 
-set_target_properties(function_test_pipeline PROPERTIES
-        OUTPUT_NAME "function_test_pipeline"
+set_target_properties(functional_test_pipeline PROPERTIES
+        OUTPUT_NAME "functional_test_pipeline"
 )
 
-target_include_directories(function_test_pipeline PRIVATE
+target_include_directories(functional_test_pipeline PRIVATE
         ${CUDA_INCLUDE_DIRS}
         ${SIMPLE_CUDA_TOOLKITS_INC}
         ${TENSORRT_INCLUDE_DIRS}
@@ -196,7 +196,7 @@ target_include_directories(function_test_pipeline PRIVATE
         "${PROJECT_SOURCE_DIR}/include"
 )
 
-target_link_libraries(function_test_pipeline PRIVATE
+target_link_libraries(functional_test_pipeline PRIVATE
         ${CUDA_LIBRARIES}
         "${SIMPLE_CUDA_TOOLKITS_LIB}/libsimplecuda.a"
         ${TENSORRT_LIBS}
@@ -204,7 +204,42 @@ target_link_libraries(function_test_pipeline PRIVATE
         ${OpenMP_LIBS} # Add OpenMP link libraries
 )
 
-target_compile_options(function_test_pipeline PRIVATE
+target_compile_options(functional_test_pipeline PRIVATE
+        ${OpenMP_FLAGS} # Add OpenMP compile options
+)
+
+# ====================================================================
+#                 functional_test_yolopose (可执行文件)
+# ====================================================================
+set(TEST_SPECIAL_SOURCES
+        "functional_test_yolopose.cpp"
+)
+
+list(APPEND TEST_SPECIAL_SOURCES ${COMMON_SOURCE_FILES})
+
+add_executable(functional_test_yolopose ${TEST_SPECIAL_SOURCES})
+
+set_target_properties(functional_test_yolopose PROPERTIES
+        OUTPUT_NAME "functional_test_yolopose"
+)
+
+target_include_directories(functional_test_yolopose PRIVATE
+        ${CUDA_INCLUDE_DIRS}
+        ${SIMPLE_CUDA_TOOLKITS_INC}
+        ${TENSORRT_INCLUDE_DIRS}
+        ${OpenCV_INCLUDE_DIRS}
+        "${PROJECT_SOURCE_DIR}/include"
+)
+
+target_link_libraries(functional_test_yolopose PRIVATE
+        ${CUDA_LIBRARIES}
+        "${SIMPLE_CUDA_TOOLKITS_LIB}/libsimplecuda.a"
+        ${TENSORRT_LIBS}
+        ${OpenCV_LIBRARIES}
+        ${OpenMP_LIBS} # Add OpenMP link libraries
+)
+
+target_compile_options(functional_test_yolopose PRIVATE
         ${OpenMP_FLAGS} # Add OpenMP compile options
 )
 

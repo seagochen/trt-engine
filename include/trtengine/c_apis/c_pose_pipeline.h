@@ -2,8 +2,8 @@
 // Created by user on 6/25/25.
 //
 
-#ifndef C_POSE_PIPELINE_H
-#define C_POSE_PIPELINE_H
+#ifndef COMBINEDPROJECT_C_POSE_PIPELINE_H
+#define COMBINEDPROJECT_C_POSE_PIPELINE_H
 
 #include "trtengine/c_apis/c_structs.h"
 
@@ -100,4 +100,4 @@ extern "C" {
 }
 #endif
 
-#endif //C_POSE_PIPELINE_H
+#endif // COMBINEDPROJECT_C_POSE_PIPELINE_H

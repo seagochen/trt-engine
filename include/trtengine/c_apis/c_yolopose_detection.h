@@ -48,7 +48,6 @@ extern "C" {
      * @param heights The heights of the input images.
      * @param channels The number of channels in the input images.
      * @param num_images The number of images in the batch.
-     * @param crop_scale_factor The scale factor for cropping the images.
      * @return A structure containing the results of the pose detection.
      */
     C_BatchedPoseResults c_process_batched_images_with_yolopose(
@@ -57,8 +56,7 @@ extern "C" {
         const int* widths,
         const int* heights,
         const int* channels,
-        int num_images,
-        float crop_scale_factor
+        int num_images
     );
 
     /**
