@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+message InferenceResult {
+    uint64 frame_number = 1;       // 数据帧的编号
+    int32 frame_width = 2;         // 数据帧的宽度
+    int32 frame_height = 3;        // 数据帧的高度
+    int32 frame_channels = 4;      // 数据帧的通道数
+    bytes frame_raw_data = 5;      // 数据帧数据
+    int32 frame_format = 6;        // 数据帧格式，0-GRAY，1-RGB，2-BGR
+    string publish_by = 7;         // 数据发布方
+    bytes inference_outputs = 8;   // 检测结果
+}

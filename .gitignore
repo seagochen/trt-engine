@@ -4,6 +4,9 @@
 backup/
 build/
 
+# Ignore the protobufs
+protobufs/*.py
+
 # Prerequisites
 *.d
 

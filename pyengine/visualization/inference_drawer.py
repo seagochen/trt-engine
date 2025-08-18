@@ -5,11 +5,12 @@ from typing import List, Dict, Tuple
 import cv2
 import numpy as np
 
+from pyengine.font import text_painter
 # 假设这些导入路径在您的项目中是正确的
 from pyengine.inference.unified_structs.auxiliary_structs import ExpandedSkeleton, FaceDirection
-from pyengine.inference.unified_structs.inference_results import Skeleton, Rect
-from pyengine.visualization import text_painter
+from pyengine.inference.unified_structs.inference_results import Skeleton
 from pyengine.visualization.scheme_loader import SchemeLoader
+from pyengine.utils.mapper import scale_utils
 
 
 class InferenceDrawer:
@@ -24,8 +25,7 @@ class InferenceDrawer:
                  image_width: int,
                  image_height: int,
                  bbox_confidence_threshold: float = 0.5,
-                 kpt_confidence_threshold: float = 0.5,
-                 link_confidence_threshold: float = 0.5):
+                 kpt_confidence_threshold: float = 0.5):
         """
         初始化绘制器。
 
@@ -37,7 +37,6 @@ class InferenceDrawer:
         """
         self.bbox_conf_thresh = bbox_confidence_threshold
         self.kpt_conf_thresh = kpt_confidence_threshold
-        self.link_conf_thresh = link_confidence_threshold
         self.schema = scheme_loader
 
         # --- NEW: 存储固定的图像尺寸 ---
@@ -46,49 +45,17 @@ class InferenceDrawer:
 
         self.blink_counter = 0
 
-    def _scale_point(self, point: tuple, image_size=None) -> tuple:
-        """将单个归一化的点 (x, y) 缩放到像素坐标"""
-
-        # 如果提供了输入的 image_size, 则将 image_size / (image_width, image_height) 作为缩放因子
-        if image_size:
-            width, height = image_size
-            scale_x = width / self.image_width
-            scale_y = height / self.image_height
-            return int(point[0] * scale_x), int(point[1] * scale_y)
-        else:
-            # 不做缩放，直接返回
-            return int(point[0]), int(point[1])
-
-
-    def _scale_rect(self, rect: Rect, image_size) -> tuple:
-        """将归一化的矩形 Rect 缩放到像素坐标"""
-
-        # 如果提供了输入的 image_size, 则将 image_size / (image_width, image_height) 作为缩放因子
-        if image_size:
-            width, height = image_size
-            scale_x = width / self.image_width
-            scale_y = height / self.image_height
-            return (
-                int(rect.x1 * scale_x),
-                int(rect.y1 * scale_y),
-                int(rect.x2 * scale_x),
-                int(rect.y2 * scale_y)
-            )
-        else:
-            # 不做缩放，直接返回
-            return (
-                int(rect.x1),
-                int(rect.y1),
-                int(rect.x2),
-                int(rect.y2)
-            )
-
     def _draw_bbox(self, image: np.ndarray, skeleton: Skeleton, bbox_color: Tuple[int, int, int] = None):
         """
         绘制单个边界框和标签，支持闪烁风格
         """
         # 使用存储的尺寸进行缩放
-        x1, y1, x2, y2 = self._scale_rect(skeleton.rect, image_size=(image.shape[1], image.shape[0]))
+        # x1, y1, x2, y2 = self._scale_rect(skeleton.rect, image_size=(image.shape[1], image.shape[0]))
+        x1, y1, x2, y2 = scale_utils.scale_rect(
+            src_width=640, src_height=640,
+            dst_width=image.shape[1], dst_height=image.shape[0],
+            rect=skeleton.rect
+        )
 
         # 根据目标所属类别，选择bbox的颜色
         if bbox_color is None:
@@ -105,7 +72,12 @@ class InferenceDrawer:
         for i, point in enumerate(skeleton.points):
             if point.confidence > self.kpt_conf_thresh:
                 # 使用存储的尺寸进行缩放
-                kpt_pos = self._scale_point((point.x, point.y), image_size=(image.shape[1], image.shape[0]))
+                # kpt_pos = self._scale_point((point.x, point.y), image_size=(image.shape[1], image.shape[0]))
+                kpt_pos = scale_utils.scale_point(
+                    src_width=640, src_height=640,
+                    dst_width=image.shape[1], dst_height=image.shape[0],
+                    point=(point.x, point.y)
+                )
                 kpt_schema = self.schema.kpt_color_map.get(i)
                 if kpt_schema:
                     color = kpt_schema.color
@@ -122,20 +94,35 @@ class InferenceDrawer:
                 p1 = skeleton.points[p1_idx]
                 p2 = skeleton.points[p2_idx]
 
-                if p1.confidence > self.link_conf_thresh and p2.confidence > self.link_conf_thresh:
+                if p1.confidence > self.kpt_conf_thresh and p2.confidence > self.kpt_conf_thresh:
                     # 使用存储的尺寸进行缩放
-                    p1_pos = self._scale_point((p1.x, p1.y), image_size=(image.shape[1], image.shape[0]))
-                    p2_pos = self._scale_point((p2.x, p2.y), image_size=(image.shape[1], image.shape[0]))
+                    # p1_pos = self._scale_point((p1.x, p1.y), image_size=(image.shape[1], image.shape[0]))
+                    # p2_pos = self._scale_point((p2.x, p2.y), image_size=(image.shape[1], image.shape[0]))
+                    p1_pos = scale_utils.scale_point(
+                        src_width=640, src_height=640,
+                        dst_width=image.shape[1], dst_height=image.shape[0],
+                        point=(p1.x, p1.y)
+                    )
+                    p2_pos = scale_utils.scale_point(
+                        src_width=640, src_height=640,
+                        dst_width=image.shape[1], dst_height=image.shape[0],
+                        point=(p2.x, p2.y)
+                    )
                     color = link_schema.color
                     cv2.line(image, p1_pos, p2_pos, color, 2)
 
-    def _draw_face_direction(self, image: np.ndarray, skeleton: ExpandedSkeleton):
+    @staticmethod
+    def _draw_face_direction(image: np.ndarray, skeleton: ExpandedSkeleton):
         """
         绘制单个面部朝向向量
         """
         if skeleton.direction_type != FaceDirection.Unknown:
             # 使用存储的尺寸进行缩放
-            origin_x, origin_y = self._scale_point(skeleton.direction_origin, image_size=(image.shape[1], image.shape[0]))
+            origin_x, origin_y = scale_utils.scale_point(
+                src_width=640, src_height=640,
+                dst_width=image.shape[1], dst_height=image.shape[0],
+                point=skeleton.direction_origin
+            )
 
             # 向量本身是方向和长度，不应缩放
             vec_x, vec_y = skeleton.direction_vector
@@ -145,7 +132,8 @@ class InferenceDrawer:
             # end_y = int(origin_y + vec_y * 50)
 
             # 绘制箭头
-            cv2.arrowedLine(image, (origin_x, origin_y), (end_x, end_y), (0, 255, 255), 2, tipLength=0.3)
+            cv2.arrowedLine(image, (origin_x, origin_y), (end_x, end_y),
+                            (0, 255, 255), 2, tipLength=0.3)
             # cv2.circle(image, (origin_x, origin_y), 5, (0, 255, 0), -1)
 
     def _draw_label(self,
@@ -170,7 +158,12 @@ class InferenceDrawer:
         label = f"{label}-{skeleton.confidence:.2f}"
 
         # 使用存储的尺寸进行缩放
-        x1, y1 = self._scale_point((skeleton.rect.x1, skeleton.rect.y1), image_size=(image.shape[1], image.shape[0]))
+        # x1, y1 = self._scale_point((skeleton.rect.x1, skeleton.rect.y1), image_size=(image.shape[1], image.shape[0]))
+        x1, y1 = scale_utils.scale_point(
+            src_width=640, src_height=640,
+            dst_width=image.shape[1], dst_height=image.shape[0],
+            point=(skeleton.rect.x1, skeleton.rect.y1)
+        )
 
         # 选择标签颜色
         if background_color is None:
@@ -190,7 +183,12 @@ class InferenceDrawer:
         绘制带有高亮的边界框。
         """
         # 使用存储的尺寸进行缩放
-        x1, y1, x2, y2 = self._scale_rect(skeleton.rect, image_size=(image.shape[1], image.shape[0]))
+        # x1, y1, x2, y2 = self._scale_rect(skeleton.rect, image_size=(image.shape[1], image.shape[0]))
+        x1, y1, x2, y2 = scale_utils.scale_rect(
+            src_width=640, src_height=640,
+            dst_width=image.shape[1], dst_height=image.shape[0],
+            rect=skeleton.rect
+        )
 
         # 选择高亮颜色
         bbox_highlight_colors = self.schema.highlight_colors

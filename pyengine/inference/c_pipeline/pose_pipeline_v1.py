@@ -4,8 +4,6 @@ from typing import Dict, List
 import numpy as np
 import cv2  
 
-
-# 假设你的 logger 模块在这里
 from pyengine.utils.logger import logger
 
 # --- 1. 定义C结构体映射 ---
@@ -125,12 +123,12 @@ class PosePipeline:
 
 
     def create_pipeline(self,
-                        yolo_engine_path: str,  # YOLO模型的TensorRT引擎文件路径
-                        efficient_engine_path: str,  # EfficientNet模型的TensorRT引擎文件路径
-                        yolo_max_batch: int,  # YOLO模型的最大批处理大小
-                        efficient_max_batch: int,  # EfficientNet模型的最大批处理大小
-                        yolo_cls_thresh: float,  # YOLO模型的分类阈值
-                        yolo_iou_thresh: float  # YOLO模型的IOU阈值
+                        yolo_engine_path: str,          # YOLO模型的TensorRT引擎文件路径
+                        efficient_engine_path: str,     # EfficientNet模型的TensorRT引擎文件路径
+                        yolo_max_batch: int,            # YOLO模型的最大批处理大小
+                        efficient_max_batch: int,       # EfficientNet模型的最大批处理大小
+                        yolo_cls_thresh: float,         # YOLO模型的分类阈值
+                        yolo_iou_thresh: float          # YOLO模型的IOU阈值
                         ):
         """
         初始化YoloPose和EfficientNet模型。
@@ -460,7 +458,7 @@ if __name__ == "__main__":
 
         # 处理图像批次
         print("\nProcessing images through pipeline...")
-        results = pipeline.process_batched_images(loaded_images_for_pipeline)
+        results = pipeline.process_batched_images(loaded_images_for_pipeline, scale_factor=1.0)
 
         print("\nDisplaying results:")
         for img_res in results:
