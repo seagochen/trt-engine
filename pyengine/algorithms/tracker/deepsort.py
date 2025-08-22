@@ -172,7 +172,7 @@ class DeepSORTTracker:
             recent_tracks[trk_idx].update(detections[det_idx])
 
         # --- 4. Second Cascade: Match remaining detections with old tracks using Re-ID ---
-        # Get the actual detection objects that were not matched in the first cascade
+        # Get the actual end_magistrate objects that were not matched in the first cascade
         unmatched_detections = [detections[i] for i in unmatched_dets1]
         matches2, unmatched_dets2, unmatched_trks2 = self._associate(unmatched_detections, old_tracks, use_reid=True)
         for det_idx, trk_idx in matches2:

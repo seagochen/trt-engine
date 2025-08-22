@@ -48,7 +48,7 @@ class MQTTCache:
         """
         添加任意类型的数据到缓存中
         :param index: 数据对应的编号
-        :param key: 数据类型标识（例如 'image', 'inference', 'lidar', ...）
+        :param key: 数据类型标识(例如 'image', 'inference', 'lidar', ...)
         :param data: 数据内容
         """
         with self.lock:

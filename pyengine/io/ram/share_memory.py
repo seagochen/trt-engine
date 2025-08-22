@@ -12,8 +12,8 @@ class SharedMemoryHandler:
         """
         初始化共享内存处理类
         :param base_path: 共享内存路径
-        :param timeout: 最大超时时间（秒）
-        :param retry_interval: 获取锁的重试间隔（秒）
+        :param timeout: 最大超时时间(秒)
+        :param retry_interval: 获取锁的重试间隔(秒)
         """
         if not os.path.exists(base_path):
             raise ValueError(f"Shared memory path '{base_path}' does not exist.")
@@ -29,7 +29,7 @@ class SharedMemoryHandler:
         """
         尝试获取文件锁，支持超时机制
         :param f: 文件对象
-        :param mode: 锁模式 fcntl.LOCK_EX（写）/ fcntl.LOCK_SH（读）
+        :param mode: 锁模式 fcntl.LOCK_EX(写)/ fcntl.LOCK_SH(读)
         """
         start_time = time.time()
         while True:
@@ -114,7 +114,7 @@ class SharedMemoryHandler:
 
 ### **使用示例**
 
-#### **1. 读写文本数据（JSON、字符串等）**
+#### **1. 读写文本数据(JSON、字符串等)**
 
 ```python
 shm = SharedMemoryHandler()
@@ -129,7 +129,7 @@ print(data)  # {'name': 'Alice', 'age': 30}
 
 ---
 
-#### **2. 读写二进制数据（图像、音频等）**
+#### **2. 读写二进制数据(图像、音频等)**
 
 ```python
 # 读取图片并存储
@@ -191,15 +191,15 @@ print(read_data[:20])  # 显示部分数据
 ### **优势总结**
 
 1. **多格式兼容性：**
-- 处理文本（JSON、XML），二进制（图像、音频），结构化数据（NumPy、pickle）。
+- 处理文本(JSON、XML)，二进制(图像、音频)，结构化数据(NumPy、pickle)。
 
 2. **高效性：**
 - 使用 **`/dev/shm`** 加速读写，避免硬盘 I/O 开销。
 
 3. **跨进程访问：**
-- 其他语言（如 C++、Go）可以直接读取 `/dev/shm` 文件，实现跨语言数据共享。
+- 其他语言(如 C++、Go)可以直接读取 `/dev/shm` 文件，实现跨语言数据共享。
 
 4. **安全性：**
-- 使用文件锁（`fcntl`）防止数据竞争。
+- 使用文件锁(`fcntl`)防止数据竞争。
 
 """

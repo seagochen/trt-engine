@@ -335,3 +335,9 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/resources/"
         DESTINATION "${CMAKE_INSTALL_PREFIX}/resources"
         OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
 )
+
+# 安装protobufs
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/protobufs/"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/protobufs"
+        OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
+)

@@ -7,7 +7,7 @@
     "version": "1.0.0",
     "author": "Orlando Chen",
     "date": "2023-10-01",
-    "maximum_batch_size": 8,
+    "maximum_batch_size": 16,
     "input_image_type": "BGR",
     "input_tensors": [
       {
@@ -32,7 +32,7 @@
     "precision": "fp16",
     "min_shapes": "images:1x3x640x640",
     "opt_shapes": "images:4x3x640x640",
-    "max_shapes": "images:8x3x640x640",
+    "max_shapes": "images:16x3x640x640",
     "use_nvdla": false,
     "nvdla_core_id": 1,
     "verbose": true,

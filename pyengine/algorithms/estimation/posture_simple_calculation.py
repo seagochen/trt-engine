@@ -36,7 +36,7 @@ def calculate_direction_and_posture(skeleton: Skeleton, default_confidence:float
     """
     [全新逻辑]
     严格按照分层规则判断朝向：
-    1. 判断身体姿态（正面/侧面）。
+    1. 判断身体姿态(正面/侧面)。
     2. 在身体姿态的上下文中，解读面部特征。
     3. 处理未知情况。
     """
@@ -60,7 +60,7 @@ def calculate_direction_and_posture(skeleton: Skeleton, default_confidence:float
 
     # --- 开始执行分层判断逻辑 ---
     
-    # 首先，获取身体的整体姿态（正面/侧面）
+    # 首先，获取身体的整体姿态(正面/侧面)
     body_pose = get_shoulder_orientation(left_shoulder, right_shoulder, valid_left_shoulder, valid_right_shoulder)
 
     # --- 规则1: 身体姿态为“正面” ---
@@ -87,7 +87,7 @@ def calculate_direction_and_posture(skeleton: Skeleton, default_confidence:float
 
     # --- 规则2: 身体姿态为“侧面” ---
     elif body_pose == BodyOrientation.Side:
-        # 检查左右两侧是否有可见的面部特征（眼或耳）
+        # 检查左右两侧是否有可见的面部特征(眼或耳)
         left_features_visible = valid_left_eye or valid_left_ear
         right_features_visible = valid_right_eye or valid_right_ear
 

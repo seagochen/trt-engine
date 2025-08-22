@@ -3,10 +3,6 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-# Variables
-TARGET_DIR="$HOME/projects/TrtEngineToolkits"
-LINK_NAME="/opt/TrtEngineToolkits"
-
 # Function to print messages
 print_message() {
     echo "=============================="
@@ -119,31 +115,6 @@ check_versions() {
     echo "pip 3 version: $(pip3 --version 2>&1)"
 }
 
-# Function to create a symbolic link in /opt
-setup_symlink() {
-    print_message "Setting up symbolic link: $LINK_NAME -> $TARGET_DIR"
-
-    # Check if the target directory exists
-    if [ ! -d "$TARGET_DIR" ]; then
-        echo "Error: Target directory $TARGET_DIR does not exist."
-        exit 1
-    fi
-
-    # Check if the symbolic link already exists
-    if [ -L "$LINK_NAME" ]; then
-        echo "Symbolic link $LINK_NAME already exists. Removing..."
-        sudo rm -f "$LINK_NAME"
-    elif [ -e "$LINK_NAME" ]; then
-        echo "Error: $LINK_NAME exists but is not a symlink. Please remove it manually."
-        exit 1
-    fi
-
-    # Create the symbolic link
-    sudo ln -s "$TARGET_DIR" "$LINK_NAME"
-
-    echo "Symbolic link created successfully."
-}
-
 # Main execution flow
 main() {
     update_packages
@@ -151,7 +122,6 @@ main() {
     install_opencv # Note: install_dependencies already has many OpenCV prerequisites, but this installs the main libopencv-dev
     install_nvitop
     check_versions
-    setup_symlink
     print_message "Installation and setup complete!"
 }
 

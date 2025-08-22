@@ -71,7 +71,7 @@ class Rect:
 
 @dataclass
 class ObjectDetection(InferenceResults):
-    """Represents detection bounding box with class and confidence."""
+    """Represents end_magistrate bounding box with class and confidence."""
     rect: Rect = field(default_factory=Rect)
     classification: int = 0
     confidence: float = 0.0

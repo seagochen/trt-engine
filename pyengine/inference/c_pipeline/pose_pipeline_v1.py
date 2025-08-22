@@ -26,7 +26,7 @@ class C_YoloPose(ctypes.Structure):
         ("num_pts", ctypes.c_int),
         ("conf", ctypes.c_float),
         ("pts", ctypes.POINTER(C_KeyPoint)),  # 指向C_KeyPoint数组的指针
-        ("feats", ctypes.POINTER(ctypes.c_float)),  # 指向float数组（长度256）的指针
+        ("feats", ctypes.POINTER(ctypes.c_float)),  # 指向float数组(长度256)的指针
     ]
 
 
@@ -336,7 +336,7 @@ except ImportError:
     print("Example: sys.path.append('/path/to/your/project/root')")
     sys.exit(1)
 
-# --- 定义姿态骨架连接（COCO格式常见）---
+# --- 定义姿态骨架连接(COCO格式常见)---
 # 0: nose, 1: left_eye, 2: right_eye, 3: left_ear, 4: right_ear
 # 5: left_shoulder, 6: right_shoulder, 7: left_elbow, 8: right_elbow,
 # 9: left_wrist, 10: right_wrist, 11: left_hip, 12: right_hip,
@@ -351,8 +351,8 @@ KEYPOINT_COLORS = [
 ]
 
 # 为不同分类结果定义边界框颜色
-BBOX_COLOR_CLASS_0 = (0, 0, 255)  # 蓝色代表分类 0 （例如，男性）
-BBOX_COLOR_CLASS_1 = (0, 255, 0)  # 绿色代表分类 1 （例如，女性）
+BBOX_COLOR_CLASS_0 = (0, 0, 255)  # 蓝色代表分类 0 (例如，男性)
+BBOX_COLOR_CLASS_1 = (0, 255, 0)  # 绿色代表分类 1 (例如，女性)
 # 默认颜色或未指定分类时的颜色 (不再使用BBOX_COLOR)
 # BBOX_COLOR = (0, 255, 255) # Cyan for bounding boxes
 

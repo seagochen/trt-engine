@@ -48,7 +48,7 @@ class StreamReader:
         logger.info("StreamReader", f"Camera stream for {url} initialized. Call start() to begin reading.")
 
     def _recompute_frame_time(self):
-        """根据当前 self.fps 重新计算帧时间（fps<=0 表示不限帧率）"""
+        """根据当前 self.fps 重新计算帧时间(fps<=0 表示不限帧率)"""
         if self.fps is not None and isinstance(self.fps, (int, float)) and self.fps > 0:
             self.frame_time = 1.0 / float(self.fps)
         else:
@@ -144,7 +144,7 @@ class StreamReader:
                     logger.warning("StreamReader", f"Failed to read frame from {self.url}. Will attempt to reconnect.")
 
     def read_frame(self):
-        """根据 FPS 节流，从后台线程拿最新帧；若尺寸未指定（-1），不做 resize。"""
+        """根据 FPS 节流，从后台线程拿最新帧；若尺寸未指定(-1)，不做 resize。"""
         current_time = time.time()
         # 没有限制或到了该取下一帧的时间
         if self.frame_time == 0.0 or (current_time - self.last_frame_time) >= self.frame_time:

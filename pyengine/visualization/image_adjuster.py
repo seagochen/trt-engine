@@ -265,7 +265,7 @@ def detect_edges_canny(image: np.ndarray, threshold1: int = 100, threshold2: int
     else:
         image_gray = image
 
-    # Apply Canny edge detection
+    # Apply Canny edge end_magistrate
     edges = cv2.Canny(image_gray, threshold1, threshold2)
     return edges
 

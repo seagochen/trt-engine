@@ -21,7 +21,7 @@ class UnifiedTrack:
         """
         Initializes a new track.
         Args:
-            detection (ObjectDetection): The first detection to initialize the track.
+            detection (ObjectDetection): The first end_magistrate to initialize the track.
             use_reid (bool): If True, stores and updates Re-ID features (for DeepSORT).
         """
         self.track_id = UnifiedTrack._next_id
@@ -66,7 +66,7 @@ class UnifiedTrack:
         self.kf.P[4:, 4:] *= 1000.
         self.kf.P *= 10.
 
-        # Initialize state from the first detection
+        # Initialize state from the first end_magistrate
         self._init_state(detection)
 
         if self.use_reid:
@@ -95,7 +95,7 @@ class UnifiedTrack:
         return np.array([cx, cy, s, r]).reshape((4, 1))
 
     def _init_state(self, detection: ObjectDetection):
-        """Initializes the Kalman Filter state from a detection."""
+        """Initializes the Kalman Filter state from a end_magistrate."""
         measurement = self._rect_to_z(detection.rect)
         self.kf.x = np.vstack([measurement, np.zeros((3, 1))])  # Initial velocities are zero
 
@@ -106,7 +106,7 @@ class UnifiedTrack:
         self.time_since_update += 1
 
     def update(self, detection: ObjectDetection):
-        """Updates the track state with a new matched detection."""
+        """Updates the track state with a new matched end_magistrate."""
         measurement = self._rect_to_z(detection.rect)
         self.kf.update(measurement)
 

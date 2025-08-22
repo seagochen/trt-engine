@@ -50,6 +50,30 @@ class MQTTClient:
         """设置接收消息的回调函数"""
         self.message_callback = callback
 
+    def subscribe(self, topic: str, qos: int = 0) -> bool:
+        """订阅主题(支持 qos)"""
+        if not self.is_connected:
+            logger.warning("MQTTClient", "Client not connected. Cannot subscribe to topic.")
+            return False
+        try:
+            self.client.subscribe(topic, qos=qos)
+            return True
+        except Exception as e:
+            logger.error_trace("MQTTClient", f"Failed to subscribe to {topic} - {str(e)}")
+            return False
+
+    def unsubscribe(self, topic: str) -> bool:
+        """退订主题"""
+        if not self.is_connected:
+            logger.warning("MQTTClient", "Client not connected. Cannot unsubscribe.")
+            return False
+        try:
+            self.client.unsubscribe(topic)
+            return True
+        except Exception as e:
+            logger.error_trace("MQTTClient", f"Failed to unsubscribe from {topic} - {str(e)}")
+            return False
+
     # --- 修改 1: 重写 connect 方法，使其同步阻塞 ---
     def connect(self, timeout: int = 10) -> bool:
         """
@@ -87,18 +111,6 @@ class MQTTClient:
             self.client.loop_stop()
             self.client.disconnect()
 
-    # def publish(self, topic: str, payload: bytes) -> bool:
-    #     """发布消息"""
-    #     if not self.is_connected:
-    #         logger.warning("MQTTClient", "Client not connected. Cannot publish message.")
-    #         return False
-    #     try:
-    #         self.client.publish(topic, payload)
-    #         return True
-    #     except Exception as e:
-    #         logger.error_trace("MQTTClient", f"Failed to publish message to {topic} - {str(e)}")
-    #         return False
-
     def publish(self, topic: str, payload: bytes, qos: int = 1, retain: bool = False) -> bool:
         """发布消息"""
         if not self.is_connected:
@@ -110,18 +122,6 @@ class MQTTClient:
             return True
         except Exception as e:
             logger.error_trace("MQTTClient", f"Failed to publish message to {topic} - {str(e)}")
-            return False
-
-    def subscribe(self, topic: str) -> bool:
-        """订阅主题"""
-        if not self.is_connected:
-            logger.warning("MQTTClient", "Client not connected. Cannot subscribe to topic.")
-            return False
-        try:
-            self.client.subscribe(topic)
-            return True
-        except Exception as e:
-            logger.error_trace("MQTTClient", f"Failed to subscribe to {topic} - {str(e)}")
             return False
 
     # --- 修改 2: 修改 on_connect 回调 ---
