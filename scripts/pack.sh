@@ -16,6 +16,15 @@ EXCLUDE_DIRS=(
   "protobufs/raw_frames_pb2.py"
 )
 
+# 查找和删除所有 __pycache__ 目录
+find . -type d -name "__pycache__" -exec rm -rf {} +
+
+# 查找和删除所有 .pytest_cache 目录
+find . -type d -name ".pytest_cache" -exec rm -rf {} +
+
+# 查找和删除所有的 .pyc 文件
+find . -type f -name "*.pyc" -exec rm -f {} +
+
 # 构造 tar 的排除参数
 EXCLUDE_ARGS=()
 for d in "${EXCLUDE_DIRS[@]}"; do
