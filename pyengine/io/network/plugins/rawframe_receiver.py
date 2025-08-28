@@ -1,51 +1,4 @@
-# ---- Add to mqtt_plugins.py ----
-"""
-import time
-
-import cv2
-
-from pyengine.io.network.mqtt_bus import MqttBus
-from pyengine.io.network.mqtt_plugins import MqttPluginManager
-from pyengine.io.network.plugins.frame_reader import FrameReaderMqttPlugin
-from pyengine.io.network.plugins.hello_world import HelloWorldSenderPlugin, HelloWorldReceiverPlugin
-
-# 1) 启动 Bus(单处创建，统一管理连接/重连/扇出)
-bus = MqttBus(host="127.0.0.1", port=1883, client_id="demo_bus")
-bus.start()  # 内含重连与订阅恢复逻辑，发布接口可被插件直接复用。:contentReference[oaicite:3]{index=3}
-
-# 2) 装插件
-pm = MqttPluginManager(bus)  # 多插件共享一个宿主(bus)运行。:contentReference[oaicite:4]{index=4}
-reader = FrameReaderMqttPlugin(topic="raw/frames/cam1", pb2_dir="./protobufs",
-                                width=1280, height=720)
-pm.register(reader)
-
-# 3) 启动插件
-pm.start()
-
-# 等首帧(最多等 10 秒)
-t0 = time.time()
-first = None
-while first is None and time.time() - t0 < 10:
-    first = reader.read_frame()
-    cv2.waitKey(1)  # 让UI线程处理消息
-
-if first is None:
-    print("[demo] timeout: no frame received on topic 'raw/frames/cam1'")
-    pm.stop(); bus.stop()
-    raise SystemExit(1)
-
-# 正常循环
-while True:
-    frame = reader.read_frame()
-    if frame is not None:
-        cv2.imshow("demo", frame)
-    # 没有新帧时，不要把 None 传给 imshow；仅处理事件即可
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-pm.stop(); bus.stop()
-cv2.destroyAllWindows()
-"""
+# rawframe_receiver.py
 
 import queue
 import threading
@@ -54,8 +7,8 @@ from typing import Optional, Callable
 
 import cv2
 import numpy as np
-import extends
 
+from pyengine.io.network import protobufs
 from pyengine.io.network.mqtt_plugins import MqttPlugin, IMqttHost
 
 
@@ -89,7 +42,7 @@ class RawFrameReceiverPlugin(MqttPlugin):
         self.on_frame = on_frame
         self.frame_queue = frame_queue
 
-        self._RawFrame = extends.import_rawframe(pb2_dir)
+        self._RawFrame = protobufs.import_rawframe(pb2_dir)
         self._host: Optional[IMqttHost] = None
         self._sub_handle = None
 

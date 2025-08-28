@@ -4,7 +4,7 @@ import threading
 import time
 from typing import Optional, Callable
 
-import extends
+from pyengine.io.network import protobufs
 from pyengine.io.network.mqtt_plugins import MqttPlugin, IMqttHost
 
 
@@ -26,7 +26,7 @@ class InferenceResultReceiverPlugin(MqttPlugin):
         self.result_queue = result_queue
 
         # 动态加载 pb2: returns class of InferenceResult
-        self._InferenceResult = extends.import_inference_result(pb2_dir)  # :contentReference[oaicite:3]{index=3}
+        self._InferenceResult = protobufs.import_inference_result(pb2_dir)  # :contentReference[oaicite:3]{index=3}
         self._host: Optional[IMqttHost] = None
         self._sub_handle = None
 

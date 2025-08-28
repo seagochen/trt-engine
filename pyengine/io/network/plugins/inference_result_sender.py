@@ -4,8 +4,9 @@ from typing import List
 
 import numpy as np
 
-import extends
+
 from pyengine.inference.unified_structs.inference_results import Skeleton
+from pyengine.io.network import protobufs
 from pyengine.io.network.mqtt_plugins import MqttPlugin
 
 
@@ -15,7 +16,7 @@ class InferenceResultSenderPlugin(MqttPlugin):
         self.pb2_dir = pb2_dir
         self.qos = int(qos)
         self.retain = bool(retain)
-        self._InferenceResult = extends.import_inference_result(pb2_dir)
+        self._InferenceResult = protobufs.import_inference_result(pb2_dir)
         self._host = None
 
     def start(self, host) -> None:

@@ -1,23 +1,13 @@
-# -*- coding: utf-8 -*-
-"""
-RawFrameSenderPlugin
-RTSP/文件/设备 -> RawFrame(pb2, JPEG打包) -> MQTT publish
-
-- 不改变输入帧的尺寸和 FPS(StreamReader 用 width/height/fps = -1)
-- 将帧编码为 JPEG 放入 RawFrame.frame_raw_data
-- 附带 frame_width/height/channels/fps 字段
-- 通过宿主 host.publish(...) 发送(宿主可以是 MqttBus 或 MQTTClient)
-"""
+# rawframe_sender.py
 
 import time
 import threading
 from typing import Optional
 
 import cv2
-import extends
-from pyengine.io.network.mqtt_plugins import MqttPlugin
 
-# 依赖你的已有读取器
+from pyengine.io.network import protobufs
+from pyengine.io.network.mqtt_plugins import MqttPlugin
 from pyengine.io.streamer.stream_reader import StreamReader
 
 
@@ -68,7 +58,7 @@ class RawFrameSenderPlugin(MqttPlugin):
         self.first_frame_timeout = float(first_frame_timeout)
         self.idle_disconnect_sec = float(idle_disconnect_sec)
 
-        self._RawFrame = extends.import_rawframe(pb2_dir)
+        self._RawFrame = protobufs.import_rawframe(pb2_dir)
         self._host = None
 
         self._reader: Optional[StreamReader] = None
