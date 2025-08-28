@@ -17,37 +17,8 @@ import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-# --- 可选：轻量 logger 兜底，兼容没有 pyengine 的环境 ---
-try:
-    from pyengine.utils.logger import logger  # type: ignore
-except Exception:  # pragma: no cover
-    import logging
-    _lg = logging.getLogger("HeartbeatReceiver")
-    if not _lg.handlers:
-        _h = logging.StreamHandler()
-        _h.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
-        _lg.addHandler(_h)
-        _lg.setLevel(logging.INFO)
-
-    class _MiniLogger:
-        def info(self, tag, msg): _lg.info(f"[{tag}] {msg}")
-        def warning(self, tag, msg): _lg.warning(f"[{tag}] {msg}")
-        def debug(self, tag, msg): _lg.debug(f"[{tag}] {msg}")
-        def error_trace(self, tag, msg): _lg.error(f"[{tag}] {msg}", exc_info=True)
-
-    logger = _MiniLogger()  # type: ignore
-
-# --- 你的插件接口（与现有工程保持一致） ---
-try:
-    from mqtt_plugins import MqttPlugin, IMqttHost  # 优先使用你仓库里的接口
-except Exception:
-    # 极简兜底接口，便于独立测试（生产中会被实际实现覆盖）
-    class IMqttHost:  # pragma: no cover
-        def subscribe(self, topic, handler_or_qos, qos: int = 0): ...
-        def unsubscribe(self, handle_or_topic): ...
-    class MqttPlugin:  # pragma: no cover
-        def start(self, host: IMqttHost) -> None: ...
-        def stop(self) -> None: ...
+from pyengine.io.network.mqtt_plugins import MqttPlugin, IMqttHost
+from pyengine.utils.logger import logger
 
 
 # ====== 状态数据结构 ======
