@@ -164,16 +164,41 @@ class MqttBus:
         return self.client.publish(topic, payload, qos=qos, retain=retain)
 
     # ===== 内部：mqtt 回调扇出 / 自动重连 / 订阅恢复 =====
+    # def _on_message(self, topic: str, payload: bytes):
+    #     # 扇出：按精确 topic 分发(若需要通配符，可在这里做匹配拓展)
+    #     with self._lock:
+    #         targets = list(self._subs.get(topic, []))
+    #     # 将消息入各自队列；满了就丢(避免阻塞网络线程)
+    #     for sub in targets:
+    #         try:
+    #             sub.queue.put_nowait((topic, payload))
+    #         except Exception:
+    #             # 背压：丢弃最旧一条再放入(可选策略)
+    #             try:
+    #                 sub.queue.get_nowait()
+    #                 sub.queue.put_nowait((topic, payload))
+    #             except Exception:
+    #                 pass
+
     def _on_message(self, topic: str, payload: bytes):
-        # 扇出：按精确 topic 分发(若需要通配符，可在这里做匹配拓展)
+        # 扇出：支持“精确匹配 + 通配符匹配”
+        targets = []
         with self._lock:
-            targets = list(self._subs.get(topic, []))
-        # 将消息入各自队列；满了就丢(避免阻塞网络线程)
+            # 精确
+            targets.extend(self._subs.get(topic, []))
+            # 通配符：遍历所有已注册订阅键，挑出含 '+' / '#' 或与当前 topic 非等的订阅
+            for sub_topic, lst in self._subs.items():
+                if sub_topic == topic:
+                    continue
+                if ('+' in sub_topic) or ('#' in sub_topic):
+                    if _mqtt_topic_match(sub_topic, topic):
+                        targets.extend(lst)
+
+        # 入各自队列；满了就丢最旧（避免阻塞网络线程）
         for sub in targets:
             try:
                 sub.queue.put_nowait((topic, payload))
             except Exception:
-                # 背压：丢弃最旧一条再放入(可选策略)
                 try:
                     sub.queue.get_nowait()
                     sub.queue.put_nowait((topic, payload))
@@ -223,3 +248,27 @@ class MqttBus:
             "timestamp": int(time.time())
         }
         return json.dumps(payload).encode("utf-8")
+
+
+# --- 新增：MQTT 主题匹配（支持 + / #） ---
+def _mqtt_topic_match(sub: str, topic: str) -> bool:
+    # 快路径：完全相等
+    if sub == topic:
+        return True
+    s_parts = sub.split('/')
+    t_parts = topic.split('/')
+
+    for i, s in enumerate(s_parts):
+        if s == '#':
+            # '#' 只能出现在最后一个层级；匹配其余全部
+            return i == len(s_parts) - 1
+        if s == '+':
+            # 单层通配
+            if i >= len(t_parts):
+                return False
+            continue
+        # 普通文本
+        if i >= len(t_parts) or s != t_parts[i]:
+            return False
+    # 所有订阅层级都匹配完毕，则只有当主题没有剩余层级时才算匹配
+    return len(t_parts) == len(s_parts)

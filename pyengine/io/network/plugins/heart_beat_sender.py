@@ -6,7 +6,7 @@ from pyengine.utils.logger import logger
 
 
 # --- 心跳插件：替代 HeartbeatThread，既可插 Bus 也可插 Client ---
-class HeartbeatPlugin(MqttPlugin):
+class HeartbeatSenderPlugin(MqttPlugin):
     def __init__(self,
                  topic: str,
                  interval: float = 15.0,
