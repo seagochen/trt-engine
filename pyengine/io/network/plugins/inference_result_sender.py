@@ -11,8 +11,7 @@ from pyengine.io.network.mqtt_plugins import MqttPlugin
 
 
 class InferenceResultSenderPlugin(MqttPlugin):
-    def __init__(self, topic: str, pb2_dir: str = "./protobufs", qos: int = 1, retain: bool = False):
-        self.topic = topic
+    def __init__(self, pb2_dir: str = "./protobufs", qos: int = 1, retain: bool = False):
         self.pb2_dir = pb2_dir
         self.qos = int(qos)
         self.retain = bool(retain)
@@ -34,6 +33,7 @@ class InferenceResultSenderPlugin(MqttPlugin):
         return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
     def send(self,
+             topic: str,
              frame_number: int,
              frame_width: int,
              frame_height: int,
@@ -91,6 +91,6 @@ class InferenceResultSenderPlugin(MqttPlugin):
 
         payload = msg.SerializeToString()
         try:
-            return bool(self._host.publish(self.topic, payload, qos=self.qos, retain=self.retain))
+            return bool(self._host.publish(topic, payload, qos=self.qos, retain=self.retain))
         except Exception:
             return False
