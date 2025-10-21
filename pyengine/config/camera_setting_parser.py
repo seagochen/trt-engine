@@ -21,13 +21,13 @@ class CameraParametersConfig(BaseModel):
     roll_angle: int
     pitch_angle: int
     yaw_angle: int
+    resolution: Tuple[int, int]
     focal_length: Tuple[int, int]
     principal_coord: Tuple[int, int]
-    ground_coords: List[Tuple[int, int]]
-    depth_scale: float                  # <- 支持 1.5m
-    ground_x_length_calculated: int
-    ground_y_length_calculated: int
-    ground_z_length_calculated: int
+    # ground_coords: List[Tuple[int, int]]
+    # ground_x_length_calculated: int
+    # ground_y_length_calculated: int
+    # ground_z_length_calculated: int
 
 def load_camera_settings(path: str) -> CameraParametersConfig:
     with open(path, 'r', encoding='utf-8') as f:

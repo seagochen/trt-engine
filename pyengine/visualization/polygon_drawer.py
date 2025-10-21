@@ -48,14 +48,15 @@ def fill_area(image: np.ndarray, area: list, color: str, transparency: float) ->
 
 
 def fill_grid_area(
-    image: np.ndarray,
-    area: list,
-    color: str,
-    transparency: float,
-    grid_rows: int,
-    grid_cols: int,
-    perspective: bool = True,
-    grid_line_color: str = "#FFFFFF"
+        image: np.ndarray,
+        area: list,
+        color: str,
+        transparency: float,
+        grid_rows: int,
+        grid_cols: int,
+        perspective: bool = True,
+        grid_line_color: str = "#FFFFFF",
+        grid_transparency: float = 1.0  # <--- 【新增】网格线透明度参数
 ) -> np.ndarray:
     """
     Fills a polygonal area with a specified color and transparency, and overlays a grid.
@@ -69,21 +70,19 @@ def fill_grid_area(
       grid_rows (int): Number of rows in the grid.
       grid_cols (int): Number of columns in the grid.
       perspective (bool): If True, applies a perspective transform to the grid.
-                           Requires the 'area' to have exactly 4 points.
       grid_line_color (str): Color of the grid lines as a hex string.
-
+      grid_transparency (float): Transparency of the grid lines (0 to 1).
     Returns:
       np.ndarray: The image with the filled and gridded area.
     """
-    # First, fill the area with the specified color and transparency.
-    # The fill_area function already handles point validation and making the image writable.
     filled_image = fill_area(image, area, color, transparency)
 
-    # Prepare for drawing the grid
+    if not area or len(area) < 3:
+        return filled_image
+
     pts = np.array(area, dtype=np.int32)
     grid_bgr_color = hex_to_bgr(grid_line_color)
-    
-    # Create a separate layer for the grid
+
     grid_overlay = np.zeros_like(filled_image, dtype=np.uint8)
 
     if perspective:
@@ -91,15 +90,12 @@ def fill_grid_area(
             print("Perspective grid requires exactly 4 points for the area. Aborting grid drawing.")
             return filled_image
 
-        # Define a source rectangle (e.g., 100x100) to map the grid from
         src_rect_size = 100
         src_pts = np.float32([[0, 0], [src_rect_size, 0], [src_rect_size, src_rect_size], [0, src_rect_size]])
         dst_pts = np.float32(area)
-        
-        # Get the perspective transformation matrix
+
         matrix = cv2.getPerspectiveTransform(src_pts, dst_pts)
 
-        # Draw rows
         for i in range(1, grid_rows):
             y = i * src_rect_size / grid_rows
             p1_src = np.float32([[[0, y]]])
@@ -108,7 +104,6 @@ def fill_grid_area(
             p2_dst = cv2.perspectiveTransform(p2_src, matrix)[0][0]
             cv2.line(grid_overlay, tuple(p1_dst.astype(int)), tuple(p2_dst.astype(int)), grid_bgr_color, 1)
 
-        # Draw columns
         for i in range(1, grid_cols):
             x = i * src_rect_size / grid_cols
             p1_src = np.float32([[[x, 0]]])
@@ -117,28 +112,24 @@ def fill_grid_area(
             p2_dst = cv2.perspectiveTransform(p2_src, matrix)[0][0]
             cv2.line(grid_overlay, tuple(p1_dst.astype(int)), tuple(p2_dst.astype(int)), grid_bgr_color, 1)
 
-    else: # Non-perspective grid
+    else:
         x, y, w, h = cv2.boundingRect(pts)
-        
-        # Draw rows
+
         for i in range(1, grid_rows):
             line_y = int(y + (i * h / grid_rows))
             cv2.line(grid_overlay, (x, line_y), (x + w, line_y), grid_bgr_color, 1)
 
-        # Draw columns
         for i in range(1, grid_cols):
             line_x = int(x + (i * w / grid_cols))
             cv2.line(grid_overlay, (line_x, y), (line_x, y + h), grid_bgr_color, 1)
-            
-    # Create a mask to ensure the grid is only drawn inside the polygon
+
     mask = np.zeros(filled_image.shape[:2], dtype=np.uint8)
     cv2.fillPoly(mask, [pts], 255)
-    
-    # Clip the grid overlay to the mask
+
     clipped_grid = cv2.bitwise_and(grid_overlay, grid_overlay, mask=mask)
-    
-    # Add the clipped grid to the main image
-    final_image = cv2.add(filled_image, clipped_grid)
+
+    # 【修改】使用 addWeighted 来混合网格，以实现透明效果
+    final_image = cv2.addWeighted(filled_image, 1.0, clipped_grid, grid_transparency, 0)
 
     return final_image
 

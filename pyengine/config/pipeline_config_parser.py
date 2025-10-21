@@ -5,7 +5,6 @@ from pyengine.config.broker_config_parser import BrokerConfig
 
 # --- Camera Configuration Model ---
 class CameraConfig(BaseModel):
-    camera_id: Optional[str] = None
     address: str
     port: Optional[int] = None
     path: Optional[str] = None
