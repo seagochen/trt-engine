@@ -8,7 +8,7 @@ import cv2
 
 from pyengine.io.network import protobufs
 from pyengine.io.network.mqtt_plugins import MqttPlugin
-from pyengine.io.streamer.stream_reader import StreamReader
+from pyengine.io.streamer.stream_reader_old import StreamReader
 
 
 class _FPSAverager:
