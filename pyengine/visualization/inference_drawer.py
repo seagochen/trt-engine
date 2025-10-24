@@ -7,7 +7,7 @@ import numpy as np
 from pyengine.font import text_painter
 from pyengine.inference.unified_structs.auxiliary_structs import ExpandedSkeleton, FaceDirection
 from pyengine.inference.unified_structs.inference_results import Skeleton
-from pyengine.utils import scale_utils
+from pyengine.utils import coords_transform
 from pyengine.visualization.scheme_loader import SchemeLoader
 
 
