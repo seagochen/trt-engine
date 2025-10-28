@@ -272,7 +272,7 @@ def detect_edges_canny(image: np.ndarray, threshold1: int = 100, threshold2: int
 
 def apply_median_blur(image: np.ndarray, ksize: int = 5) -> np.ndarray:
     """
-    Applies a median filter to the image, effective for salt-and-pepper noise.
+    Applies a median filters to the image, effective for salt-and-pepper noise.
 
     Args:
         image: Input image (NumPy array).

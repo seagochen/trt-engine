@@ -1,10 +1,11 @@
 # inference_result_sender.py
 import json
-from typing import List
+from typing import List, Union
 
 import numpy as np
 
 
+from pyengine.inference.unified_structs.auxiliary_structs import ExpandedSkeleton
 from pyengine.inference.unified_structs.inference_results import Skeleton
 from pyengine.io.network import protobufs
 from pyengine.io.network.mqtt_plugins import MqttPlugin
@@ -26,7 +27,7 @@ class InferenceResultSenderPlugin(MqttPlugin):
 
     # ---- 仅支持单层 List[Skeleton] → JSON bytes(紧凑，UTF-8)----
     @staticmethod
-    def _dump_inference_results(items: List[Skeleton]) -> bytes:
+    def _dump_inference_results(items: List[Union[Skeleton, ExpandedSkeleton]]) -> bytes:
         def to_dict_safe(x):
             return x.to_dict() if hasattr(x, "to_dict") else x
         payload = [to_dict_safe(s) for s in (items or [])]
@@ -38,7 +39,7 @@ class InferenceResultSenderPlugin(MqttPlugin):
              frame_height: int,
              frame_channels: int,
              frame_raw_data: np.ndarray,
-             inference_result: List[Skeleton]) -> bool:  # ← 单层 List[Skeleton]
+             inference_result: List[Union[Skeleton, ExpandedSkeleton]]) -> bool:  # ← 单层 List[Skeleton]
         """
         发布一条 InferenceResult(proto 字段：frame_number/width/height/channels/frame_raw_data/publish_by/inference_results)。
         注意：frame_raw_data 发送裸像素(无格式字段)。
