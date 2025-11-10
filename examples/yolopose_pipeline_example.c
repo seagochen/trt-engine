@@ -6,7 +6,7 @@
  * to perform pose detection on images.
  */
 
-#include "trtengine_v2/inference/c_yolopose_pipeline.h"
+#include "trtengine_v2/pipelines/yolopose/c_yolopose_pipeline.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

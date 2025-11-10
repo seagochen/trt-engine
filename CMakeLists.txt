@@ -93,42 +93,15 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")  # 可执行文件通常不放在 lib 目录下，这里注释掉
 
-# ------------------ 版本选择 ------------------
-# 添加选项以选择构建 v1 或 v2 版本
-option(BUILD_V2 "Build v2 version (TRT core only, prepare for pure C API)" OFF)
-
 # ------------------ 源文件收集 ------------------
-# 使用 CONFIGURE_DEPENDS 使 CMake 在源文件改变时能自动重新生成构建系统
-if(BUILD_V2)
-    message(STATUS "Building V2 version (TRT core + utils, C API ready)")
+# V2 版本：只编译 trtengine_v2 目录（包含 C 和 C++ 文件）
+message(STATUS "Building V2 version (TRT core + utils, Pure C API)")
 
-    # V2 版本：只编译 trtengine_v2 和 c_apis_v2 目录（包含 C 和 C++ 文件）
-    file(GLOB_RECURSE COMMON_SOURCE_FILES
-            CONFIGURE_DEPENDS
-            "${PROJECT_SOURCE_DIR}/src/trtengine_v2/*.cpp"
-            "${PROJECT_SOURCE_DIR}/src/trtengine_v2/*.c"
-            "${PROJECT_SOURCE_DIR}/src/c_apis_v2/*.cpp"
-            "${PROJECT_SOURCE_DIR}/src/c_apis_v2/*.c"
-    )
-else()
-    message(STATUS "Building V1 version (Full C++ implementation with models)")
-
-    # V1 版本：编译所有文件，但排除 trtengine_v2
-    file(GLOB_RECURSE ALL_SOURCE_FILES
-            CONFIGURE_DEPENDS
-            "${PROJECT_SOURCE_DIR}/src/*.cpp"
-    )
-
-    # 排除 v2 目录的文件
-    set(COMMON_SOURCE_FILES "")
-    foreach(source_file ${ALL_SOURCE_FILES})
-        string(FIND "${source_file}" "/trtengine_v2/" found_v2)
-        string(FIND "${source_file}" "/c_apis_v2/" found_c_v2)
-        if(found_v2 EQUAL -1 AND found_c_v2 EQUAL -1)
-            list(APPEND COMMON_SOURCE_FILES "${source_file}")
-        endif()
-    endforeach()
-endif()
+file(GLOB_RECURSE COMMON_SOURCE_FILES
+        CONFIGURE_DEPENDS
+        "${PROJECT_SOURCE_DIR}/src/trtengine_v2/*.cpp"
+        "${PROJECT_SOURCE_DIR}/src/trtengine_v2/*.c"
+)
 
 message(STATUS "Total source files: ${COMMON_SOURCE_FILES}")
 
@@ -205,193 +178,76 @@ target_compile_options(jetson_static PRIVATE
 )
 
 # ====================================================================
-#                 functional_test_pipeline (可执行文件)
+#                 V2 Examples and Tests
 # ====================================================================
-set(TEST_SPECIAL_SOURCES
-        "functional_test_pipeline.cpp"
+message(STATUS "Building V2 examples and tests...")
+
+# 查找所有 example 源文件
+file(GLOB EXAMPLE_FILES
+    "${PROJECT_SOURCE_DIR}/examples/*.c"
+    "${PROJECT_SOURCE_DIR}/examples/*.cpp"
 )
 
-list(APPEND TEST_SPECIAL_SOURCES ${COMMON_SOURCE_FILES})
+# 为每个 example 创建可执行文件
+foreach(example_file ${EXAMPLE_FILES})
+    # 获取文件名（不含路径和扩展名）
+    get_filename_component(example_name ${example_file} NAME_WE)
 
-add_executable(functional_test_pipeline ${TEST_SPECIAL_SOURCES})
+    message(STATUS "  Adding example: ${example_name}")
 
-set_target_properties(functional_test_pipeline PROPERTIES
-        OUTPUT_NAME "functional_test_pipeline"
-)
+    # 创建可执行文件
+    add_executable(${example_name} ${example_file})
 
-target_include_directories(functional_test_pipeline PRIVATE
-        ${CUDA_INCLUDE_DIRS}
-        ${SIMPLE_CUDA_TOOLKITS_INC}
-        ${TENSORRT_INCLUDE_DIRS}
-        ${OpenCV_INCLUDE_DIRS}
-        "${PROJECT_SOURCE_DIR}/include"
-)
-
-target_link_libraries(functional_test_pipeline PRIVATE
-        ${CUDA_LIBRARIES}
-        "${SIMPLE_CUDA_TOOLKITS_LIB}/libsimplecuda.a"
-        ${TENSORRT_LIBS}
-        ${OpenCV_LIBRARIES}
-        ${OpenMP_LIBS} # Add OpenMP link libraries
-)
-
-target_compile_options(functional_test_pipeline PRIVATE
-        ${OpenMP_FLAGS} # Add OpenMP compile options
-)
-
-# ====================================================================
-#                 functional_test_yolopose (可执行文件)
-# ====================================================================
-set(TEST_SPECIAL_SOURCES
-        "functional_test_yolopose.cpp"
-)
-
-list(APPEND TEST_SPECIAL_SOURCES ${COMMON_SOURCE_FILES})
-
-add_executable(functional_test_yolopose ${TEST_SPECIAL_SOURCES})
-
-set_target_properties(functional_test_yolopose PROPERTIES
-        OUTPUT_NAME "functional_test_yolopose"
-)
-
-target_include_directories(functional_test_yolopose PRIVATE
-        ${CUDA_INCLUDE_DIRS}
-        ${SIMPLE_CUDA_TOOLKITS_INC}
-        ${TENSORRT_INCLUDE_DIRS}
-        ${OpenCV_INCLUDE_DIRS}
-        "${PROJECT_SOURCE_DIR}/include"
-)
-
-target_link_libraries(functional_test_yolopose PRIVATE
-        ${CUDA_LIBRARIES}
-        "${SIMPLE_CUDA_TOOLKITS_LIB}/libsimplecuda.a"
-        ${TENSORRT_LIBS}
-        ${OpenCV_LIBRARIES}
-        ${OpenMP_LIBS} # Add OpenMP link libraries
-)
-
-target_compile_options(functional_test_yolopose PRIVATE
-        ${OpenMP_FLAGS} # Add OpenMP compile options
-)
-
-# ====================================================================
-#                trt_engine_performance_test (可执行文件)
-# ====================================================================
-# 测试专用源文件
-set(TEST_SPECIAL_SOURCES
-        "${PROJECT_SOURCE_DIR}/benchmark_performance.cpp"
-        include/trtengine/c_apis/c_yolopose_detection.h
-        src/c_apis/c_yolopose_detection.cpp
-        include/trtengine/c_apis/c_structs.h
-)
-
-# 合并公共源和测试专用源
-list(APPEND TEST_SPECIAL_SOURCES ${COMMON_SOURCE_FILES})
-
-# 生成可执行文件
-add_executable(benchmark_performance ${TEST_SPECIAL_SOURCES})
-
-# 设置目标属性
-set_target_properties(benchmark_performance PROPERTIES
-        OUTPUT_NAME "benchmark_performance"
-)
-
-# 添加包含目录
-target_include_directories(benchmark_performance PRIVATE
-        ${CUDA_INCLUDE_DIRS}
-        ${SIMPLE_CUDA_TOOLKITS_INC}
-        ${TENSORRT_INCLUDE_DIRS}
-        ${OpenCV_INCLUDE_DIRS}
-        "${PROJECT_SOURCE_DIR}/include"
-)
-
-# 链接所需的库
-target_link_libraries(benchmark_performance PRIVATE
-        ${CUDA_LIBRARIES}
-        "${SIMPLE_CUDA_TOOLKITS_LIB}/libsimplecuda.a"
-        ${TENSORRT_LIBS}
-        ${OpenCV_LIBRARIES}
-        ${OpenMP_LIBS} # 添加 OpenMP 链接库
-)
-
-# 设置编译选项
-target_compile_options(benchmark_performance PRIVATE
-        ${OpenMP_FLAGS} # 添加 OpenMP 编译选项
-)
-
-# ====================================================================
-#                 V2 Examples (仅在 BUILD_V2 时编译)
-# ====================================================================
-if(BUILD_V2)
-    message(STATUS "Building V2 examples...")
-
-    # 查找所有 example 源文件
-    file(GLOB EXAMPLE_FILES
-        "${PROJECT_SOURCE_DIR}/examples/*.c"
-        "${PROJECT_SOURCE_DIR}/examples/*.cpp"
-    )
-
-    # 为每个 example 创建可执行文件
-    foreach(example_file ${EXAMPLE_FILES})
-        # 获取文件名（不含路径和扩展名）
-        get_filename_component(example_name ${example_file} NAME_WE)
-
-        message(STATUS "  Adding example: ${example_name}")
-
-        # 创建可执行文件
-        add_executable(${example_name} ${example_file})
-
-        # 设置输出目录到 build/examples
-        set_target_properties(${example_name} PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/examples"
-        )
-
-        # 添加包含目录
-        target_include_directories(${example_name} PRIVATE
-            ${CUDA_INCLUDE_DIRS}
-            ${SIMPLE_CUDA_TOOLKITS_INC}
-            ${TENSORRT_INCLUDE_DIRS}
-            "${PROJECT_SOURCE_DIR}/include"
-        )
-
-        # 链接共享库 (使用 jetson_shared)
-        target_link_libraries(${example_name} PRIVATE
-            jetson_shared
-            ${CUDA_LIBRARIES}
-            ${TENSORRT_LIBS}
-            m  # 链接数学库 (用于 sqrt, sqrtf 等函数)
-        )
-    endforeach()
-
-    # ====================================================================
-    #      V2 Cascade Test (级联推理测试程序)
-    # ====================================================================
-    message(STATUS "  Adding V2 cascade test: functional_test_v2_cascade")
-
-    add_executable(functional_test_v2_cascade
-        "${PROJECT_SOURCE_DIR}/functional_test_v2_cascade.cpp"
+    # 设置输出目录到 build/examples
+    set_target_properties(${example_name} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/examples"
     )
 
     # 添加包含目录
-    target_include_directories(functional_test_v2_cascade PRIVATE
+    target_include_directories(${example_name} PRIVATE
         ${CUDA_INCLUDE_DIRS}
         ${SIMPLE_CUDA_TOOLKITS_INC}
         ${TENSORRT_INCLUDE_DIRS}
-        ${OpenCV_INCLUDE_DIRS}
         "${PROJECT_SOURCE_DIR}/include"
     )
 
-    # 链接库
-    target_link_libraries(functional_test_v2_cascade PRIVATE
+    # 链接共享库 (使用 jetson_shared)
+    target_link_libraries(${example_name} PRIVATE
         jetson_shared
         ${CUDA_LIBRARIES}
         ${TENSORRT_LIBS}
-        ${OpenCV_LIBRARIES}
-        m  # 数学库
+        m  # 链接数学库 (用于 sqrt, sqrtf 等函数)
     )
+endforeach()
 
-    message(STATUS "V2 examples build configuration completed.")
-endif()
+# ====================================================================
+#      V2 Cascade Test (级联推理测试程序)
+# ====================================================================
+message(STATUS "  Adding V2 cascade test: functional_test_v2_cascade")
+
+add_executable(functional_test_v2_cascade
+    "${PROJECT_SOURCE_DIR}/functional_test_v2_cascade.cpp"
+)
+
+# 添加包含目录
+target_include_directories(functional_test_v2_cascade PRIVATE
+    ${CUDA_INCLUDE_DIRS}
+    ${SIMPLE_CUDA_TOOLKITS_INC}
+    ${TENSORRT_INCLUDE_DIRS}
+    ${OpenCV_INCLUDE_DIRS}
+    "${PROJECT_SOURCE_DIR}/include"
+)
+
+# 链接库
+target_link_libraries(functional_test_v2_cascade PRIVATE
+    jetson_shared
+    ${CUDA_LIBRARIES}
+    ${TENSORRT_LIBS}
+    ${OpenCV_LIBRARIES}
+    m  # 数学库
+)
+
+message(STATUS "V2 build configuration completed.")
 
 # ------------------- 安装规则 -------------------
 

@@ -57,30 +57,9 @@ typedef struct {
 typedef struct C_YoloPosePipelineContext C_YoloPosePipelineContext;
 
 // ============================================================================
-//                         输入图像结构
-// ============================================================================
-
-/**
- * @brief 单张图像输入
- */
-typedef struct {
-    const unsigned char* data;      ///< RGB 图像数据（HWC 格式）
-    int width;                      ///< 图像宽度
-    int height;                     ///< 图像高度
-    int channels;                   ///< 通道数（RGB 必须为 3）
-} C_ImageInput;
-
-/**
- * @brief 批量图像输入
- */
-typedef struct {
-    C_ImageInput* images;           ///< 输入图像数组
-    size_t count;                   ///< 批次中的图像数量
-} C_ImageBatch;
-
-// ============================================================================
 //                         输出结果结构
 // ============================================================================
+// Note: C_ImageInput and C_ImageBatch are defined in trtengine_v2/common/c_structures.h
 
 /**
  * @brief 单张图像的检测结果

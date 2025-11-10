@@ -12,6 +12,8 @@
 #ifndef TRTENGINE_V2_COMMON_C_STRUCTURES_H
 #define TRTENGINE_V2_COMMON_C_STRUCTURES_H
 
+#include <stddef.h>  // for size_t
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -40,6 +42,28 @@ typedef struct {
     int cls;        ///< Class index
     float conf;     ///< Detection confidence score (0.0 - 1.0)
 } C_YoloDetect;
+
+/**
+ * @brief Input image structure
+ *
+ * Common structure for passing images to inference pipelines
+ */
+typedef struct {
+    unsigned char* data;    ///< Image data pointer (RGB format)
+    int width;              ///< Image width in pixels
+    int height;             ///< Image height in pixels
+    int channels;           ///< Number of channels (3 for RGB)
+} C_ImageInput;
+
+/**
+ * @brief Batch of input images
+ *
+ * Structure for batch inference
+ */
+typedef struct {
+    C_ImageInput* images;   ///< Array of images
+    size_t count;           ///< Number of images in the batch
+} C_ImageBatch;
 
 #ifdef __cplusplus
 }

@@ -6,7 +6,8 @@
  * for object detection and pose estimation.
  */
 
-#include "trtengine_v2/model/c_common_ops.h"
+#include "trtengine_v2/common/c_operations.h"
+#include "trtengine_v2/pipelines/yolopose/c_yolopose_structures.h"
 #include <stdio.h>
 #include <stdlib.h>
 

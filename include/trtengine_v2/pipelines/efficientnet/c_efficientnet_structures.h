@@ -13,6 +13,7 @@
 #define TRTENGINE_V2_PIPELINES_EFFICIENTNET_C_EFFICIENTNET_STRUCTURES_H
 
 #include <stddef.h>
+#include "trtengine_v2/common/c_structures.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,23 +57,7 @@ typedef struct {
     size_t count;                  ///< Number of results in the batch
 } C_EfficientNetBatchResult;
 
-/**
- * @brief Input image structure
- */
-typedef struct {
-    unsigned char* data;           ///< Image data in RGB format (HWC)
-    int width;                     ///< Image width
-    int height;                    ///< Image height
-    int channels;                  ///< Number of channels (typically 3 for RGB)
-} C_ImageInput;
-
-/**
- * @brief Batch of input images
- */
-typedef struct {
-    C_ImageInput* images;          ///< Array of images
-    size_t count;                  ///< Number of images in the batch
-} C_ImageBatch;
+// Note: C_ImageInput and C_ImageBatch are defined in trtengine_v2/common/c_structures.h
 
 /**
  * @brief Free a single EfficientNet result
