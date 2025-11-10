@@ -12,6 +12,7 @@
 #ifndef TRTENGINE_V2_PIPELINES_YOLOPOSE_C_YOLOPOSE_STRUCTURES_H
 #define TRTENGINE_V2_PIPELINES_YOLOPOSE_C_YOLOPOSE_STRUCTURES_H
 
+#include <stddef.h>  // for size_t
 #include "trtengine_v2/common/c_structures.h"
 
 #ifdef __cplusplus
