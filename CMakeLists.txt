@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(CombinedProject LANGUAGES CXX)
+project(CombinedProject LANGUAGES C CXX)
 
 # ------------------ 基础设置 ------------------
 set(CMAKE_CXX_STANDARD 20)
@@ -93,13 +93,44 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")  # 可执行文件通常不放在 lib 目录下，这里注释掉
 
+# ------------------ 版本选择 ------------------
+# 添加选项以选择构建 v1 或 v2 版本
+option(BUILD_V2 "Build v2 version (TRT core only, prepare for pure C API)" OFF)
+
 # ------------------ 源文件收集 ------------------
 # 使用 CONFIGURE_DEPENDS 使 CMake 在源文件改变时能自动重新生成构建系统
-file(GLOB_RECURSE
-        COMMON_SOURCE_FILES
-        CONFIGURE_DEPENDS
-        "${PROJECT_SOURCE_DIR}/src/*.cpp"
-)
+if(BUILD_V2)
+    message(STATUS "Building V2 version (TRT core + utils, C API ready)")
+
+    # V2 版本：只编译 trtengine_v2 和 c_apis_v2 目录（包含 C 和 C++ 文件）
+    file(GLOB_RECURSE COMMON_SOURCE_FILES
+            CONFIGURE_DEPENDS
+            "${PROJECT_SOURCE_DIR}/src/trtengine_v2/*.cpp"
+            "${PROJECT_SOURCE_DIR}/src/trtengine_v2/*.c"
+            "${PROJECT_SOURCE_DIR}/src/c_apis_v2/*.cpp"
+            "${PROJECT_SOURCE_DIR}/src/c_apis_v2/*.c"
+    )
+else()
+    message(STATUS "Building V1 version (Full C++ implementation with models)")
+
+    # V1 版本：编译所有文件，但排除 trtengine_v2
+    file(GLOB_RECURSE ALL_SOURCE_FILES
+            CONFIGURE_DEPENDS
+            "${PROJECT_SOURCE_DIR}/src/*.cpp"
+    )
+
+    # 排除 v2 目录的文件
+    set(COMMON_SOURCE_FILES "")
+    foreach(source_file ${ALL_SOURCE_FILES})
+        string(FIND "${source_file}" "/trtengine_v2/" found_v2)
+        string(FIND "${source_file}" "/c_apis_v2/" found_c_v2)
+        if(found_v2 EQUAL -1 AND found_c_v2 EQUAL -1)
+            list(APPEND COMMON_SOURCE_FILES "${source_file}")
+        endif()
+    endforeach()
+endif()
+
+message(STATUS "Total source files: ${COMMON_SOURCE_FILES}")
 
 # ====================================================================
 #                生成目标：jetson_shared （共享库）

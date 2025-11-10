@@ -1,0 +1,290 @@
+#!/bin/bash
+#
+# Jetson Power & Clock Control - Shell Wrapper
+#
+# This script wraps the Python jetson_power_clocks.py script for easier usage.
+# It provides quick access to common Jetson performance tuning operations.
+#
+# Usage:
+#   sudo ./jetson_power_clocks.sh [OPTION]
+#
+# Options:
+#   --interactive, -i     Interactive menu (default)
+#   --maxn                Set to MAXN mode (maximum performance)
+#   --max-clocks          Maximize clocks and fan speed
+#   --restore             Restore to saved clock state
+#   --show                Show current clock status
+#   --help, -h            Show this help message
+#
+# Author: TrtEngineToolkits
+# Date: 2025-11-10
+#
+
+# Color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+RESET='\033[0m'
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_SCRIPT="${SCRIPT_DIR}/jetson_power_clocks.py"
+
+# Function to print colored messages
+print_info() {
+    echo -e "${BLUE}[INFO]${RESET} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${RESET} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${RESET} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${RESET} $1"
+}
+
+print_header() {
+    echo -e "${CYAN}========================================${RESET}"
+    echo -e "${CYAN}$1${RESET}"
+    echo -e "${CYAN}========================================${RESET}"
+}
+
+# Function to check if running on Jetson
+check_jetson() {
+    if [ -f "/etc/nv_tegra_release" ]; then
+        return 0
+    fi
+
+    if [ -f "/proc/device-tree/compatible" ]; then
+        if grep -qi "tegra" /proc/device-tree/compatible; then
+            return 0
+        fi
+    fi
+
+    print_error "This script is designed for NVIDIA Jetson platforms only."
+    exit 1
+}
+
+# Function to check root privileges
+check_root() {
+    if [ "$EUID" -ne 0 ]; then
+        print_error "This script must be run with root privileges."
+        echo "Please use: sudo $0"
+        exit 1
+    fi
+}
+
+# Function to check Python script
+check_python_script() {
+    if [ ! -f "$PYTHON_SCRIPT" ]; then
+        print_error "Python script not found: $PYTHON_SCRIPT"
+        exit 1
+    fi
+}
+
+# Function to check Python availability
+check_python() {
+    if ! command -v python3 &> /dev/null; then
+        print_error "Python3 is not installed or not in PATH"
+        exit 1
+    fi
+}
+
+# Function to display usage
+show_usage() {
+    cat << EOF
+${GREEN}Jetson Power & Clock Control${RESET}
+
+${BLUE}Usage:${RESET}
+  sudo $0 [OPTION]
+
+${BLUE}Options:${RESET}
+  --interactive, -i     Launch interactive menu (default)
+  --maxn                Set power mode to MAXN (maximum performance)
+  --max-clocks          Maximize CPU/GPU clocks and fan speed
+  --restore             Restore clocks to previously saved state
+  --show                Display current clock status
+  --help, -h            Show this help message
+
+${BLUE}Examples:${RESET}
+  sudo $0                    # Interactive menu
+  sudo $0 --maxn             # Set to maximum performance mode
+  sudo $0 --max-clocks       # Maximize clocks and fan
+  sudo $0 --restore          # Restore to normal state
+
+${BLUE}Quick Performance Boost:${RESET}
+  For maximum performance, run both:
+    sudo $0 --maxn
+    sudo $0 --max-clocks
+
+${BLUE}Notes:${RESET}
+  • This script requires root privileges (sudo)
+  • Only works on NVIDIA Jetson platforms
+  • Changes may require a system reboot to take effect
+  • Use --restore to return to normal performance mode
+
+${BLUE}Requirements:${RESET}
+  • nvpmodel (power mode control)
+  • jetson_clocks (clock/fan control)
+
+EOF
+}
+
+# Function to run interactive mode
+run_interactive() {
+    print_header "Jetson Power Control - Interactive Mode"
+    python3 "$PYTHON_SCRIPT"
+}
+
+# Function to set MAXN mode
+set_maxn() {
+    print_header "Setting MAXN Performance Mode"
+
+    if ! command -v nvpmodel &> /dev/null; then
+        print_error "nvpmodel command not found"
+        print_info "Install with: sudo apt-get install -y nvpmodel"
+        exit 1
+    fi
+
+    print_info "Setting nvpmodel to mode 0 (MAXN)..."
+    nvpmodel -m 0
+
+    if [ $? -eq 0 ]; then
+        print_success "Power mode set to MAXN"
+        echo ""
+        print_warning "A system reboot is recommended for changes to take full effect."
+        read -p "Reboot now? (y/N): " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            print_info "Rebooting system..."
+            reboot
+        fi
+    else
+        print_error "Failed to set power mode"
+        exit 1
+    fi
+}
+
+# Function to maximize clocks
+maximize_clocks() {
+    print_header "Maximizing Clocks and Fan Speed"
+
+    if ! command -v jetson_clocks &> /dev/null; then
+        print_error "jetson_clocks command not found"
+        print_info "This utility is part of JetPack. Install Jetson developer tools via SDK Manager."
+        exit 1
+    fi
+
+    # Store current settings first if not already stored
+    local config_file="/root/.jetsonclocks_conf.txt"
+    if [ ! -f "$config_file" ]; then
+        print_info "Storing current clock settings..."
+        jetson_clocks --store
+    fi
+
+    print_info "Maximizing CPU/GPU clocks and fan speed..."
+    jetson_clocks
+
+    if [ $? -eq 0 ]; then
+        print_success "Clocks and fan maximized successfully"
+        echo ""
+        print_info "Current clock status:"
+        jetson_clocks --show
+    else
+        print_error "Failed to maximize clocks"
+        exit 1
+    fi
+}
+
+# Function to restore clocks
+restore_clocks() {
+    print_header "Restoring Clock Settings"
+
+    if ! command -v jetson_clocks &> /dev/null; then
+        print_error "jetson_clocks command not found"
+        exit 1
+    fi
+
+    local config_file="/root/.jetsonclocks_conf.txt"
+    if [ ! -f "$config_file" ]; then
+        print_error "No saved clock configuration found at $config_file"
+        print_info "Run '$0 --max-clocks' first to create a baseline configuration"
+        exit 1
+    fi
+
+    print_info "Restoring clocks to saved state..."
+    jetson_clocks --restore
+
+    if [ $? -eq 0 ]; then
+        print_success "Clocks restored successfully"
+    else
+        print_error "Failed to restore clocks"
+        exit 1
+    fi
+}
+
+# Function to show clock status
+show_status() {
+    print_header "Current Clock Status"
+
+    # Show nvpmodel status
+    if command -v nvpmodel &> /dev/null; then
+        print_info "Power Mode (nvpmodel):"
+        nvpmodel -q
+        echo ""
+    fi
+
+    # Show jetson_clocks status
+    if command -v jetson_clocks &> /dev/null; then
+        print_info "Clock Status (jetson_clocks):"
+        jetson_clocks --show
+    else
+        print_warning "jetson_clocks not available"
+    fi
+}
+
+# Main script logic
+main() {
+    # Check prerequisites
+    check_jetson
+    check_root
+    check_python_script
+    check_python
+
+    # Parse command line arguments
+    case "${1:-}" in
+        --interactive|-i|"")
+            run_interactive
+            ;;
+        --maxn)
+            set_maxn
+            ;;
+        --max-clocks)
+            maximize_clocks
+            ;;
+        --restore)
+            restore_clocks
+            ;;
+        --show)
+            show_status
+            ;;
+        --help|-h)
+            show_usage
+            ;;
+        *)
+            print_error "Unknown option: $1"
+            echo ""
+            show_usage
+            exit 1
+            ;;
+    esac
+}
+
+# Run main function
+main "$@"
