@@ -22,7 +22,7 @@ extern "C" {
 /**
  * @brief Default feature vector size for EfficientNet B0
  */
-#define EFFICIENTNET_DEFAULT_FEAT_SIZE 256
+#define EFFICIENTNET_DEFAULT_FEAT_SIZE 512
 
 /**
  * @brief Default number of classes
