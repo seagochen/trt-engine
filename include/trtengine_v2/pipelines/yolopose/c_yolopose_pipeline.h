@@ -48,7 +48,6 @@ typedef struct {
 
     // 模型参数
     int num_keypoints;              ///< 关键点数量（例如 COCO 的 17 个）
-    int num_classes;                ///< 检测类别数量
 } C_YoloPosePipelineConfig;
 
 /**
