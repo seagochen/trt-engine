@@ -70,8 +70,12 @@ class UnifiedTrack:
         self._init_state(detection)
 
         if self.use_reid:
-            self.features = deque([np.array(detection.features)], maxlen=100) if detection.features else deque(
-                maxlen=100)
+            # V2 架构：Skeleton 不包含 features，需要单独提供
+            # 支持通过 detection 的 features 属性（如果有）或者为空
+            if hasattr(detection, 'features') and detection.features:
+                self.features = deque([np.array(detection.features)], maxlen=100)
+            else:
+                self.features = deque(maxlen=100)
         else:
             self.features = None
 
@@ -105,13 +109,26 @@ class UnifiedTrack:
         self.age += 1
         self.time_since_update += 1
 
-    def update(self, detection: ObjectDetection):
-        """Updates the track state with a new matched end_magistrate."""
+    def update(self, detection: ObjectDetection, features: Optional[np.ndarray] = None):
+        """
+        Updates the track state with a new matched detection.
+
+        Args:
+            detection: ObjectDetection object with bounding box info
+            features: Optional feature vector for Re-ID (V2: pass separately)
+        """
         measurement = self._rect_to_z(detection.rect)
         self.kf.update(measurement)
 
-        if self.use_reid and detection.features:
-            self.features.append(np.array(detection.features))
+        # V2 架构：features 可以单独传入
+        if self.use_reid:
+            # 优先使用传入的 features，其次检查 detection 是否有 features 属性
+            feat_to_use = features
+            if feat_to_use is None and hasattr(detection, 'features') and detection.features:
+                feat_to_use = np.array(detection.features)
+
+            if feat_to_use is not None:
+                self.features.append(feat_to_use if isinstance(feat_to_use, np.ndarray) else np.array(feat_to_use))
 
         self.hits += 1
         self.time_since_update = 0

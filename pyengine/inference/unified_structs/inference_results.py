@@ -76,7 +76,6 @@ class ObjectDetection(InferenceResults):
     classification: int = 0
     confidence: float = 0.0
     track_id: int = 0
-    features: List[float] = field(default_factory=list)  # Stored as JSON string in DB
 
     @classmethod
     # 将 dict[str, Any] 改为 Dict[str, Any]
@@ -86,7 +85,7 @@ class ObjectDetection(InferenceResults):
         data_copy = data.copy()
         if 'rect' in data_copy and isinstance(data_copy.get('rect'), dict):
             data_copy['rect'] = Rect.from_dict(data_copy['rect'])
-        
+
         # 将副本传递给父类
         return super().from_dict(data_copy)
     
@@ -120,3 +119,22 @@ class Skeleton(ObjectDetection):
 
         # 将副本传递给父类
         return super().from_dict(data_copy)
+
+
+@dataclass
+class ClassificationResult(InferenceResults):
+    """
+    Represents EfficientNet classification result.
+
+    This class is for standalone EfficientNet inference results,
+    decoupled from pose detection.
+    """
+    class_id: int = 0
+    confidence: float = 0.0
+    logits: List[float] = field(default_factory=list)
+    features: List[float] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ClassificationResult":
+        """从字典创建实例"""
+        return super().from_dict(data)

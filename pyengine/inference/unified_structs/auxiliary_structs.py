@@ -79,11 +79,17 @@ class ExpandedSkeleton(Skeleton):
         同时确保最终的实例是作为 ExtendedSkeleton 创建的，
         从而能够正确接收 pose 和 direction 等新字段。
         """
-        # Handle enum conversion for pose and direction if they come as raw values
-        if 'pose' in data and not isinstance(data['pose'], Pose):
-            data['pose'] = Pose.from_value(data['pose'])
-        if 'direction' in data and not isinstance(data['direction'], FaceDirection):
-            data['direction'] = FaceDirection.from_value(data['direction'])
+        # Handle enum conversion for posture_type and direction_type if they come as raw values
+        # Support both old field names (pose/direction) and new field names (posture_type/direction_type)
+        if 'posture_type' in data and not isinstance(data['posture_type'], Pose):
+            data['posture_type'] = Pose.from_value(data['posture_type'])
+        elif 'pose' in data and not isinstance(data['pose'], Pose):
+            data['posture_type'] = Pose.from_value(data['pose'])
+
+        if 'direction_type' in data and not isinstance(data['direction_type'], FaceDirection):
+            data['direction_type'] = FaceDirection.from_value(data['direction_type'])
+        elif 'direction' in data and not isinstance(data['direction'], FaceDirection):
+            data['direction_type'] = FaceDirection.from_value(data['direction'])
 
         # Call parent's from_dict, which handles 'points' and 'rect' conversion
         # This will also set the 'features', 'classification', 'confidence', 'track_id'

@@ -1,3 +1,4 @@
+# %%
 # posture_simple_calculation.py (New Logic Framework)
 
 from enum import Enum
@@ -7,7 +8,10 @@ from pyengine.algorithms.estimation import is_valid_point, compute_modulus, anal
 from pyengine.inference.unified_structs.auxiliary_structs import BodyOrientation, FaceDirection, ExpandedSkeleton, Pose
 from pyengine.inference.unified_structs.inference_results import Skeleton, Point
 
+# %% [markdown]
+# ## 计算肩部朝向
 
+# %%
 def get_shoulder_orientation(
     left_shoulder: Point, right_shoulder: Point,
     valid_left_shoulder: bool, valid_right_shoulder: bool
@@ -31,8 +35,50 @@ def get_shoulder_orientation(
     else:
         return BodyOrientation.Side
 
+# %% [markdown]
+# ## 计算 `bbox` 的长宽比
+# 
+# 这种方法是一种比较粗浅的方法，可以用来评估目标人物是站立还是下蹲。
+# 
+# 其中 `default_ratio_threshold` 在 1080P的相机情况下使用3.0比较合适，在4K的画质中，可能要改为2.0。
 
-def calculate_direction_and_posture(skeleton: Skeleton, default_confidence:float = 0.3) -> ExpandedSkeleton:
+# %%
+def calculate_bbox_aspect_ratio(skeleton: Skeleton,
+                                default_confidence: float=0.5, 
+                                default_ratio_threshold: float = 3.0) -> Pose:
+    """使用检测框的宽高比来简单判断站立或蹲/坐。"""
+    bbox_width = abs(skeleton.rect.x1 - skeleton.rect.x2)
+    bbox_height = abs(skeleton.rect.y1 - skeleton.rect.y2)
+
+    if bbox_width == 0 or bbox_height == 0:
+        return Pose.Unknown
+
+    if len(skeleton.points) < 17:
+        return Pose.Unknown
+
+    left_ankle = skeleton.points[15]
+    right_ankle = skeleton.points[16]
+    if not is_valid_point(left_ankle, default_confidence) or \
+            not is_valid_point(right_ankle, default_confidence):
+        return Pose.Unknown
+
+    aspect_ratio = bbox_height / bbox_width
+    print(aspect_ratio)
+
+    if aspect_ratio >= default_ratio_threshold:
+        return Pose.Standing
+    else:
+        return Pose.Squatting
+
+# %% [markdown]
+# ## 计算脸部和姿态
+# 
+# 外部主要调用 `calculate_direction_and_posture`
+
+# %%
+def calculate_direction_and_posture(skeleton: Skeleton, 
+                                    default_confidence: float = 0.3,
+                                    default_ratio_threshold: float = 3.0) -> ExpandedSkeleton:
     """
     [全新逻辑]
     严格按照分层规则判断朝向：
@@ -112,7 +158,7 @@ def calculate_direction_and_posture(skeleton: Skeleton, default_confidence:float
         features=skeleton.features,
         rect=skeleton.rect,
         points=skeleton.points,
-        posture_type=calculate_bbox_aspect_ratio(skeleton),
+        posture_type=calculate_bbox_aspect_ratio(skeleton, default_ratio_threshold=default_ratio_threshold),
         direction_type=orientation,
         direction_angle=angle,
         direction_modulus=modulus,
@@ -122,27 +168,3 @@ def calculate_direction_and_posture(skeleton: Skeleton, default_confidence:float
     return extended_skeleton
 
 
-def calculate_bbox_aspect_ratio(skeleton: Skeleton, default_confidence=0.5) -> Pose:
-    """使用检测框的宽高比来简单判断站立或蹲/坐。"""
-    bbox_width = abs(skeleton.rect.x1 - skeleton.rect.x2)
-    bbox_height = abs(skeleton.rect.y1 - skeleton.rect.y2)
-
-    if bbox_width == 0 or bbox_height == 0:
-        return Pose.Unknown
-
-    if len(skeleton.points) < 17:
-        return Pose.Unknown
-
-    left_ankle = skeleton.points[15]
-    right_ankle = skeleton.points[16]
-    if not is_valid_point(left_ankle, default_confidence) or \
-            not is_valid_point(right_ankle, default_confidence):
-        return Pose.Unknown
-
-    aspect_ratio = bbox_height / bbox_width
-    standing_threshold = 3.0
-
-    if aspect_ratio >= standing_threshold:
-        return Pose.Standing
-    else:
-        return Pose.Squatting

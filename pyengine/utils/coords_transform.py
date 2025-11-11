@@ -493,39 +493,3 @@ def transform_skeleton_to_full(
         else:
             raise TypeError(f"Unsupported skeleton type: {type(skeleton)}")
 
-
-def batch_transform_skeletons_to_full(
-        skeletons: List[Union[Skeleton, ExpandedSkeleton]],
-        crop_ltrb: LTRB,
-        full_size: Size,
-        *,
-        src_size: Size | None = None,
-        clamp: bool = False,
-        in_place: bool = False,
-) -> List[Union[Skeleton, ExpandedSkeleton]]:
-    """
-    Batch version of transform_skeleton_to_full.
-
-    Args:
-        skeletons: List of Skeleton or ExpandedSkeleton objects
-        crop_ltrb: (left, top, right, bottom) of the crop in full image
-        full_size: (width, height) of the full image
-        src_size: If provided (e.g., model input size like (640, 640)),
-                  scale from this size to crop size first
-        clamp: If True, clamp results to full image bounds
-        in_place: If True, modify skeletons in place; otherwise create new ones
-
-    Returns:
-        List of transformed skeletons in full-image coordinates
-    """
-    return [
-        transform_skeleton_to_full(
-            sk,
-            crop_ltrb,
-            full_size,
-            src_size=src_size,
-            clamp=clamp,
-            in_place=in_place
-        )
-        for sk in skeletons
-    ]

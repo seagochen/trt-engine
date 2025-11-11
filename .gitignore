@@ -65,9 +65,6 @@ protobufs/python
 # Ignore the generated CSV files
 *.csv
 
-# Ignore all the jupyternote files
-*.ipynb
-
 # Ignore the libs folder
 libs/
 deprecated/

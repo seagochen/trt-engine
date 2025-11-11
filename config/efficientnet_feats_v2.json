@@ -1,0 +1,14 @@
+{
+  "onnx_path": "/opt/models/efficientnet_b0/feat_logits_v2.onnx",
+  "target_path": "/opt/models/efficientnet_b0/feat_logits_v2.engine",
+  "trt_config": {
+    "precision": "fp32",
+    "min_shapes": "input:1x3x224x224",
+    "opt_shapes": "input:8x3x224x224",
+    "max_shapes": "input:32x3x224x224",
+    "use_nvdla": false,
+    "verbose": true,
+    "use_spin_wait": false
+  }
+}
+
