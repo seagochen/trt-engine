@@ -1,5 +1,5 @@
 {
-  "onnx_path": "/opt/models/efficientnet_b0/feat_logits_v2.onnx",
+  "onnx_path": "/opt/models/efficientnet_b0/feat_logits512_v2.onnx",
   "target_path": "/opt/models/efficientnet_b0/feat_logits_v2.engine",
   "trt_config": {
     "precision": "fp32",

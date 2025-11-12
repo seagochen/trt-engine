@@ -210,8 +210,10 @@ message(STATUS "V2 build configuration completed.")
 # ------------------- 安装规则 -------------------
 
 # 设置安装前缀。用户可以通过 -DCMAKE_INSTALL_PREFIX=/path/to/install 覆盖
-if (NOT DEFINED CMAKE_INSTALL_PREFIX)
-    set(CMAKE_INSTALL_PREFIX "/opt/TrtEngineToolkits" CACHE PATH "Installation prefix for SimpleCudaToolkits")
+# CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT 用于判断用户是否显式指定了安装路径
+if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX "/opt/TrtEngineToolkits" CACHE PATH "Installation prefix for TrtEngineToolkits" FORCE)
+    message(STATUS "CMAKE_INSTALL_PREFIX not specified, using default: ${CMAKE_INSTALL_PREFIX}")
 endif()
 
 # 安装头文件 (假设你的公共头文件在 PROJECT_SOURCE_DIR/include 目录下)
@@ -237,9 +239,9 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/pyengine/"
         OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
 )
 
-# 安装配置文件 (config 文件夹)
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/config/"
-        DESTINATION "${CMAKE_INSTALL_PREFIX}/config"
+# 安装配置文件 (configs 文件夹)
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/configs/"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/configs"
         OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
 )
 
