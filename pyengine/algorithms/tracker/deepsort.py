@@ -88,7 +88,8 @@ def build_deepsort_cost_matrix(
 
             # Cosine Distance (Re-ID Cost) Calculation
             reid_cost = 1.0
-            if track_feature.shape[0] > 1:
+            # 验证特征向量维度一致且非零向量
+            if track_feature.shape[0] > 0 and det_feature.shape[0] > 0 and track_feature.shape[0] == det_feature.shape[0]:
                 dot_product = np.dot(track_feature, det_feature)
                 norm_track = np.linalg.norm(track_feature)
                 norm_det = np.linalg.norm(det_feature)
@@ -106,13 +107,15 @@ class DeepSORTTracker:
                  iou_threshold: float = 0.3,  # IoU threshold for the first, fast matching cascade
                  reid_iou_threshold: float = 0.5,  # IoU threshold for the second, Re-ID matching cascade
                  reid_threshold: float = 0.4,  # Re-ID feature distance threshold
-                 lambda_weight: float = 0.5):
+                 lambda_weight: float = 0.5,
+                 feature_dim: int = 512):  # Feature vector dimension
         self.max_age = max_age
         self.min_hits = min_hits
         self.iou_threshold = iou_threshold
         self.reid_iou_threshold = reid_iou_threshold
         self.reid_threshold = reid_threshold
         self.lambda_weight = lambda_weight
+        self.feature_dim = feature_dim
         self.tracks: List[UnifiedTrack] = []
         UnifiedTrack._next_id = 0
 
@@ -126,9 +129,38 @@ class DeepSORTTracker:
         trk_boxes = np.array([[t.get_state().x1, t.get_state().y1, t.get_state().x2, t.get_state().y2] for t in tracks])
 
         if use_reid:
-            # --- Second Cascade: DeepSORT association ---
-            det_features = np.array([d.features for d in detections])
-            trk_features = np.array([t.get_mean_feature() for t in tracks])
+            # --- Second Cascade: DeepSORT association with feature validation ---
+            # 验证所有 detection 都有有效的特征向量
+            det_features_list = []
+            missing_features_count = 0
+            for i, d in enumerate(detections):
+                if hasattr(d, 'features') and d.features and len(d.features) == self.feature_dim:
+                    det_features_list.append(np.array(d.features, dtype=np.float32))
+                else:
+                    # 如果特征缺失，使用零向量（会导致较低的相似度，依然能通过IoU匹配）
+                    det_features_list.append(np.zeros(self.feature_dim, dtype=np.float32))
+                    missing_features_count += 1
+
+            if missing_features_count > 0:
+                from pyengine.utils.logger import logger
+                logger.warning(
+                    "DeepSORT",
+                    f"{missing_features_count}/{len(detections)} detections missing valid {self.feature_dim}-dim features, using zero vectors"
+                )
+
+            det_features = np.array(det_features_list)
+
+            # 验证 track 特征
+            trk_features_list = []
+            for t in tracks:
+                mean_feat = t.get_mean_feature()
+                if mean_feat is not None and len(mean_feat) == self.feature_dim:
+                    trk_features_list.append(mean_feat.astype(np.float32))
+                else:
+                    trk_features_list.append(np.zeros(self.feature_dim, dtype=np.float32))
+
+            trk_features = np.array(trk_features_list)
+
             cost_matrix = build_deepsort_cost_matrix(
                 trk_boxes, det_boxes, trk_features, det_features,
                 self.reid_iou_threshold, self.reid_threshold, self.lambda_weight
@@ -179,6 +211,15 @@ class DeepSORTTracker:
             # The det_idx here is for the `unmatched_detections` list, so we need to find the original index
             original_det_idx = unmatched_dets1[det_idx]
             old_tracks[trk_idx].update(detections[original_det_idx])
+
+        # 诊断日志：记录 DeepSORT 双级联匹配的统计信息
+        if matches2:  # 仅当第二级联有匹配时输出（说明特征匹配起作用了）
+            from pyengine.utils.logger import logger
+            logger.info(
+                "DeepSORT",
+                f"Cascade matching: 1st(IoU)={len(matches1)}, 2nd(Re-ID)={len(matches2)}, "
+                f"unmatched_dets={len(unmatched_dets2)}, new_tracks_created={sum(1 for i in unmatched_dets2 if detections[unmatched_dets1[i]].confidence >= 0.5)}"
+            )
 
         # --- 5. Create new tracks for final unmatched detections ---
         for det_idx in unmatched_dets2:
