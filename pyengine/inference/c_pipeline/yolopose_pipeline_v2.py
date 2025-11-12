@@ -176,8 +176,6 @@ class YoloPosePipelineV2:
                 - conf: Confidence score
                 - keypoints: List of 17 keypoints, each with {x, y, conf}
         """
-        print(f"[DEBUG YoloPose.infer] 开始，图像数量: {len(images)}")
-
         if self._context is None:
             raise RuntimeError("Pipeline not initialized. Call create() first.")
 
@@ -187,8 +185,6 @@ class YoloPosePipelineV2:
         results = []
 
         for img_idx, img in enumerate(images):
-            print(f"[DEBUG YoloPose.infer] 处理图像 {img_idx}/{len(images)}")
-
             # Validate image
             if not isinstance(img, np.ndarray) or img.dtype != np.uint8:
                 logger.error("YoloPosePipelineV2",
@@ -206,35 +202,27 @@ class YoloPosePipelineV2:
             if not img.flags['C_CONTIGUOUS']:
                 img = np.ascontiguousarray(img)
 
-            print(f"[DEBUG YoloPose.infer]   图像验证通过: shape={img.shape}, dtype={img.dtype}")
-
             # Prepare C structure
             # CRITICAL: 保持img的引用直到C API调用完成
-            print(f"[DEBUG YoloPose.infer]   准备 C_ImageInput...")
             c_image = C_ImageInput()
             c_image.data = img.ctypes.data_as(ctypes.POINTER(ctypes.c_ubyte))
             c_image.width = img.shape[1]
             c_image.height = img.shape[0]
             c_image.channels = img.shape[2]
-            print(f"[DEBUG YoloPose.infer]   C_ImageInput: w={c_image.width}, h={c_image.height}, c={c_image.channels}")
 
             # Run inference
-            print(f"[DEBUG YoloPose.infer]   准备 C_YoloPoseImageResult...")
             c_result = C_YoloPoseImageResult()
             # 显式初始化指针字段为 None (NULL)
             c_result.image_index = 0
             c_result.poses = None
             c_result.num_poses = 0
-            print(f"[DEBUG YoloPose.infer]   C_YoloPoseImageResult 初始化完成")
 
-            print(f"[DEBUG YoloPose.infer]   调用 C API: c_yolopose_infer_single...")
             # img保持在作用域内，确保C API调用时内存有效
             success = self.lib.c_yolopose_infer_single(
                 self._context,
                 ctypes.byref(c_image),
                 ctypes.byref(c_result)
             )
-            print(f"[DEBUG YoloPose.infer]   C API 返回: success={success}")
 
             if not success:
                 error_msg = self._get_last_error()
@@ -243,7 +231,6 @@ class YoloPosePipelineV2:
                 continue
 
             # Parse results
-            print(f"[DEBUG YoloPose.infer]   解析结果: num_poses={c_result.num_poses}")
             detections = []
             for i in range(c_result.num_poses):
                 c_pose = c_result.poses[i]
@@ -293,8 +280,6 @@ class YoloPosePipelineV2:
         Returns:
             List of detection results, same format as infer()
         """
-        print(f"[DEBUG YoloPose.infer_batch] 开始批处理，图像数量: {len(images)}")
-
         if self._context is None:
             raise RuntimeError("Pipeline not initialized. Call create() first.")
 
@@ -344,8 +329,6 @@ class YoloPosePipelineV2:
         if not c_images:
             return []
 
-        print(f"[DEBUG YoloPose.infer_batch] 有效图像数: {len(c_images)}")
-
         # Create C_ImageBatch
         c_images_array = (C_ImageInput * len(c_images))(*c_images)
         c_batch = C_ImageBatch()
@@ -357,13 +340,11 @@ class YoloPosePipelineV2:
         c_batch_result.results = None
         c_batch_result.num_images = 0
 
-        print(f"[DEBUG YoloPose.infer_batch] 调用 C API: c_yolopose_infer_batch...")
         success = self.lib.c_yolopose_infer_batch(
             self._context,
             ctypes.byref(c_batch),
             ctypes.byref(c_batch_result)
         )
-        print(f"[DEBUG YoloPose.infer_batch] C API 返回: success={success}")
 
         if not success:
             error_msg = self._get_last_error()
@@ -373,7 +354,6 @@ class YoloPosePipelineV2:
 
         # Parse results
         results = []
-        print(f"[DEBUG YoloPose.infer_batch] 解析结果: num_images={c_batch_result.num_images}")
 
         for img_idx in range(c_batch_result.num_images):
             c_img_result = c_batch_result.results[img_idx]
@@ -415,7 +395,6 @@ class YoloPosePipelineV2:
         # Free C memory
         self.lib.c_yolopose_batch_result_free(ctypes.byref(c_batch_result))
 
-        print(f"[DEBUG YoloPose.infer_batch] 批处理完成，返回 {len(results)} 个结果")
         return results
 
     def _get_last_error(self) -> Optional[str]:

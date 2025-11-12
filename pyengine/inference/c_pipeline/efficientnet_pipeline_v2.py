@@ -279,8 +279,6 @@ class EfficientNetPipelineV2:
         Returns:
             List of classification results, same format as infer()
         """
-        print(f"[DEBUG EfficientNet.infer_batch] 开始批处理，图像数量: {len(images)}")
-
         if self._context is None:
             raise RuntimeError("Pipeline not initialized. Call create() first.")
 
@@ -330,8 +328,6 @@ class EfficientNetPipelineV2:
         if not c_images:
             return []
 
-        print(f"[DEBUG EfficientNet.infer_batch] 有效图像数: {len(c_images)}")
-
         # Create C_ImageBatch
         c_images_array = (C_ImageInput * len(c_images))(*c_images)
         c_batch = C_ImageBatch()
@@ -343,13 +339,11 @@ class EfficientNetPipelineV2:
         c_batch_result.results = None
         c_batch_result.count = 0
 
-        print(f"[DEBUG EfficientNet.infer_batch] 调用 C API: c_efficientnet_infer_batch...")
         success = self.lib.c_efficientnet_infer_batch(
             self._context,
             ctypes.byref(c_batch),
             ctypes.byref(c_batch_result)
         )
-        print(f"[DEBUG EfficientNet.infer_batch] C API 返回: success={success}")
 
         if not success:
             error_msg = self._get_last_error()
@@ -359,7 +353,6 @@ class EfficientNetPipelineV2:
 
         # Parse results
         results = []
-        print(f"[DEBUG EfficientNet.infer_batch] 解析结果: count={c_batch_result.count}")
 
         for img_idx in range(c_batch_result.count):
             c_result = c_batch_result.results[img_idx]
@@ -387,7 +380,6 @@ class EfficientNetPipelineV2:
         # Free C memory
         self.lib.c_efficientnet_batch_result_free(ctypes.byref(c_batch_result))
 
-        print(f"[DEBUG EfficientNet.infer_batch] 批处理完成，返回 {len(results)} 个结果")
         return results
 
     def _get_last_error(self) -> Optional[str]:
