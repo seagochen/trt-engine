@@ -239,9 +239,9 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/pyengine/"
         OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
 )
 
-# 安装配置文件 (config 文件夹)
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/config/"
-        DESTINATION "${CMAKE_INSTALL_PREFIX}/config"
+# 安装配置文件 (configs 文件夹)
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/configs/"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/configs"
         OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
 )
 
