@@ -669,16 +669,14 @@ bool c_yolopose_infer_single(
     }
 
     // 4. 将输入数据从 CPU 拷贝到 GPU
-    // (注意：这里的实现通过了 std::vector 作为中介，可能不是最高效的)
-    int input_size = 1 * 3 * // 假设 batch size 为 1
-                       context->config.input_height * context->config.input_width;
-    
-    // (注意：这里硬编码使用了 max_batch_size，在单张推理时应使用实际大小，但如果缓冲区是按 max 分配的也行)
-    // 更好的方式是只复制单张图像的数据
+    // 注意：即使只推理一张图片，tensor 也是按 max_batch_size 分配的
+    // 所以我们需要传入完整大小的数据，只有第一张图片是有效的
     int single_input_size = 3 * context->config.input_height * context->config.input_width;
+    int total_input_size = context->config.max_batch_size * single_input_size;
+
     std::vector<float> input_vec(context->host_input_buffer,
-                                 context->host_input_buffer + single_input_size);
-    
+                                 context->host_input_buffer + total_input_size);
+
     // input_tensor 是 GPU 上的数据封装
     context->input_tensor->copyFromVector(input_vec);
 
@@ -775,10 +773,12 @@ bool c_yolopose_infer_single(
 }
 
 /**
- * @brief 对一批图像执行 YoloPose 推理。
+ * @brief 对一批图像执行 YoloPose 推理（真正的批处理实现）。
  *
- * @note 当前的实现是**串行**的，它只是循环调用 c_yolopose_infer_single。
- * (TODO: 标记表明未来应实现真正的批量推理)。
+ * 此函数实现了真正的批处理：
+ * 1. 将所有图像一次性预处理并填充到批处理缓冲区
+ * 2. 一次性执行 TensorRT 批量推理
+ * 3. 分别处理每张图像的输出结果
  *
  * @param context [in] 指向 YoloPose 管线上下文的指针。
  * @param batch   [in] 指向 C_ImageBatch 结构（包含多张图像）的指针。
@@ -795,44 +795,193 @@ bool c_yolopose_infer_batch(
         return false;
     }
 
-    // 2. 为批量结果分配内存
-    // (注意：这里是串行处理的实现)
+    // 2. 检查批次大小是否超过配置的最大批处理大小
+    if (batch->count > (size_t)context->config.max_batch_size) {
+        snprintf(context->error_msg, sizeof(context->error_msg),
+                 "Batch size %zu exceeds max_batch_size %d",
+                 batch->count, context->config.max_batch_size);
+        return false;
+    }
+
+    // 3. 为每张图像准备预处理参数（scale 和 padding）
+    float* scales_x = (float*)malloc(batch->count * sizeof(float));
+    float* scales_y = (float*)malloc(batch->count * sizeof(float));
+    int* pads_x = (int*)malloc(batch->count * sizeof(int));
+    int* pads_y = (int*)malloc(batch->count * sizeof(int));
+
+    if (!scales_x || !scales_y || !pads_x || !pads_y) {
+        free(scales_x); free(scales_y); free(pads_x); free(pads_y);
+        snprintf(context->error_msg, sizeof(context->error_msg),
+                 "Memory allocation failed for preprocessing params");
+        return false;
+    }
+
+    // 4. 批量预处理所有图像
+    // 将每张图像预处理到 host_input_buffer 的对应位置
+    int single_input_size = 3 * context->config.input_height * context->config.input_width;
+
+    for (size_t i = 0; i < batch->count; i++) {
+        const C_ImageInput* image = &batch->images[i];
+
+        // 验证输入图像
+        if (!image->data || image->width <= 0 || image->height <= 0 ||
+            image->channels != 3) {
+            snprintf(context->error_msg, sizeof(context->error_msg),
+                     "Invalid input image at index %zu", i);
+            free(scales_x); free(scales_y); free(pads_x); free(pads_y);
+            return false;
+        }
+
+        // 预处理到批处理缓冲区的第 i 个位置
+        float* buffer_offset = context->host_input_buffer + (i * single_input_size);
+
+        if (!preprocess_image(
+            image->data, image->width, image->height, image->channels,
+            buffer_offset, // 每张图像写入对应的缓冲区位置
+            context->config.input_width, context->config.input_height,
+            &scales_x[i], &scales_y[i], &pads_x[i], &pads_y[i]
+        )) {
+            snprintf(context->error_msg, sizeof(context->error_msg),
+                     "Image preprocessing failed at index %zu", i);
+            free(scales_x); free(scales_y); free(pads_x); free(pads_y);
+            return false;
+        }
+    }
+
+    // 5. 将整个批次的输入数据从 CPU 拷贝到 GPU
+    int total_input_size = batch->count * single_input_size;
+    std::vector<float> input_vec(context->host_input_buffer,
+                                  context->host_input_buffer + total_input_size);
+    context->input_tensor->copyFromVector(input_vec);
+
+    // 6. 执行批量推理
+    std::vector<Tensor<float>*> inputs = {context->input_tensor};
+    std::vector<Tensor<float>*> outputs = {context->output_tensor};
+
+    if (!context->trt_engine->infer(inputs, outputs)) {
+        snprintf(context->error_msg, sizeof(context->error_msg),
+                 "TensorRT batch inference failed");
+        free(scales_x); free(scales_y); free(pads_x); free(pads_y);
+        return false;
+    }
+
+    // 7. 为批量结果分配内存
     result->num_images = batch->count;
-    // 分配一个 C_YoloPoseImageResult 数组，用于存储每张图的结果
     result->results = (C_YoloPoseImageResult*)calloc(
         batch->count, sizeof(C_YoloPoseImageResult)
     );
 
     if (!result->results) {
-        return false; // 内存分配失败
+        free(scales_x); free(scales_y); free(pads_x); free(pads_y);
+        return false;
     }
 
-    // 3. 循环处理每张图像
+    // 8. 处理每张图像的输出结果
+    const size_t max_detections = 300;
+    float* device_output_ptr = context->output_tensor->ptr();
+
     for (size_t i = 0; i < batch->count; i++) {
-        // 调用单图推理函数
-        if (!c_yolopose_infer_single(context, &batch->images[i],
-                                     &result->results[i])) {
-            
-            // --- 失败处理 ---
-            // 如果第 i 张图像处理失败，需要清理已分配的资源
-            
-            // 假设 c_yolopose_image_result_free 用于释放 C_YoloPoseImageResult 内的 poses 内存
+        // 获取当前图像在批次中的输出位置
+        // 输出格式: [batch, features, samples] -> [N, 56, 8400]
+        int single_output_size = context->output_features * context->output_samples;
+        float* device_image_output = device_output_ptr + (i * single_output_size);
+
+        // 使用 CUDA 后处理当前图像的输出
+        std::vector<float> processed_output;
+        int num_valid = kernel_decode_for_yolopose(
+            device_image_output,                // 当前图像的 GPU 输出
+            processed_output,
+            context->output_features,
+            context->output_samples,
+            context->config.conf_threshold,
+            max_detections
+        );
+
+        // 如果没有检测到目标，设置为空结果
+        if (num_valid <= 0) {
+            result->results[i].image_index = i;
+            result->results[i].num_poses = 0;
+            result->results[i].poses = NULL;
+            continue;
+        }
+
+        // 分配临时内存存储解析后的检测结果
+        C_YoloPose* temp_detections = (C_YoloPose*)malloc(
+            num_valid * sizeof(C_YoloPose)
+        );
+        if (!temp_detections) {
+            snprintf(context->error_msg, sizeof(context->error_msg),
+                     "Memory allocation failed for image %zu", i);
+            // 清理之前成功的结果
             for (size_t j = 0; j < i; j++) {
-                // 释放掉所有之前 (0 到 i-1) 成功处理的图像结果
                 c_yolopose_image_result_free(&result->results[j]);
             }
-            // 释放 results 数组本身
             free(result->results);
             result->results = NULL;
             result->num_images = 0;
-            return false; // 返回失败
+            free(scales_x); free(scales_y); free(pads_x); free(pads_y);
+            return false;
         }
-        
-        // 如果成功，设置该结果对应的图像索引
+
+        // 解析 CUDA 后处理的结果
+        parse_cuda_postproc_results(
+            processed_output.data(),
+            num_valid,
+            context->output_features,
+            scales_x[i], scales_y[i], pads_x[i], pads_y[i],
+            batch->images[i].width, batch->images[i].height,
+            temp_detections
+        );
+
+        // 应用 NMS
+        C_YoloPose* nms_result = (C_YoloPose*)malloc(
+            num_valid * sizeof(C_YoloPose)
+        );
+        if (!nms_result) {
+            free(temp_detections);
+            snprintf(context->error_msg, sizeof(context->error_msg),
+                     "Memory allocation failed for NMS at image %zu", i);
+            // 清理之前成功的结果
+            for (size_t j = 0; j < i; j++) {
+                c_yolopose_image_result_free(&result->results[j]);
+            }
+            free(result->results);
+            result->results = NULL;
+            result->num_images = 0;
+            free(scales_x); free(scales_y); free(pads_x); free(pads_y);
+            return false;
+        }
+
+        size_t num_after_nms = 0;
+        c_nms_pose(
+            temp_detections, num_valid,
+            context->config.iou_threshold,
+            nms_result, &num_after_nms
+        );
+
+        // 填充当前图像的结果
         result->results[i].image_index = i;
+        result->results[i].num_poses = num_after_nms;
+        result->results[i].poses = (C_YoloPose*)malloc(
+            num_after_nms * sizeof(C_YoloPose)
+        );
+
+        if (result->results[i].poses) {
+            memcpy(result->results[i].poses, nms_result,
+                   num_after_nms * sizeof(C_YoloPose));
+        }
+
+        // 清理临时内存
+        free(temp_detections);
+        free(nms_result);
     }
 
-    // 4. 所有图像均处理成功
+    // 9. 清理预处理参数
+    free(scales_x);
+    free(scales_y);
+    free(pads_x);
+    free(pads_y);
+
     return true;
 }
 

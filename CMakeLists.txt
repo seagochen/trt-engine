@@ -207,6 +207,35 @@ target_link_libraries(functional_test_v2_cascade PRIVATE
 
 message(STATUS "V2 build configuration completed.")
 
+# ====================================================================
+#      Batch Processing Test (批处理功能测试程序)
+# ====================================================================
+message(STATUS "  Adding batch processing test: test_batch_processing")
+
+add_executable(test_batch_processing
+    "${PROJECT_SOURCE_DIR}/test_batch_processing.cpp"
+)
+
+# 添加包含目录
+target_include_directories(test_batch_processing PRIVATE
+    ${CUDA_INCLUDE_DIRS}
+    ${SIMPLE_CUDA_TOOLKITS_INC}
+    ${TENSORRT_INCLUDE_DIRS}
+    ${OpenCV_INCLUDE_DIRS}
+    "${PROJECT_SOURCE_DIR}/include"
+)
+
+# 链接库
+target_link_libraries(test_batch_processing PRIVATE
+    jetson_shared
+    ${CUDA_LIBRARIES}
+    ${TENSORRT_LIBS}
+    ${OpenCV_LIBRARIES}
+    m  # 数学库
+)
+
+message(STATUS "Batch processing test configuration completed.")
+
 # ------------------- 安装规则 -------------------
 
 # 设置安装前缀。用户可以通过 -DCMAKE_INSTALL_PREFIX=/path/to/install 覆盖
