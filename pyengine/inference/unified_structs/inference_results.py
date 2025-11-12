@@ -102,6 +102,7 @@ class Point(InferenceResults):
 class Skeleton(ObjectDetection):
     """Represents a human skeleton, inheriting bounding box info and adding keypoints."""
     points: List[Point] = field(default_factory=list)  # Stored as JSON string in DB
+    features: List[float] = field(default_factory=list)  # EfficientNet features for classification
 
     @classmethod
     # 将 dict[str, Any] 改为 Dict[str, Any]
