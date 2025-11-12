@@ -146,7 +146,9 @@ class EfficientNetPipelineV2:
         config = self.lib.c_efficientnet_pipeline_get_default_config()
 
         # Override with user-specified values
-        config.engine_path = self.engine_path.encode('utf-8')
+        # 保持engine_path编码后的字符串引用，防止被GC回收
+        self._engine_path_bytes = self.engine_path.encode('utf-8')
+        config.engine_path = self._engine_path_bytes
         config.input_width = self.input_width
         config.input_height = self.input_height
         config.max_batch_size = self.max_batch_size
@@ -211,6 +213,7 @@ class EfficientNetPipelineV2:
                 img = np.ascontiguousarray(img)
 
             # Prepare C structure
+            # CRITICAL: 保持img的引用直到C API调用完成
             c_image = C_ImageInput()
             c_image.data = img.ctypes.data_as(ctypes.POINTER(ctypes.c_ubyte))
             c_image.width = img.shape[1]
@@ -227,6 +230,7 @@ class EfficientNetPipelineV2:
             c_result.features = None
             c_result.feature_size = 0
 
+            # img保持在作用域内，确保C API调用时内存有效
             success = self.lib.c_efficientnet_infer_single(
                 self._context,
                 ctypes.byref(c_image),
@@ -275,17 +279,22 @@ class EfficientNetPipelineV2:
         Returns:
             List of classification results, same format as infer()
         """
-        print(f"[DEBUG EfficientNet.infer_batch] 开始批处理，图像数量: {len(images)}")
-
         if self._context is None:
             raise RuntimeError("Pipeline not initialized. Call create() first.")
 
         if not images:
             return []
 
+        # 验证批处理大小
+        if len(images) > self.max_batch_size:
+            raise ValueError(
+                f"Batch size {len(images)} exceeds max_batch_size {self.max_batch_size}"
+            )
+
         # Validate and prepare all images
-        c_images = []
+        # CRITICAL: 保持valid_images的引用以防止numpy数组被GC回收
         valid_images = []
+        c_images = []
 
         for img_idx, img in enumerate(images):
             # Validate image
@@ -305,9 +314,10 @@ class EfficientNetPipelineV2:
             if not img.flags['C_CONTIGUOUS']:
                 img = np.ascontiguousarray(img)
 
+            # CRITICAL: 先添加到valid_images以保持引用
             valid_images.append(img)
 
-            # Create C structure
+            # Create C structure - 指针指向valid_images中的数组
             c_image = C_ImageInput()
             c_image.data = img.ctypes.data_as(ctypes.POINTER(ctypes.c_ubyte))
             c_image.width = img.shape[1]
@@ -317,8 +327,6 @@ class EfficientNetPipelineV2:
 
         if not c_images:
             return []
-
-        print(f"[DEBUG EfficientNet.infer_batch] 有效图像数: {len(c_images)}")
 
         # Create C_ImageBatch
         c_images_array = (C_ImageInput * len(c_images))(*c_images)
@@ -331,13 +339,11 @@ class EfficientNetPipelineV2:
         c_batch_result.results = None
         c_batch_result.count = 0
 
-        print(f"[DEBUG EfficientNet.infer_batch] 调用 C API: c_efficientnet_infer_batch...")
         success = self.lib.c_efficientnet_infer_batch(
             self._context,
             ctypes.byref(c_batch),
             ctypes.byref(c_batch_result)
         )
-        print(f"[DEBUG EfficientNet.infer_batch] C API 返回: success={success}")
 
         if not success:
             error_msg = self._get_last_error()
@@ -347,7 +353,6 @@ class EfficientNetPipelineV2:
 
         # Parse results
         results = []
-        print(f"[DEBUG EfficientNet.infer_batch] 解析结果: count={c_batch_result.count}")
 
         for img_idx in range(c_batch_result.count):
             c_result = c_batch_result.results[img_idx]
@@ -375,7 +380,6 @@ class EfficientNetPipelineV2:
         # Free C memory
         self.lib.c_efficientnet_batch_result_free(ctypes.byref(c_batch_result))
 
-        print(f"[DEBUG EfficientNet.infer_batch] 批处理完成，返回 {len(results)} 个结果")
         return results
 
     def _get_last_error(self) -> Optional[str]:

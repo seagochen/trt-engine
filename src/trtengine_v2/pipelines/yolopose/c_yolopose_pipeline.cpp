@@ -849,7 +849,9 @@ bool c_yolopose_infer_batch(
     }
 
     // 5. 将整个批次的输入数据从 CPU 拷贝到 GPU
-    int total_input_size = batch->count * single_input_size;
+    // 注意：必须传入 max_batch_size 大小的数据，即使实际 batch 更小
+    // TensorRT 引擎的输入张量是按 max_batch_size 分配的
+    int total_input_size = context->config.max_batch_size * single_input_size;
     std::vector<float> input_vec(context->host_input_buffer,
                                   context->host_input_buffer + total_input_size);
     context->input_tensor->copyFromVector(input_vec);
