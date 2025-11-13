@@ -79,11 +79,16 @@ class MQTTClient:
         """
         同步连接到MQTT broker。
         此方法将阻塞直到连接成功或超时。
+
+        修复: 确保在异常情况下也正确停止loop
         """
         self.connected_event.clear()  # 每次连接前重置事件状态
+        loop_started = False
+
         try:
             self.client.connect(self.host, self.port, 60)
             self.client.loop_start()
+            loop_started = True
 
             # 等待 on_connect 回调函数设置 event，最多等待 timeout 秒
             logger.info("MQTTClient", f"Waiting for connection to {self.host}:{self.port}...")
@@ -92,6 +97,7 @@ class MQTTClient:
             # 如果事件被设置，返回 True；如果超时，返回 False
             if self.connected_event.wait(timeout=timeout):
                 # 事件被触发，返回由 on_connect 设置的最终连接状态
+                logger.info("MQTTClient", f"Successfully connected to {self.host}:{self.port}")
                 return self.is_connected
             else:
                 # 等待超时
@@ -102,6 +108,15 @@ class MQTTClient:
 
         except Exception as e:
             logger.error_trace("MQTTClient", f"Failed to initiate connect to {self.host}:{self.port} - {str(e)}")
+
+            # 确保清理: 如果loop已启动但连接失败，必须停止loop
+            if loop_started:
+                try:
+                    self.client.loop_stop()
+                    logger.debug("MQTTClient", "Stopped MQTT loop after connection exception")
+                except Exception as stop_e:
+                    logger.error("MQTTClient", f"Error stopping MQTT loop: {stop_e}")
+
             return False
 
     def disconnect(self):
