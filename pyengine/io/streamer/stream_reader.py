@@ -1,4 +1,5 @@
 import os
+import threading
 import time
 import cv2
 
@@ -55,6 +56,7 @@ class StreamReader:
         self.frame_time = 0.0
         self._is_opened = False
         self._is_video_file = False  # Track if source is a video file
+        self._reconnect_lock = threading.Lock()  # Lock to prevent concurrent reconnects
 
         # Flags for native parameters
         self.use_native_width = (width == -1)
@@ -149,45 +151,47 @@ class StreamReader:
 
     def reconnect(self) -> bool:
         """
-        Attempt to reconnect to the stream.
+        Attempt to reconnect to the stream (thread-safe).
 
         Returns:
             True if reconnection successful, False otherwise
         """
-        logger.info("StreamReader", f"Attempting to reconnect to {self.url}...")
+        # Use lock to prevent concurrent reconnection attempts
+        with self._reconnect_lock:
+            logger.info("StreamReader", f"Attempting to reconnect to {self.url}...")
 
-        if self.cap:
-            self.cap.release()
-            self.cap = None
+            if self.cap:
+                self.cap.release()
+                self.cap = None
 
-        for attempt in range(self.max_retries):
-            logger.info("StreamReader", f"Reconnection attempt {attempt + 1}/{self.max_retries}...")
-            try:
-                new_cap = self._open_stream(self.url)
-                if new_cap and new_cap.isOpened():
-                    self.cap = new_cap
-                    self._is_opened = True
+            for attempt in range(self.max_retries):
+                logger.info("StreamReader", f"Reconnection attempt {attempt + 1}/{self.max_retries}...")
+                try:
+                    new_cap = self._open_stream(self.url)
+                    if new_cap and new_cap.isOpened():
+                        self.cap = new_cap
+                        self._is_opened = True
 
-                    # Refresh native parameters if needed
-                    if self._use_any_native:
-                        self._refresh_native_params()
-                    else:
-                        self._recompute_frame_time()
+                        # Refresh native parameters if needed
+                        if self._use_any_native:
+                            self._refresh_native_params()
+                        else:
+                            self._recompute_frame_time()
 
-                    logger.info("StreamReader", "Successfully reconnected.")
-                    return True
+                        logger.info("StreamReader", "Successfully reconnected.")
+                        return True
 
-            except FileNotFoundError:
-                logger.error("StreamReader", f"Cannot reconnect: file '{self.url}' not found.")
-                break
-            except Exception as e:
-                logger.error("StreamReader", f"Reconnection error: {e}")
+                except FileNotFoundError:
+                    logger.error("StreamReader", f"Cannot reconnect: file '{self.url}' not found.")
+                    break
+                except Exception as e:
+                    logger.error("StreamReader", f"Reconnection error: {e}")
 
-            time.sleep(self.retry_delay)
+                time.sleep(self.retry_delay)
 
-        logger.error("StreamReader", f"Max retries reached. Could not reconnect to {self.url}.")
-        self._is_opened = False
-        return False
+            logger.error("StreamReader", f"Max retries reached. Could not reconnect to {self.url}.")
+            self._is_opened = False
+            return False
 
     def _open_stream(self, url):
         """
