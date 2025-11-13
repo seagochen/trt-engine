@@ -40,6 +40,8 @@ class StreamWriter:
             """
             自动尝试不同的编码器来初始化VideoWriter。
             如果尝试失败，会删除创建的空文件。
+
+            使用 try-finally 确保资源正确清理，即使删除文件时出错。
             """
             # 编码器尝试顺序(你可以按平台需求排序)
             codec_list = [
@@ -52,21 +54,46 @@ class StreamWriter:
             ]
 
             for codec, ext in codec_list:
-                fourcc = cv2.VideoWriter_fourcc(*codec)
+                video = None
                 filename = self.filename_base + ext
-                video = cv2.VideoWriter(filename, fourcc, self.fps, (self.width, self.height))
-                print(f"⚠️ Testing Codec {codec}...")
-                
-                if video.isOpened():
-                    print(f"✅ Using codec: {codec}, saved as: {filename}")
-                    return video, codec, filename
-                else:
-                    print(f"❌ Codec failed: {codec}")
-                    # 新增代码：如果编码器初始化失败，则释放对象并删除已创建的空文件
-                    video.release()
-                    if os.path.exists(filename):
-                        os.remove(filename)
-                        print(f"🗑️ Removed empty file: {filename}")
+                success = False
+
+                try:
+                    fourcc = cv2.VideoWriter_fourcc(*codec)
+                    video = cv2.VideoWriter(filename, fourcc, self.fps, (self.width, self.height))
+                    print(f"⚠️ Testing Codec {codec}...")
+
+                    if video.isOpened():
+                        print(f"✅ Using codec: {codec}, saved as: {filename}")
+                        success = True
+                        return video, codec, filename
+                    else:
+                        print(f"❌ Codec failed: {codec}")
+
+                except Exception as e:
+                    print(f"❌ Error initializing writer with codec {codec}: {e}")
+
+                finally:
+                    # 只在失败时清理
+                    if not success:
+                        # 确保清理：先释放 video，再删除文件
+                        if video is not None:
+                            try:
+                                video.release()
+                            except Exception as e:
+                                print(f"⚠️ Error releasing video writer: {e}")
+
+                        # 安全删除空文件
+                        if os.path.exists(filename):
+                            try:
+                                # 检查文件大小，只删除空文件或小于 1KB 的文件
+                                file_size = os.path.getsize(filename)
+                                if file_size < 1024:  # Less than 1KB
+                                    os.remove(filename)
+                                    print(f"🗑️ Removed empty/small file: {filename} ({file_size} bytes)")
+                            except OSError as e:
+                                print(f"⚠️ Warning: Failed to remove file {filename}: {e}")
+                                # 不抛出异常，继续尝试下一个编码器
 
             raise ValueError("❌ Failed to initialize VideoWriter with any known codec.")
 
