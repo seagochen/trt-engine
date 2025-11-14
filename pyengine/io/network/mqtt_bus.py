@@ -173,21 +173,29 @@ class MqttBus:
                         handler(t, payload)
                         logger.debug("MqttBus", f"Retry {retry_num} succeeded for topic '{t}'")
                         sub.retry_count += 1
+                    except KeyboardInterrupt:
+                        # Don't catch keyboard interrupt
+                        logger.info("MqttBus", "KeyboardInterrupt in handler, stopping")
+                        raise
+                    except SystemExit:
+                        # Don't catch system exit
+                        logger.info("MqttBus", "SystemExit in handler, stopping")
+                        raise
                     except Exception as e:
                         if retry_num < sub.max_retries:
                             # Retry again
                             logger.warning("MqttBus",
-                                f"Handler retry {retry_num}/{sub.max_retries} failed for topic '{t}': {e}, will retry")
+                                f"Handler retry {retry_num}/{sub.max_retries} failed for topic '{t}': {e.__class__.__name__}: {e}, will retry")
                             retry_queue.append((item, retry_num + 1))
                             sub.retry_count += 1
                         else:
                             # Max retries exceeded, log and record failure
                             logger.error("MqttBus",
-                                f"Handler failed after {retry_num} retries for topic '{t}': {e}")
+                                f"Handler failed after {retry_num} retries for topic '{t}': {e.__class__.__name__}: {e}")
                             sub.failed_messages.append({
                                 'topic': t,
                                 'payload_size': len(payload),
-                                'error': str(e),
+                                'error': f"{e.__class__.__name__}: {e}",
                                 'timestamp': time.time(),
                                 'retries': retry_num
                             })
@@ -206,9 +214,15 @@ class MqttBus:
                 t, payload = item
                 try:
                     handler(t, payload)
+                except KeyboardInterrupt:
+                    logger.info("MqttBus", "KeyboardInterrupt in handler, stopping")
+                    raise
+                except SystemExit:
+                    logger.info("MqttBus", "SystemExit in handler, stopping")
+                    raise
                 except Exception as e:
                     # First failure, add to retry queue
-                    logger.warning("MqttBus", f"Handler failed for topic '{t}': {e}, will retry")
+                    logger.warning("MqttBus", f"Handler failed for topic '{t}': {e.__class__.__name__}: {e}, will retry")
                     retry_queue.append((item, 1))
 
         # Create and start worker thread

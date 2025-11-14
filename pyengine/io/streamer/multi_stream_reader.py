@@ -195,10 +195,18 @@ class MultiVideoReader:
             if not source:
                 continue
 
-            # Wait for thread to finish
+            # Wait for thread to finish with timeout protection
             thread = source['thread']
             if thread and thread.is_alive():
                 thread.join(timeout=2.0)
+
+                # Check if thread actually stopped
+                if thread.is_alive():
+                    logger.warning("MultiVideoReader",
+                                 f"Thread for source '{name}' did not stop after 2s timeout during rollback. "
+                                 f"Thread may be hung. State: {thread.is_alive()}")
+                else:
+                    logger.debug("MultiVideoReader", f"Thread for source '{name}' stopped successfully during rollback")
 
             # Close reader
             if source['opened']:
@@ -220,19 +228,36 @@ class MultiVideoReader:
         self._stop_event.set()
         self._running = False
 
-        # Wait for all threads to finish
+        # Wait for all threads to finish with timeout protection
+        hung_threads = []
         for name, source in self._sources.items():
             thread = source['thread']
             if thread and thread.is_alive():
                 thread.join(timeout=2.0)
 
-            # Close reader
+                # Check if thread actually stopped
+                if thread.is_alive():
+                    hung_threads.append(name)
+                    logger.warning("MultiVideoReader",
+                                 f"Thread for source '{name}' did not stop after 2s timeout. "
+                                 f"Thread may be hung or blocked on I/O.")
+                else:
+                    logger.debug("MultiVideoReader", f"Thread for source '{name}' stopped successfully")
+
+            # Close reader (attempt even if thread is hung)
             if source['opened']:
                 try:
                     source['reader'].close()
                     source['opened'] = False
+                    logger.debug("MultiVideoReader", f"Reader for source '{name}' closed successfully")
                 except Exception as e:
                     logger.error("MultiVideoReader", f"Error closing source '{name}': {e}")
+
+        # Report hung threads summary
+        if hung_threads:
+            logger.error("MultiVideoReader",
+                        f"Warning: {len(hung_threads)} thread(s) did not stop cleanly: {hung_threads}. "
+                        f"These threads may continue running in the background.")
 
         logger.info("MultiVideoReader", "All sources stopped")
 
