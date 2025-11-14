@@ -1,18 +1,23 @@
 #!/bin/bash
 #
-# Jetson Power & Clock Control - Shell Wrapper
+# Jetson Boost - Performance & Fan Control Tool
 #
-# This script wraps the Python jetson_power_clocks.py script for easier usage.
+# This script wraps the Python jetson_boost.py script for easier usage.
 # It provides quick access to common Jetson performance tuning operations.
 #
 # Usage:
-#   sudo ./jetson_power_clocks.sh [OPTION]
+#   sudo ./jetson_boost.sh [OPTION]
 #
 # Options:
 #   --interactive, -i     Interactive menu (default)
 #   --maxn                Set to MAXN mode (maximum performance)
-#   --max-clocks          Maximize clocks and fan speed
+#   --max-clocks          Maximize clocks (CUDA cores)
 #   --restore             Restore to saved clock state
+#   --fan-on              Force fan to maximum speed
+#   --fan-off             Restore fan to auto mode
+#   --fan-status          Show current fan status
+#   --enable-autostart    Enable fan auto-start at boot
+#   --disable-autostart   Disable fan auto-start at boot
 #   --show                Show current clock status
 #   --help, -h            Show this help message
 #
@@ -30,7 +35,7 @@ RESET='\033[0m'
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_SCRIPT="${SCRIPT_DIR}/jetson_power_clocks.py"
+PYTHON_SCRIPT="${SCRIPT_DIR}/jetson_boost.py"
 
 # Function to print colored messages
 print_info() {
@@ -99,46 +104,75 @@ check_python() {
 # Function to display usage
 show_usage() {
     cat << EOF
-${GREEN}Jetson Power & Clock Control${RESET}
+${GREEN}Jetson Boost - Performance & Fan Control${RESET}
 
 ${BLUE}Usage:${RESET}
   sudo $0 [OPTION]
 
 ${BLUE}Options:${RESET}
-  --interactive, -i     Launch interactive menu (default)
-  --maxn                Set power mode to MAXN (maximum performance)
-  --max-clocks          Maximize CPU/GPU clocks and fan speed
-  --restore             Restore clocks to previously saved state
-  --show                Display current clock status
-  --help, -h            Show this help message
+  ${CYAN}Interactive Mode:${RESET}
+    --interactive, -i       Launch interactive menu (default)
+
+  ${CYAN}Power Mode Control:${RESET}
+    --maxn                  Set power mode to MAXN (maximum performance)
+
+  ${CYAN}Clock Control (CUDA Cores):${RESET}
+    --max-clocks            Maximize CPU/GPU clocks and enable all CUDA cores
+    --restore               Restore clocks to previously saved state
+    --show                  Display current clock status
+
+  ${CYAN}Fan Control:${RESET}
+    --fan-on                Force fan to maximum speed (255 PWM)
+    --fan-off               Restore fan to automatic control mode
+    --fan-status            Show current fan speed and PWM value
+
+  ${CYAN}Auto-Start Control:${RESET}
+    --enable-autostart      Enable fan auto-start at system boot
+    --disable-autostart     Disable fan auto-start at system boot
+
+  ${CYAN}Help:${RESET}
+    --help, -h              Show this help message
 
 ${BLUE}Examples:${RESET}
-  sudo $0                    # Interactive menu
-  sudo $0 --maxn             # Set to maximum performance mode
-  sudo $0 --max-clocks       # Maximize clocks and fan
-  sudo $0 --restore          # Restore to normal state
+  ${GREEN}Interactive menu:${RESET}
+    sudo $0
 
-${BLUE}Quick Performance Boost:${RESET}
-  For maximum performance, run both:
-    sudo $0 --maxn
-    sudo $0 --max-clocks
+  ${GREEN}Maximum performance setup:${RESET}
+    sudo $0 --maxn              # Set power mode to MAXN
+    sudo $0 --max-clocks        # Maximize clocks/CUDA cores
+    sudo $0 --fan-on            # Force fan on
+
+  ${GREEN}Fan control:${RESET}
+    sudo $0 --fan-on            # Turn fan on (max speed)
+    sudo $0 --fan-off           # Return to auto mode
+    sudo $0 --fan-status        # Check fan status
+
+  ${GREEN}Auto-start at boot:${RESET}
+    sudo $0 --enable-autostart  # Fan starts automatically at boot
+    sudo $0 --disable-autostart # Disable auto-start
+
+  ${GREEN}Restore normal state:${RESET}
+    sudo $0 --restore           # Restore clocks
+    sudo $0 --fan-off           # Fan to auto mode
 
 ${BLUE}Notes:${RESET}
   • This script requires root privileges (sudo)
   • Only works on NVIDIA Jetson platforms
-  • Changes may require a system reboot to take effect
-  • Use --restore to return to normal performance mode
+  • Power mode changes (--maxn) may require a reboot
+  • Fan and clock controls are independent
+  • Use --restore to return to normal clock state
 
 ${BLUE}Requirements:${RESET}
   • nvpmodel (power mode control)
-  • jetson_clocks (clock/fan control)
+  • jetson_clocks (clock control)
+  • PWM fan interface in /sys/devices/pwm-fan or /sys/class/hwmon
 
 EOF
 }
 
 # Function to run interactive mode
 run_interactive() {
-    print_header "Jetson Power Control - Interactive Mode"
+    print_header "Jetson Boost - Interactive Mode"
     python3 "$PYTHON_SCRIPT"
 }
 
@@ -173,7 +207,7 @@ set_maxn() {
 
 # Function to maximize clocks
 maximize_clocks() {
-    print_header "Maximizing Clocks and Fan Speed"
+    print_header "Maximizing Clocks and Enabling All CUDA Cores"
 
     if ! command -v jetson_clocks &> /dev/null; then
         print_error "jetson_clocks command not found"
@@ -188,11 +222,11 @@ maximize_clocks() {
         jetson_clocks --store
     fi
 
-    print_info "Maximizing CPU/GPU clocks and fan speed..."
+    print_info "Maximizing CPU/GPU clocks and enabling all CUDA cores..."
     jetson_clocks
 
     if [ $? -eq 0 ]; then
-        print_success "Clocks and fan maximized successfully"
+        print_success "Clocks maximized and all CUDA cores enabled"
         echo ""
         print_info "Current clock status:"
         jetson_clocks --show
@@ -200,6 +234,49 @@ maximize_clocks() {
         print_error "Failed to maximize clocks"
         exit 1
     fi
+}
+
+# Function to force fan on
+fan_on() {
+    print_header "Forcing Fan to Maximum Speed"
+    print_info "Calling Python script to force fan on..."
+    python3 "$PYTHON_SCRIPT" --fan-on
+}
+
+# Function to turn fan off (auto mode)
+fan_off() {
+    print_header "Restoring Fan to Automatic Control"
+    print_info "Calling Python script to restore fan to auto mode..."
+    python3 "$PYTHON_SCRIPT" --fan-off
+}
+
+# Function to show fan status
+fan_status() {
+    print_header "Fan Status"
+    python3 "$PYTHON_SCRIPT" --fan-status
+}
+
+# Function to enable fan autostart
+enable_autostart() {
+    print_header "Enabling Fan Auto-Start at Boot"
+    print_info "This will create a systemd service to start the fan automatically at boot..."
+    python3 "$PYTHON_SCRIPT" --interactive << 'EOF'
+9
+0
+EOF
+    print_success "Fan auto-start configuration completed"
+    print_info "The fan will automatically start at maximum speed on next boot"
+}
+
+# Function to disable fan autostart
+disable_autostart() {
+    print_header "Disabling Fan Auto-Start at Boot"
+    print_info "This will disable the systemd service for fan auto-start..."
+    python3 "$PYTHON_SCRIPT" --interactive << 'EOF'
+a
+0
+EOF
+    print_success "Fan auto-start disabled"
 }
 
 # Function to restore clocks
@@ -270,6 +347,21 @@ main() {
             ;;
         --restore)
             restore_clocks
+            ;;
+        --fan-on)
+            fan_on
+            ;;
+        --fan-off)
+            fan_off
+            ;;
+        --fan-status)
+            fan_status
+            ;;
+        --enable-autostart)
+            enable_autostart
+            ;;
+        --disable-autostart)
+            disable_autostart
             ;;
         --show)
             show_status
