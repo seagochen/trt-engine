@@ -207,11 +207,42 @@ target_link_libraries(functional_test_v2_cascade PRIVATE
 
 message(STATUS "V2 build configuration completed.")
 
+# ====================================================================
+#      Batch Processing Test (批处理功能测试程序)
+# ====================================================================
+message(STATUS "  Adding batch processing test: test_batch_processing")
+
+add_executable(test_batch_processing
+    "${PROJECT_SOURCE_DIR}/test_batch_processing.cpp"
+)
+
+# 添加包含目录
+target_include_directories(test_batch_processing PRIVATE
+    ${CUDA_INCLUDE_DIRS}
+    ${SIMPLE_CUDA_TOOLKITS_INC}
+    ${TENSORRT_INCLUDE_DIRS}
+    ${OpenCV_INCLUDE_DIRS}
+    "${PROJECT_SOURCE_DIR}/include"
+)
+
+# 链接库
+target_link_libraries(test_batch_processing PRIVATE
+    jetson_shared
+    ${CUDA_LIBRARIES}
+    ${TENSORRT_LIBS}
+    ${OpenCV_LIBRARIES}
+    m  # 数学库
+)
+
+message(STATUS "Batch processing test configuration completed.")
+
 # ------------------- 安装规则 -------------------
 
 # 设置安装前缀。用户可以通过 -DCMAKE_INSTALL_PREFIX=/path/to/install 覆盖
-if (NOT DEFINED CMAKE_INSTALL_PREFIX)
-    set(CMAKE_INSTALL_PREFIX "/opt/TrtEngineToolkits" CACHE PATH "Installation prefix for SimpleCudaToolkits")
+# CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT 用于判断用户是否显式指定了安装路径
+if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX "/opt/TrtEngineToolkits" CACHE PATH "Installation prefix for TrtEngineToolkits" FORCE)
+    message(STATUS "CMAKE_INSTALL_PREFIX not specified, using default: ${CMAKE_INSTALL_PREFIX}")
 endif()
 
 # 安装头文件 (假设你的公共头文件在 PROJECT_SOURCE_DIR/include 目录下)
@@ -237,9 +268,9 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/pyengine/"
         OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
 )
 
-# 安装配置文件 (config 文件夹)
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/config/"
-        DESTINATION "${CMAKE_INSTALL_PREFIX}/config"
+# 安装配置文件 (configs 文件夹)
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/configs/"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/configs"
         OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
 )
 

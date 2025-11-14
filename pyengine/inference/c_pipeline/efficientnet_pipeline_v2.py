@@ -17,6 +17,7 @@ import numpy as np
 from pyengine.utils.logger import logger
 from pyengine.inference.c_pipeline.c_structures_v2 import (
     C_ImageInput,
+    C_ImageBatch,
     C_EfficientNetPipelineConfig,
     C_EfficientNetResult,
     C_EfficientNetBatchResult,
@@ -121,15 +122,33 @@ class EfficientNetPipelineV2:
         self.lib.c_efficientnet_pipeline_get_last_error.argtypes = [ctypes.c_void_p]
         self.lib.c_efficientnet_pipeline_get_last_error.restype = ctypes.c_char_p
 
+        # bool c_efficientnet_infer_batch(context, batch, results);
+        self.lib.c_efficientnet_infer_batch.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(C_ImageBatch),
+            ctypes.POINTER(C_EfficientNetBatchResult)
+        ]
+        self.lib.c_efficientnet_infer_batch.restype = ctypes.c_bool
+
+        # void c_efficientnet_batch_result_free(C_EfficientNetBatchResult* results);
+        self.lib.c_efficientnet_batch_result_free.argtypes = [
+            ctypes.POINTER(C_EfficientNetBatchResult)
+        ]
+        self.lib.c_efficientnet_batch_result_free.restype = None
+
         logger.info("EfficientNetPipelineV2", "C functions registered")
 
     def create(self):
         """Create and initialize the pipeline"""
         logger.info("EfficientNetPipelineV2", "Creating pipeline...")
 
-        # Prepare configuration
-        config = C_EfficientNetPipelineConfig()
-        config.engine_path = self.engine_path.encode('utf-8')
+        # Get default configuration (重要：使用默认配置而不是空配置)
+        config = self.lib.c_efficientnet_pipeline_get_default_config()
+
+        # Override with user-specified values
+        # 保持engine_path编码后的字符串引用，防止被GC回收
+        self._engine_path_bytes = self.engine_path.encode('utf-8')
+        config.engine_path = self._engine_path_bytes
         config.input_width = self.input_width
         config.input_height = self.input_height
         config.max_batch_size = self.max_batch_size
@@ -194,6 +213,7 @@ class EfficientNetPipelineV2:
                 img = np.ascontiguousarray(img)
 
             # Prepare C structure
+            # CRITICAL: 保持img的引用直到C API调用完成
             c_image = C_ImageInput()
             c_image.data = img.ctypes.data_as(ctypes.POINTER(ctypes.c_ubyte))
             c_image.width = img.shape[1]
@@ -202,6 +222,15 @@ class EfficientNetPipelineV2:
 
             # Run inference
             c_result = C_EfficientNetResult()
+            # 显式初始化指针字段为 None (NULL)
+            c_result.class_id = 0
+            c_result.confidence = 0.0
+            c_result.logits = None
+            c_result.num_classes = 0
+            c_result.features = None
+            c_result.feature_size = 0
+
+            # img保持在作用域内，确保C API调用时内存有效
             success = self.lib.c_efficientnet_infer_single(
                 self._context,
                 ctypes.byref(c_image),
@@ -237,6 +266,119 @@ class EfficientNetPipelineV2:
 
             # Free C memory
             self.lib.c_efficientnet_result_free(ctypes.byref(c_result))
+
+        return results
+
+    def infer_batch(self, images: List[np.ndarray]) -> List[Dict]:
+        """
+        Run batch inference on a list of images (true batching)
+
+        Args:
+            images: List of input images (numpy arrays in RGB format)
+
+        Returns:
+            List of classification results, same format as infer()
+        """
+        if self._context is None:
+            raise RuntimeError("Pipeline not initialized. Call create() first.")
+
+        if not images:
+            return []
+
+        # 验证批处理大小
+        if len(images) > self.max_batch_size:
+            raise ValueError(
+                f"Batch size {len(images)} exceeds max_batch_size {self.max_batch_size}"
+            )
+
+        # Validate and prepare all images
+        # CRITICAL: 保持valid_images的引用以防止numpy数组被GC回收
+        valid_images = []
+        c_images = []
+
+        for img_idx, img in enumerate(images):
+            # Validate image
+            if not isinstance(img, np.ndarray) or img.dtype != np.uint8:
+                logger.error("EfficientNetPipelineV2",
+                           f"Image {img_idx} must be uint8 numpy array")
+                continue
+
+            # Ensure RGB format and contiguous memory
+            if img.ndim == 2:
+                img = np.stack([img] * 3, axis=-1)
+            elif img.shape[2] != 3:
+                logger.error("EfficientNetPipelineV2",
+                           f"Image {img_idx} must have 3 channels (RGB)")
+                continue
+
+            if not img.flags['C_CONTIGUOUS']:
+                img = np.ascontiguousarray(img)
+
+            # CRITICAL: 先添加到valid_images以保持引用
+            valid_images.append(img)
+
+            # Create C structure - 指针指向valid_images中的数组
+            c_image = C_ImageInput()
+            c_image.data = img.ctypes.data_as(ctypes.POINTER(ctypes.c_ubyte))
+            c_image.width = img.shape[1]
+            c_image.height = img.shape[0]
+            c_image.channels = img.shape[2]
+            c_images.append(c_image)
+
+        if not c_images:
+            return []
+
+        # Create C_ImageBatch
+        c_images_array = (C_ImageInput * len(c_images))(*c_images)
+        c_batch = C_ImageBatch()
+        c_batch.images = c_images_array
+        c_batch.count = len(c_images)
+
+        # Prepare result structure
+        c_batch_result = C_EfficientNetBatchResult()
+        c_batch_result.results = None
+        c_batch_result.count = 0
+
+        success = self.lib.c_efficientnet_infer_batch(
+            self._context,
+            ctypes.byref(c_batch),
+            ctypes.byref(c_batch_result)
+        )
+
+        if not success:
+            error_msg = self._get_last_error()
+            logger.error("EfficientNetPipelineV2",
+                       f"Batch inference failed: {error_msg}")
+            return []
+
+        # Parse results
+        results = []
+
+        for img_idx in range(c_batch_result.count):
+            c_result = c_batch_result.results[img_idx]
+
+            # Extract logits
+            logits = np.zeros(c_result.num_classes, dtype=np.float32)
+            if c_result.logits:
+                for i in range(c_result.num_classes):
+                    logits[i] = c_result.logits[i]
+
+            # Extract features
+            features = np.zeros(c_result.feature_size, dtype=np.float32)
+            if c_result.features:
+                for i in range(c_result.feature_size):
+                    features[i] = c_result.features[i]
+
+            results.append({
+                "image_idx": img_idx,
+                "class_id": c_result.class_id,
+                "confidence": c_result.confidence,
+                "logits": logits,
+                "features": features,
+            })
+
+        # Free C memory
+        self.lib.c_efficientnet_batch_result_free(ctypes.byref(c_batch_result))
 
         return results
 

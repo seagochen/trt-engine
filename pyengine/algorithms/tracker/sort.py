@@ -49,35 +49,55 @@ class SORTTracker:
         UnifiedTrack._next_id = 0
 
     def update(self, detections: List[ObjectDetection]) -> Dict[int, Rect]:
+        # 预测所有 track 的新状态
         predicted_boxes = []
         for track in self.tracks:
             track.predict()
             rect = track.get_state()
-            predicted_boxes.append([rect.x1, rect.y1, rect.x2, rect.y2])
-        predicted_boxes = np.array(predicted_boxes)
-        
-        detection_boxes = np.array([[d.rect.x1, d.rect.y1, d.rect.x2, d.rect.y2] for d in detections])
-        
+            # 验证预测的边界框是否有效
+            if rect.x2 > rect.x1 and rect.y2 > rect.y1:
+                predicted_boxes.append([rect.x1, rect.y1, rect.x2, rect.y2])
+            else:
+                # 如果预测的边界框无效，使用零尺寸占位（会导致 IoU=0，不会被匹配）
+                predicted_boxes.append([0, 0, 0, 0])
+
+        # 转换为 numpy 数组（需要处理空列表的情况）
+        if predicted_boxes:
+            predicted_boxes = np.array(predicted_boxes)
+        else:
+            predicted_boxes = np.empty((0, 4))
+
+        # 提取检测框
+        if detections:
+            detection_boxes = np.array([[d.rect.x1, d.rect.y1, d.rect.x2, d.rect.y2] for d in detections])
+        else:
+            detection_boxes = np.empty((0, 4))
+
+        # 执行匹配
         matches, _, _ = self._associate(detection_boxes, predicted_boxes)
 
+        # 更新匹配的 tracks
         for det_idx, trk_idx in matches:
             self.tracks[trk_idx].update(detections[det_idx])
 
-        # Find unmatched detections by checking which were not part of a match
+        # 找出未匹配的检测
         matched_det_indices = set(matches[:, 0]) if len(matches) > 0 else set()
         unmatched_dets = [i for i, _ in enumerate(detections) if i not in matched_det_indices]
 
+        # 为未匹配的检测创建新的 tracks
         for det_idx in unmatched_dets:
             if detections[det_idx].confidence >= 0.5:
                 self.tracks.append(UnifiedTrack(detections[det_idx], use_reid=False))
 
+        # 删除过时的 tracks
         self.tracks = [t for t in self.tracks if not t.is_deleted(self.max_age)]
 
+        # 返回确认的 tracks
         final_tracked_objects = {}
         for track in self.tracks:
             if track.is_confirmed(self.min_hits) and track.time_since_update == 0:
                  final_tracked_objects[track.track_id] = track.get_state()
-                 
+
         return final_tracked_objects
 
     def _associate(self, det_boxes: np.ndarray, trk_boxes: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:

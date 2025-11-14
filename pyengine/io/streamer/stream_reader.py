@@ -1,4 +1,5 @@
 import os
+import threading
 import time
 import cv2
 
@@ -28,7 +29,8 @@ class StreamReader:
                  height: int = -1,
                  fps: int = -1,
                  max_retries: int = 5,
-                 retry_delay: int = 2):
+                 retry_delay: int = 2,
+                 loop_video: bool = True):
         """
         Initialize StreamReader.
 
@@ -39,6 +41,7 @@ class StreamReader:
             fps: Target FPS (-1 for native/unlimited FPS)
             max_retries: Maximum reconnection attempts
             retry_delay: Delay between reconnection attempts (seconds)
+            loop_video: Whether to loop video files when they reach the end (default: True)
         """
         self.url = url
         self.width = width
@@ -46,11 +49,14 @@ class StreamReader:
         self.fps = fps
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.loop_video = loop_video
 
         self.cap = None
         self.last_frame_time = 0
         self.frame_time = 0.0
         self._is_opened = False
+        self._is_video_file = False  # Track if source is a video file
+        self._reconnect_lock = threading.Lock()  # Lock to prevent concurrent reconnects
 
         # Flags for native parameters
         self.use_native_width = (width == -1)
@@ -101,8 +107,21 @@ class StreamReader:
             return None
 
         ret, frame = self.cap.read()
+
+        # Handle video file end-of-stream
         if not ret or frame is None:
-            return None
+            # If this is a video file and loop is enabled, restart from beginning
+            if self._is_video_file and self.loop_video:
+                logger.info("StreamReader", f"Video file reached end, restarting from beginning: {self.url}")
+                self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                ret, frame = self.cap.read()
+
+                # If still failed after reset, something is wrong
+                if not ret or frame is None:
+                    logger.error("StreamReader", f"Failed to read after video reset: {self.url}")
+                    return None
+            else:
+                return None
 
         if self.frame_time > 0.0:
             self.last_frame_time = current_time
@@ -132,45 +151,47 @@ class StreamReader:
 
     def reconnect(self) -> bool:
         """
-        Attempt to reconnect to the stream.
+        Attempt to reconnect to the stream (thread-safe).
 
         Returns:
             True if reconnection successful, False otherwise
         """
-        logger.info("StreamReader", f"Attempting to reconnect to {self.url}...")
+        # Use lock to prevent concurrent reconnection attempts
+        with self._reconnect_lock:
+            logger.info("StreamReader", f"Attempting to reconnect to {self.url}...")
 
-        if self.cap:
-            self.cap.release()
-            self.cap = None
+            if self.cap:
+                self.cap.release()
+                self.cap = None
 
-        for attempt in range(self.max_retries):
-            logger.info("StreamReader", f"Reconnection attempt {attempt + 1}/{self.max_retries}...")
-            try:
-                new_cap = self._open_stream(self.url)
-                if new_cap and new_cap.isOpened():
-                    self.cap = new_cap
-                    self._is_opened = True
+            for attempt in range(self.max_retries):
+                logger.info("StreamReader", f"Reconnection attempt {attempt + 1}/{self.max_retries}...")
+                try:
+                    new_cap = self._open_stream(self.url)
+                    if new_cap and new_cap.isOpened():
+                        self.cap = new_cap
+                        self._is_opened = True
 
-                    # Refresh native parameters if needed
-                    if self._use_any_native:
-                        self._refresh_native_params()
-                    else:
-                        self._recompute_frame_time()
+                        # Refresh native parameters if needed
+                        if self._use_any_native:
+                            self._refresh_native_params()
+                        else:
+                            self._recompute_frame_time()
 
-                    logger.info("StreamReader", "Successfully reconnected.")
-                    return True
+                        logger.info("StreamReader", "Successfully reconnected.")
+                        return True
 
-            except FileNotFoundError:
-                logger.error("StreamReader", f"Cannot reconnect: file '{self.url}' not found.")
-                break
-            except Exception as e:
-                logger.error("StreamReader", f"Reconnection error: {e}")
+                except FileNotFoundError:
+                    logger.error("StreamReader", f"Cannot reconnect: file '{self.url}' not found.")
+                    break
+                except Exception as e:
+                    logger.error("StreamReader", f"Reconnection error: {e}")
 
-            time.sleep(self.retry_delay)
+                time.sleep(self.retry_delay)
 
-        logger.error("StreamReader", f"Max retries reached. Could not reconnect to {self.url}.")
-        self._is_opened = False
-        return False
+            logger.error("StreamReader", f"Max retries reached. Could not reconnect to {self.url}.")
+            self._is_opened = False
+            return False
 
     def _open_stream(self, url):
         """
@@ -186,10 +207,12 @@ class StreamReader:
         if isinstance(url, str) and url.isdigit():
             logger.info("StreamReader", f"Detected camera index: {url}.")
             cap_url = int(url)
+            self._is_video_file = False
         # Detect streaming URL
         elif isinstance(url, str) and url.startswith(("rtsp://", "http://", "https://")):
             logger.info("StreamReader", f"Detected streaming URL: {url}.")
             cap_url = url
+            self._is_video_file = False
         # Local file
         else:
             if not os.path.exists(url):
@@ -198,6 +221,7 @@ class StreamReader:
                 raise FileNotFoundError(error_msg)
             logger.info("StreamReader", f"Detected local file: {url}.")
             cap_url = url
+            self._is_video_file = True  # This is a video file
 
         cap = cv2.VideoCapture(cap_url)
         if cap.isOpened():

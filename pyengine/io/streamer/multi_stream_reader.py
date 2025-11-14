@@ -56,7 +56,7 @@ class MultiVideoReader:
 
     def add_source(self, name: str, url: str,
                    width: int = -1, height: int = -1, fps: int = -1,
-                   max_retries: int = 5, retry_delay: int = 2) -> 'MultiVideoReader':
+                   max_retries: int = 5, retry_delay: int = 2, loop_video: bool = True) -> 'MultiVideoReader':
         """
         Add a video source.
 
@@ -68,6 +68,7 @@ class MultiVideoReader:
             fps: Target FPS (-1 for native/unlimited)
             max_retries: Maximum reconnection attempts
             retry_delay: Delay between reconnection attempts
+            loop_video: Whether to loop video files when they reach the end (default: True)
 
         Returns:
             Self for method chaining
@@ -88,7 +89,8 @@ class MultiVideoReader:
             height=height,
             fps=fps,
             max_retries=max_retries,
-            retry_delay=retry_delay
+            retry_delay=retry_delay,
+            loop_video=loop_video
         )
 
         # Create source entry
@@ -96,7 +98,8 @@ class MultiVideoReader:
             'reader': reader,
             'thread': None,
             'buffer': deque(maxlen=self.max_buffer_per_source),
-            'lock': threading.Lock(),
+            'lock': threading.Lock(),  # For buffer operations
+            'reader_lock': threading.Lock(),  # For reader connection operations
             'last_ts': 0.0,
             'url': url,
             'opened': False
@@ -143,26 +146,78 @@ class MultiVideoReader:
         self._stop_event.clear()
         self._running = True
 
-        # Start a polling thread for each source
-        for name, source in self._sources.items():
-            try:
-                source['reader'].open()
-                source['opened'] = True
+        # Track successfully started sources for rollback on failure
+        started_sources = []
 
-                thread = threading.Thread(
-                    target=self._poll_source,
-                    args=(name,),
-                    name=f"Poll-{name}",
-                    daemon=True
-                )
-                thread.start()
-                source['thread'] = thread
+        try:
+            # Start a polling thread for each source
+            for name, source in self._sources.items():
+                try:
+                    source['reader'].open()
+                    source['opened'] = True
 
-                logger.info("MultiVideoReader", f"Started polling source '{name}'")
-            except Exception as e:
-                logger.error("MultiVideoReader", f"Failed to start source '{name}': {e}")
+                    thread = threading.Thread(
+                        target=self._poll_source,
+                        args=(name,),
+                        name=f"Poll-{name}",
+                        daemon=True
+                    )
+                    thread.start()
+                    source['thread'] = thread
+                    started_sources.append(name)
 
-        logger.info("MultiVideoReader", f"Started polling {len(self._sources)} sources")
+                    logger.info("MultiVideoReader", f"Started polling source '{name}'")
+                except Exception as e:
+                    logger.error("MultiVideoReader", f"Failed to start source '{name}': {e}")
+                    # Rollback: stop all previously started sources
+                    self._rollback_startup(started_sources)
+                    self._running = False
+                    raise RuntimeError(f"Failed to start all sources, rolled back. Error: {e}")
+
+            logger.info("MultiVideoReader", f"Started polling {len(started_sources)} sources")
+        except Exception as e:
+            # Ensure running flag is cleared on any error
+            self._running = False
+            raise
+
+    def _rollback_startup(self, started_sources: List[str]):
+        """
+        Rollback startup by stopping all sources that were successfully started.
+
+        Args:
+            started_sources: List of source names that were successfully started
+        """
+        logger.warning("MultiVideoReader", f"Rolling back startup for {len(started_sources)} sources")
+        self._stop_event.set()
+
+        for name in started_sources:
+            source = self._sources.get(name)
+            if not source:
+                continue
+
+            # Wait for thread to finish with timeout protection
+            thread = source['thread']
+            if thread and thread.is_alive():
+                thread.join(timeout=2.0)
+
+                # Check if thread actually stopped
+                if thread.is_alive():
+                    logger.warning("MultiVideoReader",
+                                 f"Thread for source '{name}' did not stop after 2s timeout during rollback. "
+                                 f"Thread may be hung. State: {thread.is_alive()}")
+                else:
+                    logger.debug("MultiVideoReader", f"Thread for source '{name}' stopped successfully during rollback")
+
+            # Close reader
+            if source['opened']:
+                try:
+                    source['reader'].close()
+                    source['opened'] = False
+                except Exception as e:
+                    logger.error("MultiVideoReader", f"Error closing source '{name}' during rollback: {e}")
+
+        # Clear the stop event for potential retry
+        self._stop_event.clear()
 
     def stop(self):
         """Stop polling all sources."""
@@ -173,19 +228,36 @@ class MultiVideoReader:
         self._stop_event.set()
         self._running = False
 
-        # Wait for all threads to finish
+        # Wait for all threads to finish with timeout protection
+        hung_threads = []
         for name, source in self._sources.items():
             thread = source['thread']
             if thread and thread.is_alive():
                 thread.join(timeout=2.0)
 
-            # Close reader
+                # Check if thread actually stopped
+                if thread.is_alive():
+                    hung_threads.append(name)
+                    logger.warning("MultiVideoReader",
+                                 f"Thread for source '{name}' did not stop after 2s timeout. "
+                                 f"Thread may be hung or blocked on I/O.")
+                else:
+                    logger.debug("MultiVideoReader", f"Thread for source '{name}' stopped successfully")
+
+            # Close reader (attempt even if thread is hung)
             if source['opened']:
                 try:
                     source['reader'].close()
                     source['opened'] = False
+                    logger.debug("MultiVideoReader", f"Reader for source '{name}' closed successfully")
                 except Exception as e:
                     logger.error("MultiVideoReader", f"Error closing source '{name}': {e}")
+
+        # Report hung threads summary
+        if hung_threads:
+            logger.error("MultiVideoReader",
+                        f"Warning: {len(hung_threads)} thread(s) did not stop cleanly: {hung_threads}. "
+                        f"These threads may continue running in the background.")
 
         logger.info("MultiVideoReader", "All sources stopped")
 
@@ -200,33 +272,36 @@ class MultiVideoReader:
         reader = source['reader']
         buffer = source['buffer']
         lock = source['lock']
+        reader_lock = source['reader_lock']
 
         consecutive_failures = 0
         max_consecutive_failures = 50
 
         while not self._stop_event.is_set():
             try:
-                # Check connection
-                if not reader.is_connected():
-                    logger.warning("MultiVideoReader", f"Source '{name}' disconnected, attempting reconnect...")
-                    if reader.reconnect():
-                        consecutive_failures = 0
-                    else:
-                        consecutive_failures += 1
-                        if consecutive_failures >= max_consecutive_failures:
-                            logger.error("MultiVideoReader", f"Source '{name}' failed too many times, stopping polling")
-                            break
-                        time.sleep(1.0)
-                        continue
+                # Check connection and reconnect atomically
+                # Use reader_lock to prevent race conditions between is_connected() and reconnect()
+                with reader_lock:
+                    if not reader.is_connected():
+                        logger.warning("MultiVideoReader", f"Source '{name}' disconnected, attempting reconnect...")
+                        if reader.reconnect():
+                            consecutive_failures = 0
+                        else:
+                            consecutive_failures += 1
+                            if consecutive_failures >= max_consecutive_failures:
+                                logger.error("MultiVideoReader", f"Source '{name}' failed too many times, stopping polling")
+                                break
+                            time.sleep(1.0)
+                            continue
 
-                # Read frame
+                # Read frame (outside reader_lock to avoid blocking)
                 frame = reader.read()
 
                 if frame is not None:
                     consecutive_failures = 0
                     ts = time.time()
 
-                    # Add to buffer
+                    # Add to buffer (use separate lock for buffer operations)
                     with lock:
                         buffer.append({
                             'name': name,
@@ -297,6 +372,71 @@ class MultiVideoReader:
                 results.append(frame_info)
 
         return results
+
+    def get_one_per_source_balanced(self, timeout: float = 0.0, max_wait_iterations: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get one frame from each source with balanced round-robin polling.
+
+        This method ensures fair treatment of all video sources by using a round-robin
+        approach to poll sources, preventing fast sources from starving slow sources.
+
+        Key features:
+        - Round-robin polling across all sources
+        - Tracks which sources have provided frames
+        - Continues polling until all sources provide a frame or timeout/max iterations reached
+        - Prevents starvation of slow video sources
+
+        Args:
+            timeout: Maximum total wait time for all sources (seconds)
+            max_wait_iterations: Maximum number of polling iterations before giving up
+
+        Returns:
+            List of frame info dicts (one per source if available within timeout)
+
+        Example:
+            # Wait up to 0.1 seconds for all sources to provide frames
+            batch = reader.get_one_per_source_balanced(timeout=0.1, max_wait_iterations=20)
+        """
+        if not self._sources:
+            return []
+
+        source_names = list(self._sources.keys())
+        results_dict = {}  # Use dict to track which sources have provided frames
+        deadline = time.time() + timeout if timeout > 0 else float('inf')
+        iteration = 0
+        source_idx = 0
+
+        # Continue until we have frames from all sources or reach timeout/max iterations
+        while len(results_dict) < len(source_names) and iteration < max_wait_iterations:
+            # Check timeout
+            if time.time() >= deadline:
+                break
+
+            # Get current source name in round-robin fashion
+            name = source_names[source_idx]
+
+            # Only poll this source if we haven't gotten a frame from it yet
+            if name not in results_dict:
+                source = self._sources[name]
+
+                # Try to get frame from buffer (non-blocking)
+                with source['lock']:
+                    if source['buffer']:
+                        frame_info = source['buffer'].popleft()
+                        results_dict[name] = frame_info
+
+            # Move to next source (round-robin)
+            source_idx = (source_idx + 1) % len(source_names)
+
+            # If we've completed a full round without getting any new frames, short sleep
+            if source_idx == 0:
+                iteration += 1
+                if len(results_dict) < len(source_names):
+                    # Brief sleep to avoid busy-waiting
+                    time.sleep(0.001)
+
+        # Convert dict to list, maintaining source order
+        return [results_dict[name] for name in source_names if name in results_dict]
 
     def get_batch(self, count: int, timeout: float = 0.1) -> List[Dict[str, Any]]:
         """

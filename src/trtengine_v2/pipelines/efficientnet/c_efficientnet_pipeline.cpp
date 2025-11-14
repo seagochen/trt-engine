@@ -393,26 +393,110 @@ bool c_efficientnet_infer_batch(
     const C_ImageBatch* batch,
     C_EfficientNetBatchResult* results
 ) {
+    // 1. 基本的空指针和有效性检查
     if (!context || !batch || !results || batch->count == 0) {
         return false;
     }
 
-    // For now, process images one by one
-    // TODO: Implement true batching
+    // 2. 检查批次大小是否超过配置的最大批处理大小
+    if (batch->count > (size_t)context->config.max_batch_size) {
+        snprintf(context->error_msg, sizeof(context->error_msg),
+                 "Batch size %zu exceeds max_batch_size %d",
+                 batch->count, context->config.max_batch_size);
+        return false;
+    }
+
+    // 3. 批量预处理所有图像
+    // 将每张图像预处理到 host_input_buffer 的对应位置
+    int single_input_size = 3 * context->config.input_height * context->config.input_width;
+
+    for (size_t i = 0; i < batch->count; i++) {
+        const C_ImageInput* image = &batch->images[i];
+
+        // 验证输入图像
+        if (!image->data || image->width <= 0 || image->height <= 0 ||
+            image->channels != 3) {
+            snprintf(context->error_msg, sizeof(context->error_msg),
+                     "Invalid input image at index %zu", i);
+            return false;
+        }
+
+        // 预处理到批处理缓冲区的第 i 个位置
+        float* buffer_offset = context->host_input_buffer + (i * single_input_size);
+
+        if (!preprocess_image(
+            image->data, image->width, image->height, image->channels,
+            buffer_offset, // 每张图像写入对应的缓冲区位置
+            context->config.input_width, context->config.input_height,
+            context->config.mean, context->config.stddev
+        )) {
+            snprintf(context->error_msg, sizeof(context->error_msg),
+                     "Image preprocessing failed at index %zu", i);
+            return false;
+        }
+    }
+
+    // 4. 将整个批次的输入数据从 CPU 拷贝到 GPU
+    // 注意：必须传入 max_batch_size 大小的数据，即使实际 batch 更小
+    // TensorRT 引擎的输入张量是按 max_batch_size 分配的
+    int total_input_size = context->config.max_batch_size * single_input_size;
+    std::vector<float> input_vec(context->host_input_buffer,
+                                  context->host_input_buffer + total_input_size);
+    context->input_tensor->copyFromVector(input_vec);
+
+    // 5. 执行批量推理
+    std::vector<Tensor<float>*> inputs = {context->input_tensor};
+    std::vector<Tensor<float>*> outputs = {context->logits_tensor, context->features_tensor};
+
+    if (!context->trt_engine->infer(inputs, outputs)) {
+        snprintf(context->error_msg, sizeof(context->error_msg),
+                 "TensorRT batch inference failed");
+        return false;
+    }
+
+    // 6. 将输出数据从 GPU 拷贝回 CPU
+    std::vector<float> logits_vec;
+    std::vector<float> features_vec;
+    context->logits_tensor->copyToVector(logits_vec);
+    context->features_tensor->copyToVector(features_vec);
+
+    memcpy(context->host_logits_buffer, logits_vec.data(),
+           logits_vec.size() * sizeof(float));
+    memcpy(context->host_features_buffer, features_vec.data(),
+           features_vec.size() * sizeof(float));
+
+    // 7. 为批量结果分配内存
     results->count = batch->count;
     results->results = (C_EfficientNetResult*)calloc(
         batch->count, sizeof(C_EfficientNetResult)
     );
 
     if (!results->results) {
+        snprintf(context->error_msg, sizeof(context->error_msg),
+                 "Memory allocation failed for batch results");
         return false;
     }
 
+    // 8. 处理每张图像的输出结果
+    int single_logits_size = context->config.num_classes;
+    int single_features_size = context->config.feature_size;
+
     for (size_t i = 0; i < batch->count; i++) {
-        if (!c_efficientnet_infer_single(context, &batch->images[i],
-                                          &results->results[i])) {
-            // Clean up on failure
-            for (size_t j = 0; j < i; j++) {
+        C_EfficientNetResult* result = &results->results[i];
+
+        // 设置结果的大小
+        result->num_classes = context->config.num_classes;
+        result->feature_size = context->config.feature_size;
+
+        // 分配输出数组
+        result->logits = (float*)malloc(result->num_classes * sizeof(float));
+        result->features = (float*)malloc(result->feature_size * sizeof(float));
+
+        if (!result->logits || !result->features) {
+            snprintf(context->error_msg, sizeof(context->error_msg),
+                     "Memory allocation failed for image %zu", i);
+            // 清理之前成功的结果
+            for (size_t j = 0; j <= i; j++) {
                 c_efficientnet_result_free(&results->results[j]);
             }
             free(results->results);
@@ -420,6 +504,26 @@ bool c_efficientnet_infer_batch(
             results->count = 0;
             return false;
         }
+
+        // 复制当前图像的 logits（从批次缓冲区的对应位置）
+        float* logits_offset = context->host_logits_buffer + (i * single_logits_size);
+        memcpy(result->logits, logits_offset, result->num_classes * sizeof(float));
+
+        // 找出最大值和对应的类别
+        float max_logit = result->logits[0];
+        int max_idx = 0;
+        for (size_t j = 1; j < result->num_classes; j++) {
+            if (result->logits[j] > max_logit) {
+                max_logit = result->logits[j];
+                max_idx = j;
+            }
+        }
+        result->class_id = max_idx;
+        result->confidence = max_logit;
+
+        // 复制当前图像的 features（从批次缓冲区的对应位置）
+        float* features_offset = context->host_features_buffer + (i * single_features_size);
+        memcpy(result->features, features_offset, result->feature_size * sizeof(float));
     }
 
     return true;

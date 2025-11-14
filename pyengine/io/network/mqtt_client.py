@@ -24,6 +24,8 @@ class MQTTClient:
         # --- 新增 1: 用于同步连接的 Event 对象 ---
         # threading.Event 是一个简单的线程同步原语。
         self.connected_event = threading.Event()
+        # 锁保护连接事件操作，防止 clear/set 之间的竞态条件
+        self._connect_lock = threading.Lock()
 
         # 设置用户名和密码
         if self.username and self.password:
@@ -79,19 +81,28 @@ class MQTTClient:
         """
         同步连接到MQTT broker。
         此方法将阻塞直到连接成功或超时。
+
+        修复:
+        1. 确保在异常情况下也正确停止loop
+        2. 使用锁保护连接事件，避免 clear/set 之间的竞态条件
         """
-        self.connected_event.clear()  # 每次连接前重置事件状态
+        loop_started = False
+
         try:
-            self.client.connect(self.host, self.port, 60)
-            self.client.loop_start()
+            # 使用锁保护连接事件的清除和后续等待
+            with self._connect_lock:
+                self.connected_event.clear()  # 在锁内重置事件状态
+                self.client.connect(self.host, self.port, 60)
+                self.client.loop_start()
+                loop_started = True
+                logger.info("MQTTClient", f"Waiting for connection to {self.host}:{self.port}...")
 
-            # 等待 on_connect 回调函数设置 event，最多等待 timeout 秒
-            logger.info("MQTTClient", f"Waiting for connection to {self.host}:{self.port}...")
-
+            # 锁外等待事件 - 允许回调函数设置事件
             # .wait() 会阻塞当前线程，直到另一个线程调用 .set() 或超时
             # 如果事件被设置，返回 True；如果超时，返回 False
             if self.connected_event.wait(timeout=timeout):
                 # 事件被触发，返回由 on_connect 设置的最终连接状态
+                logger.info("MQTTClient", f"Successfully connected to {self.host}:{self.port}")
                 return self.is_connected
             else:
                 # 等待超时
@@ -102,6 +113,15 @@ class MQTTClient:
 
         except Exception as e:
             logger.error_trace("MQTTClient", f"Failed to initiate connect to {self.host}:{self.port} - {str(e)}")
+
+            # 确保清理: 如果loop已启动但连接失败，必须停止loop
+            if loop_started:
+                try:
+                    self.client.loop_stop()
+                    logger.debug("MQTTClient", "Stopped MQTT loop after connection exception")
+                except Exception as stop_e:
+                    logger.error("MQTTClient", f"Error stopping MQTT loop: {stop_e}")
+
             return False
 
     def disconnect(self):

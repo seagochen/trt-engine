@@ -253,12 +253,15 @@ export LD_LIBRARY_PATH=$(pwd)/build:$LD_LIBRARY_PATH
 
 #### YOLOv8-Pose 姿态检测
 
+**单张图像推理：**
+
 ```c
 #include "trtengine_v2/pipelines/yolopose/c_yolopose_pipeline.h"
 
 // 1. 创建配置
 C_YoloPosePipelineConfig config = c_yolopose_pipeline_get_default_config();
 config.engine_path = "/path/to/yolov8_pose.engine";
+config.max_batch_size = 4;  // 设置最大批处理大小
 config.conf_threshold = 0.25f;
 config.iou_threshold = 0.45f;
 
@@ -299,6 +302,39 @@ for (size_t i = 0; i < result.num_poses; i++) {
 // 6. 清理资源
 c_yolopose_image_result_free(&result);
 c_yolopose_pipeline_destroy(pipeline);
+```
+
+**批处理推理（V2.0.1+）：**
+
+```c
+// 准备多张图像
+C_ImageInput images[4];
+for (int i = 0; i < 4; i++) {
+    images[i].data = your_rgb_data[i];
+    images[i].width = 1920;
+    images[i].height = 1080;
+    images[i].channels = 3;
+}
+
+// 创建批处理结构
+C_ImageBatch batch = {
+    .images = images,
+    .count = 4
+};
+
+// 执行批处理推理
+C_YoloPoseBatchResult batch_result = {0};
+c_yolopose_infer_batch(pipeline, &batch, &batch_result);
+
+// 处理批处理结果
+for (size_t i = 0; i < batch_result.num_images; i++) {
+    C_YoloPoseImageResult* img_result = &batch_result.results[i];
+    printf("Image %zu: 检测到 %zu 个人\n", i, img_result->num_poses);
+    // 处理每个图像的结果...
+}
+
+// 清理批处理结果
+c_yolopose_batch_result_free(&batch_result);
 ```
 
 #### EfficientNet 分类和特征提取
@@ -345,6 +381,8 @@ c_efficientnet_pipeline_destroy(pipeline);
 
 #### 独立使用 YoloPose
 
+**单张图像推理：**
+
 ```python
 from pyengine.inference.c_pipeline import (
     YoloPosePipelineV2,
@@ -356,6 +394,7 @@ import cv2
 pipeline = YoloPosePipelineV2(
     library_path="build/libtrtengine_v2.so",
     engine_path="yolov8n-pose.engine",
+    max_batch_size=4,  # 设置最大批处理大小
     conf_threshold=0.25,
     iou_threshold=0.45
 )
@@ -365,11 +404,10 @@ pipeline.create()
 image_bgr = cv2.imread("test.jpg")
 image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
 
-# 3. 推理
+# 3. 推理（传入单张图像列表）
 results = pipeline.infer([image_rgb])
 
 # 4. 转换为 Skeleton 对象
-from pyengine.inference.c_pipeline import yolopose_to_skeletons
 skeletons_per_image = yolopose_to_skeletons(results)
 
 # 5. 处理结果
@@ -381,6 +419,34 @@ for skeletons in skeletons_per_image:
 
 # 6. 清理
 pipeline.close()
+```
+
+**批处理推理（V2.0.1+）：**
+
+```python
+import numpy as np
+
+# 1. 准备多张图像
+images = []
+for img_path in ["img1.jpg", "img2.jpg", "img3.jpg", "img4.jpg"]:
+    img_bgr = cv2.imread(img_path)
+    img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    images.append(img_rgb)
+
+# 2. 批处理推理（更高效）
+batch_results = pipeline.infer_batch(images)
+
+# 3. 转换为 Skeleton 对象
+skeletons_batch = yolopose_to_skeletons(batch_results)
+
+# 4. 处理每张图像的结果
+for img_idx, skeletons in enumerate(skeletons_batch):
+    print(f"Image {img_idx}: 检测到 {len(skeletons)} 个人")
+    for skeleton in skeletons:
+        print(f"  - BBox: {skeleton.rect}, Conf: {skeleton.confidence:.2f}")
+
+# 注意：批处理大小不能超过max_batch_size
+# 如果超过会抛出ValueError异常
 ```
 
 #### 独立使用 EfficientNet
@@ -730,6 +796,16 @@ GNU GENERAL PUBLIC LICENSE  - 详见 [LICENSE](LICENSE) 文件
 ---
 
 ## 更新日志
+
+### Version 2.0.1 (2025-11-12)
+- 🐛 **重要修复**：修复批处理功能的关键Bug
+  - 修复C++ API批处理时TensorRT输入大小不匹配问题（导致batch_size < max_batch_size时崩溃）
+  - 修复Python封装中的内存生命周期管理问题（防止numpy数组被GC回收）
+  - 修复engine_path字符串指针悬空问题
+  - 添加批处理大小验证
+- ✨ 完整支持YoloPose和EfficientNet的真实批处理功能
+- 📝 添加批处理功能测试脚本和详细修复文档
+- 参考：[PYTHON_BINDING_FIXES.md](PYTHON_BINDING_FIXES.md)
 
 ### Version 2.0.0 (2025-11-11)
 - ✨ 完整的 V2 架构实现
