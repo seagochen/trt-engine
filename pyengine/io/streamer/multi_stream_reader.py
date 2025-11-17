@@ -537,9 +537,9 @@ from pyengine.io.streamer.multi_video_reader import MultiVideoReader
 
 def example_basic_usage():
     # Basic usage example.
-    
-    print("=== Basic Usage Example ===")
-    
+
+    logger.info("MultiStreamReader", "=== Basic Usage Example ===")
+
     # Create reader
     reader = MultiVideoReader(max_buffer_per_source=100)
     
@@ -564,7 +564,7 @@ def example_basic_usage():
                 
                 # Display
                 cv2.imshow(f"Source: {name}", frame)
-                print(f"Frame from {name} at {ts:.3f}")
+                logger.info("MultiStreamReader", f"Frame from {name} at {ts:.3f}")
                 frame_count += 1
             
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -577,8 +577,8 @@ def example_basic_usage():
 
 def example_get_by_name():
     # Example: Reading from specific source.
-    print("\n=== Get By Name Example ===")
-    
+    logger.info("MultiStreamReader", "\n=== Get By Name Example ===")
+
     reader = MultiVideoReader(max_buffer_per_source=50)
     reader.add_source("primary", "0", width=640, height=480)
     reader.start()
@@ -589,7 +589,7 @@ def example_get_by_name():
             frame_info = reader.get_by_name("primary", timeout=0.1)
             
             if frame_info:
-                print(f"Got frame from {frame_info['name']} at {frame_info['last_ts']:.3f}")
+                logger.info("MultiStreamReader", f"Got frame from {frame_info['name']} at {frame_info['last_ts']:.3f}")
                 cv2.imshow("Primary Camera", frame_info['frame'])
                 
                 if cv2.waitKey(30) & 0xFF == ord('q'):
@@ -602,9 +602,9 @@ def example_get_by_name():
 
 def example_batch_reading():
     # Example: Batch reading mixed sources.
-    
-    print("\n=== Batch Reading Example ===")
-    
+
+    logger.info("MultiStreamReader", "\n=== Batch Reading Example ===")
+
     reader = MultiVideoReader(max_buffer_per_source=100)
     reader.add_source("src1", "0", width=320, height=240)
     reader.add_source("src2", "video.mp4", width=320, height=240)
@@ -614,14 +614,14 @@ def example_batch_reading():
         for i in range(10):
             # Get 10 frames total (mixed from all sources)
             batch = reader.get_batch(count=10, timeout=0.5)
-            
-            print(f"\nBatch {i}: Got {len(batch)} frames")
+
+            logger.info("MultiStreamReader", f"\nBatch {i}: Got {len(batch)} frames")
             for frame_info in batch:
-                print(f"  - {frame_info['name']} @ {frame_info['last_ts']:.3f}")
-            
+                logger.info("MultiStreamReader", f"  - {frame_info['name']} @ {frame_info['last_ts']:.3f}")
+
             # Check buffer status
             buffer_sizes = reader.get_buffer_sizes()
-            print(f"Buffer sizes: {buffer_sizes}")
+            logger.info("MultiStreamReader", f"Buffer sizes: {buffer_sizes}")
             
             time.sleep(0.1)
     
@@ -631,8 +631,8 @@ def example_batch_reading():
 
 def example_context_manager():
     # Example: Using context manager.
-    print("\n=== Context Manager Example ===")
-    
+    logger.info("MultiStreamReader", "\n=== Context Manager Example ===")
+
     with MultiVideoReader(max_buffer_per_source=50) as reader:
         reader.add_source("cam", "0", width=640, height=480)
         # start() is called automatically
@@ -650,8 +650,8 @@ def example_context_manager():
 
 def example_monitoring():
     # Example: Monitoring source status.
-    print("\n=== Monitoring Example ===")
-    
+    logger.info("MultiStreamReader", "\n=== Monitoring Example ===")
+
     reader = MultiVideoReader(max_buffer_per_source=100)
     reader.add_source("cam1", "0")
     reader.add_source("cam2", "video.mp4")
@@ -661,14 +661,14 @@ def example_monitoring():
         for i in range(20):
             # Get source information
             info = reader.get_source_info()
-            
-            print(f"\n--- Status Update {i} ---")
+
+            logger.info("MultiStreamReader", f"\n--- Status Update {i} ---")
             for name, details in info.items():
-                print(f"{name}:")
-                print(f"  URL: {details['url']}")
-                print(f"  Connected: {details['connected']}")
-                print(f"  Buffer: {details['buffer_size']} frames")
-                print(f"  Last frame: {details['last_ts']:.3f}")
+                logger.info("MultiStreamReader", f"{name}:")
+                logger.info("MultiStreamReader", f"  URL: {details['url']}")
+                logger.info("MultiStreamReader", f"  Connected: {details['connected']}")
+                logger.info("MultiStreamReader", f"  Buffer: {details['buffer_size']} frames")
+                logger.info("MultiStreamReader", f"  Last frame: {details['last_ts']:.3f}")
             
             time.sleep(1.0)
     
@@ -678,8 +678,8 @@ def example_monitoring():
 
 if __name__ == "__main__":
     # Run examples
-    print("MultiVideoReader Examples\n")
-    
+    logger.info("MultiStreamReader", "MultiVideoReader Examples\n")
+
     # Choose which example to run
     example_basic_usage()
     # example_get_by_name()

@@ -1,4 +1,5 @@
 import numpy as np
+from pyengine.utils.logger import logger
 
 
 def apply_sma_filter_1d(data: np.ndarray, window_size: int = 5) -> np.ndarray:
@@ -241,14 +242,14 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.savefig('smoothing_comparison.png', dpi=150)
-    print("✅ 图表已保存为 'smoothing_comparison.png'")
+    logger.info("SeqFilters", "图表已保存为 'smoothing_comparison.png'")
 
     # 打印边界处的误差对比
-    print("\n" + "=" * 60)
-    print("边界误差分析（前5个点）")
-    print("=" * 60)
-    print(f"{'Method':<20} {'Point 0':<12} {'Point 1':<12} {'Point 2':<12}")
-    print("-" * 60)
+    logger.info("SeqFilters", "\n" + "=" * 60)
+    logger.info("SeqFilters", "边界误差分析（前5个点）")
+    logger.info("SeqFilters", "=" * 60)
+    logger.info("SeqFilters", f"{'Method':<20} {'Point 0':<12} {'Point 1':<12} {'Point 2':<12}")
+    logger.info("SeqFilters", "-" * 60)
 
     for name, filtered in [
         ('Clean Signal', clean_signal),
@@ -260,12 +261,12 @@ if __name__ == "__main__":
         ('EMA', ema),
         ('Savitzky-Golay', savgol),
     ]:
-        print(f"{name:<20} {filtered[0]:>11.4f} {filtered[1]:>11.4f} {filtered[2]:>11.4f}")
+        logger.info("SeqFilters", f"{name:<20} {filtered[0]:>11.4f} {filtered[1]:>11.4f} {filtered[2]:>11.4f}")
 
     # 计算边界误差（与干净信号对比）
-    print("\n" + "=" * 60)
-    print("边界绝对误差（与干净信号对比）")
-    print("=" * 60)
+    logger.info("SeqFilters", "\n" + "=" * 60)
+    logger.info("SeqFilters", "边界绝对误差（与干净信号对比）")
+    logger.info("SeqFilters", "=" * 60)
 
     for name, filtered in [
         ('SMA (old)', sma_old),
@@ -276,4 +277,4 @@ if __name__ == "__main__":
         ('Savitzky-Golay', savgol),
     ]:
         errors = np.abs(filtered[:5] - clean_signal[:5])
-        print(f"{name:<20} 前5点平均误差: {np.mean(errors):.4f}")
+        logger.info("SeqFilters", f"{name:<20} 前5点平均误差: {np.mean(errors):.4f}")

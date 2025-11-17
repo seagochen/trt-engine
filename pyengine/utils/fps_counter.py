@@ -1,5 +1,6 @@
 import threading # Use threading instead of multiprocessing
 import time
+from pyengine.utils.logger import logger
 
 class FPSCounter: # No longer inherits from Process
 
@@ -41,18 +42,18 @@ if __name__ == "__main__":
     # No need for counter.start()
 
     # Open camera
-    print("Opening camera...")
+    logger.info("FPSCounter", "Opening camera...")
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
-        print("Error: Could not open camera.")
+        logger.error("FPSCounter", "Could not open camera.")
         exit()
 
-    print("Starting frame capture loop...")
+    logger.info("FPSCounter", "Starting frame capture loop...")
     while True:
         # Read frame
         ret, frame = cap.read()
         if not ret:
-            print("Error: Failed to grab frame.")
+            logger.error("FPSCounter", "Failed to grab frame.")
             break
 
         # Process frame - call methods directly on the instance
@@ -65,13 +66,13 @@ if __name__ == "__main__":
 
         # Exit on 'q' key
         if cv2.waitKey(1) & 0xFF == ord('q'):
-            print("Exiting...")
+            logger.info("FPSCounter", "Exiting...")
             break
 
     # Release camera
-    print("Releasing resources...")
+    logger.info("FPSCounter", "Releasing resources...")
     cap.release()
     cv2.destroyAllWindows()
 
     # No need for counter.stop()
-    print("Done.")
+    logger.info("FPSCounter", "Done.")

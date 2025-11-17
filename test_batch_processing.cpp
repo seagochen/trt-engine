@@ -14,6 +14,7 @@
 
 #include "trtengine_v2/pipelines/yolopose/c_yolopose_pipeline.h"
 #include "trtengine_v2/pipelines/efficientnet/c_efficientnet_pipeline.h"
+#include "trtengine_v2/utils/logger.h"
 #include <opencv2/opencv.hpp>
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,7 +57,9 @@ std::vector<cv::Mat> load_test_images(const std::vector<std::string>& image_path
     for (const auto& path : image_paths) {
         cv::Mat img = cv::imread(path);
         if (img.empty()) {
-            printf("[ERROR] 无法加载图像: %s\n", path.c_str());
+            char buffer[512];
+            snprintf(buffer, sizeof(buffer), "无法加载图像: %s", path.c_str());
+            LOG_ERROR("BatchTest", buffer);
             continue;
         }
 
@@ -99,9 +102,12 @@ C_ImageBatch prepare_image_batch(const std::vector<cv::Mat>& images,
 void test_yolopose_batch_processing(const std::string& engine_path,
                                      const std::vector<cv::Mat>& test_images,
                                      int batch_size) {
-    printf("\n========================================\n");
-    printf("YOLOPose 批处理测试 (Batch Size: %d)\n", batch_size);
-    printf("========================================\n");
+    char buffer[512];
+    LOG_INFO("BatchTest", "");
+    LOG_INFO("BatchTest", "========================================");
+    snprintf(buffer, sizeof(buffer), "YOLOPose 批处理测试 (Batch Size: %d)", batch_size);
+    LOG_INFO("BatchTest", buffer);
+    LOG_INFO("BatchTest", "========================================");
 
     // 创建 pipeline
     C_YoloPosePipelineConfig config = c_yolopose_pipeline_get_default_config();
@@ -114,23 +120,25 @@ void test_yolopose_batch_processing(const std::string& engine_path,
 
     C_YoloPosePipelineContext* ctx = c_yolopose_pipeline_create(&config);
     if (!ctx) {
-        printf("[ERROR] 创建 YOLOPose pipeline 失败\n");
+        LOG_ERROR("BatchTest", "创建 YOLOPose pipeline 失败");
         return;
     }
 
-    printf("[INFO] YOLOPose pipeline 创建成功\n");
+    LOG_INFO("BatchTest", "YOLOPose pipeline 创建成功");
 
     // 准备测试图像（取前 batch_size 张）
     size_t num_images = std::min((size_t)batch_size, test_images.size());
     std::vector<cv::Mat> batch_images(test_images.begin(),
                                        test_images.begin() + num_images);
 
-    printf("[INFO] 测试图像数量: %zu\n", num_images);
+    snprintf(buffer, sizeof(buffer), "测试图像数量: %zu", num_images);
+    LOG_INFO("BatchTest", buffer);
 
     // ========================================================================
     // 测试 1: 单张图片循环推理
     // ========================================================================
-    printf("\n[测试 1] 单张图片循环推理...\n");
+    LOG_INFO("BatchTest", "");
+    LOG_INFO("BatchTest", "[测试 1] 单张图片循环推理...");
     PerformanceTimer timer;
     std::vector<C_YoloPoseImageResult> single_results(num_images);
 
@@ -144,22 +152,26 @@ void test_yolopose_batch_processing(const std::string& engine_path,
 
         bool success = c_yolopose_infer_single(ctx, &c_img, &single_results[i]);
         if (!success) {
-            printf("[ERROR] 单张推理失败 (图像 %zu)\n", i);
+            snprintf(buffer, sizeof(buffer), "单张推理失败 (图像 %zu)", i);
+            LOG_ERROR("BatchTest", buffer);
         }
     }
     double single_time = timer.stop_ms();
-    printf("[结果] 单张循环推理总时间: %.2f ms (平均每张: %.2f ms)\n",
+    snprintf(buffer, sizeof(buffer), "[结果] 单张循环推理总时间: %.2f ms (平均每张: %.2f ms)",
            single_time, single_time / num_images);
+    LOG_INFO("BatchTest", buffer);
 
     // 打印单张推理结果摘要
     for (size_t i = 0; i < num_images; i++) {
-        printf("  图像 %zu: 检测到 %zu 个姿态\n", i, single_results[i].num_poses);
+        snprintf(buffer, sizeof(buffer), "  图像 %zu: 检测到 %zu 个姿态", i, single_results[i].num_poses);
+        LOG_INFO("BatchTest", buffer);
     }
 
     // ========================================================================
     // 测试 2: 真正的批量推理
     // ========================================================================
-    printf("\n[测试 2] 批量推理...\n");
+    LOG_INFO("BatchTest", "");
+    LOG_INFO("BatchTest", "[测试 2] 批量推理...");
     std::vector<C_ImageInput> c_images;
     C_ImageBatch batch = prepare_image_batch(batch_images, c_images);
 
@@ -172,41 +184,47 @@ void test_yolopose_batch_processing(const std::string& engine_path,
     double batch_time = timer.stop_ms();
 
     if (!success) {
-        printf("[ERROR] 批量推理失败\n");
+        LOG_ERROR("BatchTest", "批量推理失败");
         const char* error = c_yolopose_pipeline_get_last_error(ctx);
         if (error) {
-            printf("[ERROR] 错误信息: %s\n", error);
+            snprintf(buffer, sizeof(buffer), "错误信息: %s", error);
+            LOG_ERROR("BatchTest", buffer);
         }
     } else {
-        printf("[结果] 批量推理总时间: %.2f ms (平均每张: %.2f ms)\n",
+        snprintf(buffer, sizeof(buffer), "[结果] 批量推理总时间: %.2f ms (平均每张: %.2f ms)",
                batch_time, batch_time / num_images);
-        printf("[性能] 加速比: %.2fx\n", single_time / batch_time);
+        LOG_INFO("BatchTest", buffer);
+        snprintf(buffer, sizeof(buffer), "[性能] 加速比: %.2fx", single_time / batch_time);
+        LOG_INFO("BatchTest", buffer);
 
         // 打印批量推理结果摘要
         for (size_t i = 0; i < batch_result.num_images; i++) {
-            printf("  图像 %zu: 检测到 %zu 个姿态\n",
+            snprintf(buffer, sizeof(buffer), "  图像 %zu: 检测到 %zu 个姿态",
                    i, batch_result.results[i].num_poses);
+            LOG_INFO("BatchTest", buffer);
         }
 
         // ====================================================================
         // 测试 3: 验证结果一致性
         // ====================================================================
-        printf("\n[测试 3] 验证批量推理与单张推理结果一致性...\n");
+        LOG_INFO("BatchTest", "");
+        LOG_INFO("BatchTest", "[测试 3] 验证批量推理与单张推理结果一致性...");
         bool results_match = true;
 
         for (size_t i = 0; i < num_images; i++) {
             if (single_results[i].num_poses != batch_result.results[i].num_poses) {
-                printf("[WARNING] 图像 %zu 检测数量不一致: 单张=%zu, 批量=%zu\n",
+                snprintf(buffer, sizeof(buffer), "图像 %zu 检测数量不一致: 单张=%zu, 批量=%zu",
                        i, single_results[i].num_poses,
                        batch_result.results[i].num_poses);
+                LOG_WARNING("BatchTest", buffer);
                 results_match = false;
             }
         }
 
         if (results_match) {
-            printf("[SUCCESS] ✓ 批量推理结果与单张推理一致！\n");
+            LOG_INFO("BatchTest", "✓ 批量推理结果与单张推理一致！");
         } else {
-            printf("[WARNING] ✗ 批量推理结果与单张推理存在差异\n");
+            LOG_WARNING("BatchTest", "✗ 批量推理结果与单张推理存在差异");
         }
 
         // 释放批量结果
@@ -220,7 +238,8 @@ void test_yolopose_batch_processing(const std::string& engine_path,
 
     // 销毁 pipeline
     c_yolopose_pipeline_destroy(ctx);
-    printf("\n[INFO] YOLOPose 批处理测试完成\n");
+    LOG_INFO("BatchTest", "");
+    LOG_INFO("BatchTest", "YOLOPose 批处理测试完成");
 }
 
 // ============================================================================
@@ -230,9 +249,12 @@ void test_yolopose_batch_processing(const std::string& engine_path,
 void test_efficientnet_batch_processing(const std::string& engine_path,
                                          const std::vector<cv::Mat>& test_images,
                                          int batch_size) {
-    printf("\n========================================\n");
-    printf("EfficientNet 批处理测试 (Batch Size: %d)\n", batch_size);
-    printf("========================================\n");
+    char buffer[512];
+    LOG_INFO("BatchTest", "");
+    LOG_INFO("BatchTest", "========================================");
+    snprintf(buffer, sizeof(buffer), "EfficientNet 批处理测试 (Batch Size: %d)", batch_size);
+    LOG_INFO("BatchTest", buffer);
+    LOG_INFO("BatchTest", "========================================");
 
     // 创建 pipeline
     C_EfficientNetPipelineConfig config = c_efficientnet_pipeline_get_default_config();
@@ -243,23 +265,25 @@ void test_efficientnet_batch_processing(const std::string& engine_path,
 
     C_EfficientNetPipelineContext* ctx = c_efficientnet_pipeline_create(&config);
     if (!ctx) {
-        printf("[ERROR] 创建 EfficientNet pipeline 失败\n");
+        LOG_ERROR("BatchTest", "创建 EfficientNet pipeline 失败");
         return;
     }
 
-    printf("[INFO] EfficientNet pipeline 创建成功\n");
+    LOG_INFO("BatchTest", "EfficientNet pipeline 创建成功");
 
     // 准备测试图像（取前 batch_size 张）
     size_t num_images = std::min((size_t)batch_size, test_images.size());
     std::vector<cv::Mat> batch_images(test_images.begin(),
                                        test_images.begin() + num_images);
 
-    printf("[INFO] 测试图像数量: %zu\n", num_images);
+    snprintf(buffer, sizeof(buffer), "测试图像数量: %zu", num_images);
+    LOG_INFO("BatchTest", buffer);
 
     // ========================================================================
     // 测试 1: 单张图片循环推理
     // ========================================================================
-    printf("\n[测试 1] 单张图片循环推理...\n");
+    LOG_INFO("BatchTest", "");
+    LOG_INFO("BatchTest", "[测试 1] 单张图片循环推理...");
     PerformanceTimer timer;
     std::vector<C_EfficientNetResult> single_results(num_images);
 
@@ -273,23 +297,27 @@ void test_efficientnet_batch_processing(const std::string& engine_path,
 
         bool success = c_efficientnet_infer_single(ctx, &c_img, &single_results[i]);
         if (!success) {
-            printf("[ERROR] 单张推理失败 (图像 %zu)\n", i);
+            snprintf(buffer, sizeof(buffer), "单张推理失败 (图像 %zu)", i);
+            LOG_ERROR("BatchTest", buffer);
         }
     }
     double single_time = timer.stop_ms();
-    printf("[结果] 单张循环推理总时间: %.2f ms (平均每张: %.2f ms)\n",
+    snprintf(buffer, sizeof(buffer), "[结果] 单张循环推理总时间: %.2f ms (平均每张: %.2f ms)",
            single_time, single_time / num_images);
+    LOG_INFO("BatchTest", buffer);
 
     // 打印单张推理结果摘要
     for (size_t i = 0; i < num_images; i++) {
-        printf("  图像 %zu: 类别=%d, 置信度=%.4f\n",
+        snprintf(buffer, sizeof(buffer), "  图像 %zu: 类别=%d, 置信度=%.4f",
                i, single_results[i].class_id, single_results[i].confidence);
+        LOG_INFO("BatchTest", buffer);
     }
 
     // ========================================================================
     // 测试 2: 真正的批量推理
     // ========================================================================
-    printf("\n[测试 2] 批量推理...\n");
+    LOG_INFO("BatchTest", "");
+    LOG_INFO("BatchTest", "[测试 2] 批量推理...");
     std::vector<C_ImageInput> c_images;
     C_ImageBatch batch = prepare_image_batch(batch_images, c_images);
 
@@ -302,51 +330,58 @@ void test_efficientnet_batch_processing(const std::string& engine_path,
     double batch_time = timer.stop_ms();
 
     if (!success) {
-        printf("[ERROR] 批量推理失败\n");
+        LOG_ERROR("BatchTest", "批量推理失败");
         const char* error = c_efficientnet_pipeline_get_last_error(ctx);
         if (error) {
-            printf("[ERROR] 错误信息: %s\n", error);
+            snprintf(buffer, sizeof(buffer), "错误信息: %s", error);
+            LOG_ERROR("BatchTest", buffer);
         }
     } else {
-        printf("[结果] 批量推理总时间: %.2f ms (平均每张: %.2f ms)\n",
+        snprintf(buffer, sizeof(buffer), "[结果] 批量推理总时间: %.2f ms (平均每张: %.2f ms)",
                batch_time, batch_time / num_images);
-        printf("[性能] 加速比: %.2fx\n", single_time / batch_time);
+        LOG_INFO("BatchTest", buffer);
+        snprintf(buffer, sizeof(buffer), "[性能] 加速比: %.2fx", single_time / batch_time);
+        LOG_INFO("BatchTest", buffer);
 
         // 打印批量推理结果摘要
         for (size_t i = 0; i < batch_result.count; i++) {
-            printf("  图像 %zu: 类别=%d, 置信度=%.4f\n",
+            snprintf(buffer, sizeof(buffer), "  图像 %zu: 类别=%d, 置信度=%.4f",
                    i, batch_result.results[i].class_id,
                    batch_result.results[i].confidence);
+            LOG_INFO("BatchTest", buffer);
         }
 
         // ====================================================================
         // 测试 3: 验证结果一致性
         // ====================================================================
-        printf("\n[测试 3] 验证批量推理与单张推理结果一致性...\n");
+        LOG_INFO("BatchTest", "");
+        LOG_INFO("BatchTest", "[测试 3] 验证批量推理与单张推理结果一致性...");
         bool results_match = true;
 
         for (size_t i = 0; i < num_images; i++) {
             if (single_results[i].class_id != batch_result.results[i].class_id) {
-                printf("[WARNING] 图像 %zu 分类结果不一致: 单张=%d, 批量=%d\n",
+                snprintf(buffer, sizeof(buffer), "图像 %zu 分类结果不一致: 单张=%d, 批量=%d",
                        i, single_results[i].class_id,
                        batch_result.results[i].class_id);
+                LOG_WARNING("BatchTest", buffer);
                 results_match = false;
             }
 
             float conf_diff = std::abs(single_results[i].confidence -
                                        batch_result.results[i].confidence);
             if (conf_diff > 0.001f) {
-                printf("[WARNING] 图像 %zu 置信度存在差异: 单张=%.4f, 批量=%.4f\n",
+                snprintf(buffer, sizeof(buffer), "图像 %zu 置信度存在差异: 单张=%.4f, 批量=%.4f",
                        i, single_results[i].confidence,
                        batch_result.results[i].confidence);
+                LOG_WARNING("BatchTest", buffer);
                 results_match = false;
             }
         }
 
         if (results_match) {
-            printf("[SUCCESS] ✓ 批量推理结果与单张推理一致！\n");
+            LOG_INFO("BatchTest", "✓ 批量推理结果与单张推理一致！");
         } else {
-            printf("[WARNING] ✗ 批量推理结果与单张推理存在差异\n");
+            LOG_WARNING("BatchTest", "✗ 批量推理结果与单张推理存在差异");
         }
 
         // 释放批量结果
@@ -360,7 +395,8 @@ void test_efficientnet_batch_processing(const std::string& engine_path,
 
     // 销毁 pipeline
     c_efficientnet_pipeline_destroy(ctx);
-    printf("\n[INFO] EfficientNet 批处理测试完成\n");
+    LOG_INFO("BatchTest", "");
+    LOG_INFO("BatchTest", "EfficientNet 批处理测试完成");
 }
 
 // ============================================================================
@@ -368,19 +404,24 @@ void test_efficientnet_batch_processing(const std::string& engine_path,
 // ============================================================================
 
 int main(int argc, char** argv) {
-    printf("========================================\n");
-    printf("批处理功能测试程序\n");
-    printf("========================================\n");
+    char buffer[512];
+    LOG_INFO("BatchTest", "========================================");
+    LOG_INFO("BatchTest", "批处理功能测试程序");
+    LOG_INFO("BatchTest", "========================================");
 
     // 检查命令行参数
     if (argc < 4) {
-        printf("用法: %s <model_type> <engine_path> <image1> [image2] [image3] ...\n", argv[0]);
-        printf("  model_type: yolopose 或 efficientnet\n");
-        printf("  engine_path: TensorRT 引擎文件路径\n");
-        printf("  image*: 测试图像路径（至少1张）\n");
-        printf("\n示例:\n");
-        printf("  %s yolopose ./yolopose.engine ./test1.jpg ./test2.jpg ./test3.jpg\n", argv[0]);
-        printf("  %s efficientnet ./efficientnet.engine ./img1.jpg ./img2.jpg\n", argv[0]);
+        snprintf(buffer, sizeof(buffer), "用法: %s <model_type> <engine_path> <image1> [image2] [image3] ...", argv[0]);
+        LOG_INFO("BatchTest", buffer);
+        LOG_INFO("BatchTest", "  model_type: yolopose 或 efficientnet");
+        LOG_INFO("BatchTest", "  engine_path: TensorRT 引擎文件路径");
+        LOG_INFO("BatchTest", "  image*: 测试图像路径（至少1张）");
+        LOG_INFO("BatchTest", "");
+        LOG_INFO("BatchTest", "示例:");
+        snprintf(buffer, sizeof(buffer), "  %s yolopose ./yolopose.engine ./test1.jpg ./test2.jpg ./test3.jpg", argv[0]);
+        LOG_INFO("BatchTest", buffer);
+        snprintf(buffer, sizeof(buffer), "  %s efficientnet ./efficientnet.engine ./img1.jpg ./img2.jpg", argv[0]);
+        LOG_INFO("BatchTest", buffer);
         return 1;
     }
 
@@ -393,15 +434,17 @@ int main(int argc, char** argv) {
         image_paths.push_back(argv[i]);
     }
 
-    printf("[INFO] 加载 %zu 张测试图像...\n", image_paths.size());
+    snprintf(buffer, sizeof(buffer), "加载 %zu 张测试图像...", image_paths.size());
+    LOG_INFO("BatchTest", buffer);
     std::vector<cv::Mat> test_images = load_test_images(image_paths);
 
     if (test_images.empty()) {
-        printf("[ERROR] 没有成功加载任何图像\n");
+        LOG_ERROR("BatchTest", "没有成功加载任何图像");
         return 1;
     }
 
-    printf("[INFO] 成功加载 %zu 张图像\n", test_images.size());
+    snprintf(buffer, sizeof(buffer), "成功加载 %zu 张图像", test_images.size());
+    LOG_INFO("BatchTest", buffer);
 
     // 执行测试
     if (model_type == "yolopose") {
@@ -421,14 +464,16 @@ int main(int argc, char** argv) {
             }
         }
     } else {
-        printf("[ERROR] 不支持的模型类型: %s\n", model_type.c_str());
-        printf("        支持的类型: yolopose, efficientnet\n");
+        snprintf(buffer, sizeof(buffer), "不支持的模型类型: %s", model_type.c_str());
+        LOG_ERROR("BatchTest", buffer);
+        LOG_ERROR("BatchTest", "        支持的类型: yolopose, efficientnet");
         return 1;
     }
 
-    printf("\n========================================\n");
-    printf("所有测试完成！\n");
-    printf("========================================\n");
+    LOG_INFO("BatchTest", "");
+    LOG_INFO("BatchTest", "========================================");
+    LOG_INFO("BatchTest", "所有测试完成！");
+    LOG_INFO("BatchTest", "========================================");
 
     return 0;
 }

@@ -21,6 +21,7 @@
 
 #include "trtengine_v2/pipelines/yolopose/c_yolopose_pipeline.h"
 #include "trtengine_v2/pipelines/efficientnet/c_efficientnet_pipeline.h"
+#include "trtengine_v2/utils/logger.h"
 #include <opencv2/opencv.hpp>
 #include <stdio.h>
 #include <stdlib.h>
@@ -225,13 +226,19 @@ void draw_pose(cv::Mat& image, const C_YoloPose* pose, float conf_threshold = 0.
 
 int main(int argc, char** argv) {
     if (argc < 4 || argc > 5) {
-        printf("Usage: %s <yolopose_engine> <efficientnet_engine> <input_image> [--benchmark]\n", argv[0]);
-        printf("\nModes:\n");
-        printf("  Normal mode:    Run once and save visualizations\n");
-        printf("  Benchmark mode: Run 100 iterations with performance statistics (use --benchmark)\n");
-        printf("\nExample:\n");
-        printf("  %s yolov8n-pose.engine efficientnet_b0.engine people.jpg\n", argv[0]);
-        printf("  %s yolov8n-pose.engine efficientnet_b0.engine people.jpg --benchmark\n", argv[0]);
+        char buffer[512];
+        snprintf(buffer, sizeof(buffer), "Usage: %s <yolopose_engine> <efficientnet_engine> <input_image> [--benchmark]", argv[0]);
+        LOG_INFO("CascadeTest", buffer);
+        LOG_INFO("CascadeTest", "");
+        LOG_INFO("CascadeTest", "Modes:");
+        LOG_INFO("CascadeTest", "  Normal mode:    Run once and save visualizations");
+        LOG_INFO("CascadeTest", "  Benchmark mode: Run 100 iterations with performance statistics (use --benchmark)");
+        LOG_INFO("CascadeTest", "");
+        LOG_INFO("CascadeTest", "Example:");
+        snprintf(buffer, sizeof(buffer), "  %s yolov8n-pose.engine efficientnet_b0.engine people.jpg", argv[0]);
+        LOG_INFO("CascadeTest", buffer);
+        snprintf(buffer, sizeof(buffer), "  %s yolov8n-pose.engine efficientnet_b0.engine people.jpg --benchmark", argv[0]);
+        LOG_INFO("CascadeTest", buffer);
         return 1;
     }
 
@@ -240,24 +247,31 @@ int main(int argc, char** argv) {
     const char* input_image_path = argv[3];
     bool benchmark_mode = (argc == 5 && strcmp(argv[4], "--benchmark") == 0);
 
-    printf("========================================\n");
-    printf("V2 级联推理测试程序%s\n", benchmark_mode ? "（性能测试模式）" : "");
-    printf("========================================\n");
-    printf("YOLOv8-Pose Engine: %s\n", yolopose_engine_path);
-    printf("EfficientNet Engine: %s\n", efficientnet_engine_path);
-    printf("Input Image: %s\n", input_image_path);
+    LOG_INFO("CascadeTest", "========================================");
+    char buffer[512];
+    snprintf(buffer, sizeof(buffer), "V2 级联推理测试程序%s", benchmark_mode ? "（性能测试模式）" : "");
+    LOG_INFO("CascadeTest", buffer);
+    LOG_INFO("CascadeTest", "========================================");
+    snprintf(buffer, sizeof(buffer), "YOLOv8-Pose Engine: %s", yolopose_engine_path);
+    LOG_INFO("CascadeTest", buffer);
+    snprintf(buffer, sizeof(buffer), "EfficientNet Engine: %s", efficientnet_engine_path);
+    LOG_INFO("CascadeTest", buffer);
+    snprintf(buffer, sizeof(buffer), "Input Image: %s", input_image_path);
+    LOG_INFO("CascadeTest", buffer);
     if (benchmark_mode) {
-        printf("模式: 性能基准测试 (100次迭代)\n");
+        LOG_INFO("CascadeTest", "模式: 性能基准测试 (100次迭代)");
     }
-    printf("========================================\n\n");
+    LOG_INFO("CascadeTest", "========================================");
+    LOG_INFO("CascadeTest", "");
 
     // ========================================================================
     // [1/6] 加载输入图像
     // ========================================================================
-    printf("[1/6] 加载输入图像...\n");
+    LOG_INFO("CascadeTest", "[1/6] 加载输入图像...");
     cv::Mat input_image = cv::imread(input_image_path);
     if (input_image.empty()) {
-        printf("  错误: 无法加载图像 '%s'\n", input_image_path);
+        snprintf(buffer, sizeof(buffer), "  错误: 无法加载图像 '%s'", input_image_path);
+        LOG_ERROR("CascadeTest", buffer);
         return 1;
     }
 
@@ -265,13 +279,15 @@ int main(int argc, char** argv) {
     cv::Mat input_image_rgb;
     cv::cvtColor(input_image, input_image_rgb, cv::COLOR_BGR2RGB);
 
-    printf("  图像尺寸: %dx%d, 通道数: %d\n",
+    snprintf(buffer, sizeof(buffer), "  图像尺寸: %dx%d, 通道数: %d",
            input_image_rgb.cols, input_image_rgb.rows, input_image_rgb.channels());
+    LOG_INFO("CascadeTest", buffer);
 
     // ========================================================================
     // [2/6] 创建 YOLOv8-Pose Pipeline
     // ========================================================================
-    printf("\n[2/6] 创建 YOLOv8-Pose Pipeline...\n");
+    LOG_INFO("CascadeTest", "");
+    LOG_INFO("CascadeTest", "[2/6] 创建 YOLOv8-Pose Pipeline...");
     C_YoloPosePipelineConfig pose_config = c_yolopose_pipeline_get_default_config();
     pose_config.engine_path = yolopose_engine_path;
     pose_config.conf_threshold = 0.25f;
@@ -279,15 +295,16 @@ int main(int argc, char** argv) {
 
     C_YoloPosePipelineContext* pose_pipeline = c_yolopose_pipeline_create(&pose_config);
     if (!pose_pipeline) {
-        printf("  错误: 无法创建 YOLOv8-Pose Pipeline\n");
+        LOG_ERROR("CascadeTest", "  错误: 无法创建 YOLOv8-Pose Pipeline");
         return 1;
     }
-    printf("  Pipeline 创建成功\n");
+    LOG_INFO("CascadeTest", "  Pipeline 创建成功");
 
     // ========================================================================
     // [3/6] 运行姿态检测
     // ========================================================================
-    printf("\n[3/6] 运行姿态检测...\n");
+    LOG_INFO("CascadeTest", "");
+    LOG_INFO("CascadeTest", "[3/6] 运行姿态检测...");
 
     C_ImageInput image_input;
     image_input.data = input_image_rgb.data;
@@ -299,15 +316,19 @@ int main(int argc, char** argv) {
 
     // 如果是性能测试模式，执行预热和基准测试
     if (benchmark_mode) {
-        printf("\n>>> 开始性能基准测试 <<<\n\n");
+        LOG_INFO("CascadeTest", "");
+        LOG_INFO("CascadeTest", ">>> 开始性能基准测试 <<<");
+        LOG_INFO("CascadeTest", "");
 
         // 初始化内存监控
         MemoryMonitor mem_monitor;
         mem_monitor.start();
-        printf("[内存] 初始内存使用: %zu MB\n\n", mem_monitor.get_current_usage_mb());
+        snprintf(buffer, sizeof(buffer), "[内存] 初始内存使用: %zu MB", mem_monitor.get_current_usage_mb());
+        LOG_INFO("CascadeTest", buffer);
+        LOG_INFO("CascadeTest", "");
 
         // 预热阶段
-        printf("[预热] 执行 10 次推理进行模型预热...\n");
+        LOG_INFO("CascadeTest", "[预热] 执行 10 次推理进行模型预热...");
         for (int i = 0; i < 10; i++) {
             C_YoloPoseImageResult warmup_result = {0};
             c_yolopose_infer_single(pose_pipeline, &image_input, &warmup_result);
@@ -315,12 +336,15 @@ int main(int argc, char** argv) {
             printf(".");
             fflush(stdout);
         }
-        printf(" 完成\n");
-        printf("[内存] 预热后内存使用: %zu MB (增加 %ld MB)\n\n",
+        printf("\n");
+        LOG_INFO("CascadeTest", " 完成");
+        snprintf(buffer, sizeof(buffer), "[内存] 预热后内存使用: %zu MB (增加 %ld MB)",
                mem_monitor.get_current_usage_mb(), mem_monitor.get_delta_mb());
+        LOG_INFO("CascadeTest", buffer);
+        LOG_INFO("CascadeTest", "");
 
         // 性能测试阶段
-        printf("[测试] 执行 100 次推理并统计性能...\n");
+        LOG_INFO("CascadeTest", "[测试] 执行 100 次推理并统计性能...");
         PerformanceStats pose_stats;
 
         size_t initial_mem = mem_monitor.get_current_usage_mb();
@@ -338,7 +362,8 @@ int main(int argc, char** argv) {
             c_yolopose_image_result_free(&bench_result);
 
             if ((i + 1) % 20 == 0) {
-                printf("  完成 %d/100 次...\n", i + 1);
+                snprintf(buffer, sizeof(buffer), "  完成 %d/100 次...", i + 1);
+                LOG_INFO("CascadeTest", buffer);
             }
         }
 
@@ -346,42 +371,55 @@ int main(int argc, char** argv) {
         long mem_leak = final_mem - initial_mem;
 
         // 输出性能统计
-        printf("\n========================================\n");
-        printf("YOLOv8-Pose 性能统计 (100次)\n");
-        printf("========================================\n");
-        printf("  平均耗时: %.3f ms\n", pose_stats.get_mean());
-        printf("  最小耗时: %.3f ms\n", pose_stats.get_min());
-        printf("  最大耗时: %.3f ms\n", pose_stats.get_max());
-        printf("  标准差:   %.3f ms\n", pose_stats.get_std());
-        printf("  吞吐量:   %.2f FPS\n", 1000.0 / pose_stats.get_mean());
-        printf("\n[内存] 测试后内存使用: %zu MB\n", final_mem);
-        printf("[内存] 内存变化: %s%ld MB %s\n",
+        LOG_INFO("CascadeTest", "");
+        LOG_INFO("CascadeTest", "========================================");
+        LOG_INFO("CascadeTest", "YOLOv8-Pose 性能统计 (100次)");
+        LOG_INFO("CascadeTest", "========================================");
+        snprintf(buffer, sizeof(buffer), "  平均耗时: %.3f ms", pose_stats.get_mean());
+        LOG_INFO("CascadeTest", buffer);
+        snprintf(buffer, sizeof(buffer), "  最小耗时: %.3f ms", pose_stats.get_min());
+        LOG_INFO("CascadeTest", buffer);
+        snprintf(buffer, sizeof(buffer), "  最大耗时: %.3f ms", pose_stats.get_max());
+        LOG_INFO("CascadeTest", buffer);
+        snprintf(buffer, sizeof(buffer), "  标准差:   %.3f ms", pose_stats.get_std());
+        LOG_INFO("CascadeTest", buffer);
+        snprintf(buffer, sizeof(buffer), "  吞吐量:   %.2f FPS", 1000.0 / pose_stats.get_mean());
+        LOG_INFO("CascadeTest", buffer);
+        LOG_INFO("CascadeTest", "");
+        snprintf(buffer, sizeof(buffer), "[内存] 测试后内存使用: %zu MB", final_mem);
+        LOG_INFO("CascadeTest", buffer);
+        snprintf(buffer, sizeof(buffer), "[内存] 内存变化: %s%ld MB %s",
                mem_leak > 0 ? "+" : "",
                mem_leak,
                mem_leak > 5 ? "(可能存在内存泄漏)" : "(正常)");
-        printf("========================================\n\n");
+        LOG_INFO("CascadeTest", buffer);
+        LOG_INFO("CascadeTest", "========================================");
+        LOG_INFO("CascadeTest", "");
 
         // 最后执行一次获取结果用于后续可视化
         if (!c_yolopose_infer_single(pose_pipeline, &image_input, &pose_result)) {
-            printf("  错误: 姿态检测失败: %s\n",
+            snprintf(buffer, sizeof(buffer), "  错误: 姿态检测失败: %s",
                    c_yolopose_pipeline_get_last_error(pose_pipeline));
+            LOG_ERROR("CascadeTest", buffer);
             c_yolopose_pipeline_destroy(pose_pipeline);
             return 1;
         }
     } else {
         // 正常模式：只执行一次
         if (!c_yolopose_infer_single(pose_pipeline, &image_input, &pose_result)) {
-            printf("  错误: 姿态检测失败: %s\n",
+            snprintf(buffer, sizeof(buffer), "  错误: 姿态检测失败: %s",
                    c_yolopose_pipeline_get_last_error(pose_pipeline));
+            LOG_ERROR("CascadeTest", buffer);
             c_yolopose_pipeline_destroy(pose_pipeline);
             return 1;
         }
     }
 
-    printf("  检测到 %zu 个人\n", pose_result.num_poses);
+    snprintf(buffer, sizeof(buffer), "  检测到 %zu 个人", pose_result.num_poses);
+    LOG_INFO("CascadeTest", buffer);
 
     if (pose_result.num_poses == 0) {
-        printf("  警告: 未检测到任何人物，程序退出\n");
+        LOG_WARNING("CascadeTest", "  警告: 未检测到任何人物，程序退出");
         c_yolopose_image_result_free(&pose_result);
         c_yolopose_pipeline_destroy(pose_pipeline);
         return 0;
@@ -390,10 +428,11 @@ int main(int argc, char** argv) {
     // 输出检测结果
     for (size_t i = 0; i < pose_result.num_poses; i++) {
         const C_YoloPose* pose = &pose_result.poses[i];
-        printf("  Person %zu: bbox=[%d,%d,%d,%d], conf=%.2f\n",
+        snprintf(buffer, sizeof(buffer), "  Person %zu: bbox=[%d,%d,%d,%d], conf=%.2f",
                i, pose->detection.lx, pose->detection.ly,
                pose->detection.rx, pose->detection.ry,
                pose->detection.conf);
+        LOG_INFO("CascadeTest", buffer);
     }
 
     // 绘制姿态到图像上 (BGR 格式)
@@ -405,28 +444,31 @@ int main(int argc, char** argv) {
     // 保存姿态图像
     const char* pose_output_path = "output_pose.jpg";
     cv::imwrite(pose_output_path, pose_image);
-    printf("  已保存姿态图像: %s\n", pose_output_path);
+    snprintf(buffer, sizeof(buffer), "  已保存姿态图像: %s", pose_output_path);
+    LOG_INFO("CascadeTest", buffer);
 
     // ========================================================================
     // [4/6] 创建 EfficientNet Pipeline
     // ========================================================================
-    printf("\n[4/6] 创建 EfficientNet Pipeline...\n");
+    LOG_INFO("CascadeTest", "");
+    LOG_INFO("CascadeTest", "[4/6] 创建 EfficientNet Pipeline...");
     C_EfficientNetPipelineConfig eff_config = c_efficientnet_pipeline_get_default_config();
     eff_config.engine_path = efficientnet_engine_path;
 
     C_EfficientNetPipelineContext* eff_pipeline = c_efficientnet_pipeline_create(&eff_config);
     if (!eff_pipeline) {
-        printf("  错误: 无法创建 EfficientNet Pipeline\n");
+        LOG_ERROR("CascadeTest", "  错误: 无法创建 EfficientNet Pipeline");
         c_yolopose_image_result_free(&pose_result);
         c_yolopose_pipeline_destroy(pose_pipeline);
         return 1;
     }
-    printf("  Pipeline 创建成功\n");
+    LOG_INFO("CascadeTest", "  Pipeline 创建成功");
 
     // ========================================================================
     // [5/6] 裁剪人物区域并进行分类
     // ========================================================================
-    printf("\n[5/6] 裁剪人物区域并进行分类...\n");
+    LOG_INFO("CascadeTest", "");
+    LOG_INFO("CascadeTest", "[5/6] 裁剪人物区域并进行分类...");
 
     // 准备裁剪区域（用于性能测试）
     std::vector<cv::Mat> cropped_images;
@@ -454,13 +496,15 @@ int main(int argc, char** argv) {
 
     // 如果是性能测试模式，对第一个裁剪区域进行测试
     if (benchmark_mode && !cropped_images.empty()) {
-        printf("\n>>> EfficientNet 性能基准测试 <<<\n\n");
+        LOG_INFO("CascadeTest", "");
+        LOG_INFO("CascadeTest", ">>> EfficientNet 性能基准测试 <<<");
+        LOG_INFO("CascadeTest", "");
 
         MemoryMonitor eff_mem_monitor;
         eff_mem_monitor.start();
 
         // 预热
-        printf("[预热] EfficientNet 执行 10 次推理...\n");
+        LOG_INFO("CascadeTest", "[预热] EfficientNet 执行 10 次推理...");
         for (int i = 0; i < 10; i++) {
             C_EfficientNetResult warmup_result = {0};
             c_efficientnet_infer_single(eff_pipeline, &crop_inputs[0], &warmup_result);
@@ -468,10 +512,12 @@ int main(int argc, char** argv) {
             printf(".");
             fflush(stdout);
         }
-        printf(" 完成\n\n");
+        printf("\n");
+        LOG_INFO("CascadeTest", " 完成");
+        LOG_INFO("CascadeTest", "");
 
         // 性能测试
-        printf("[测试] EfficientNet 执行 100 次推理...\n");
+        LOG_INFO("CascadeTest", "[测试] EfficientNet 执行 100 次推理...");
         PerformanceStats eff_stats;
 
         size_t eff_initial_mem = eff_mem_monitor.get_current_usage_mb();
@@ -489,7 +535,8 @@ int main(int argc, char** argv) {
             c_efficientnet_result_free(&bench_result);
 
             if ((i + 1) % 20 == 0) {
-                printf("  完成 %d/100 次...\n", i + 1);
+                snprintf(buffer, sizeof(buffer), "  完成 %d/100 次...", i + 1);
+                LOG_INFO("CascadeTest", buffer);
             }
         }
 
@@ -497,25 +544,37 @@ int main(int argc, char** argv) {
         long eff_mem_leak = eff_final_mem - eff_initial_mem;
 
         // 输出性能统计
-        printf("\n========================================\n");
-        printf("EfficientNet 性能统计 (100次)\n");
-        printf("========================================\n");
-        printf("  平均耗时: %.3f ms\n", eff_stats.get_mean());
-        printf("  最小耗时: %.3f ms\n", eff_stats.get_min());
-        printf("  最大耗时: %.3f ms\n", eff_stats.get_max());
-        printf("  标准差:   %.3f ms\n", eff_stats.get_std());
-        printf("  吞吐量:   %.2f FPS\n", 1000.0 / eff_stats.get_mean());
-        printf("\n[内存] 内存变化: %s%ld MB %s\n",
+        LOG_INFO("CascadeTest", "");
+        LOG_INFO("CascadeTest", "========================================");
+        LOG_INFO("CascadeTest", "EfficientNet 性能统计 (100次)");
+        LOG_INFO("CascadeTest", "========================================");
+        snprintf(buffer, sizeof(buffer), "  平均耗时: %.3f ms", eff_stats.get_mean());
+        LOG_INFO("CascadeTest", buffer);
+        snprintf(buffer, sizeof(buffer), "  最小耗时: %.3f ms", eff_stats.get_min());
+        LOG_INFO("CascadeTest", buffer);
+        snprintf(buffer, sizeof(buffer), "  最大耗时: %.3f ms", eff_stats.get_max());
+        LOG_INFO("CascadeTest", buffer);
+        snprintf(buffer, sizeof(buffer), "  标准差:   %.3f ms", eff_stats.get_std());
+        LOG_INFO("CascadeTest", buffer);
+        snprintf(buffer, sizeof(buffer), "  吞吐量:   %.2f FPS", 1000.0 / eff_stats.get_mean());
+        LOG_INFO("CascadeTest", buffer);
+        LOG_INFO("CascadeTest", "");
+        snprintf(buffer, sizeof(buffer), "[内存] 内存变化: %s%ld MB %s",
                eff_mem_leak > 0 ? "+" : "",
                eff_mem_leak,
                eff_mem_leak > 5 ? "(可能存在内存泄漏)" : "(正常)");
-        printf("========================================\n\n");
+        LOG_INFO("CascadeTest", buffer);
+        LOG_INFO("CascadeTest", "========================================");
+        LOG_INFO("CascadeTest", "");
     }
 
     // 正常处理流程：对所有检测到的人进行分类
     for (size_t i = 0; i < pose_result.num_poses; i++) {
-        printf("\n--- Person %zu ---\n", i);
-        printf("  裁剪区域: %dx%d\n", cropped_images[i].cols, cropped_images[i].rows);
+        LOG_INFO("CascadeTest", "");
+        snprintf(buffer, sizeof(buffer), "--- Person %zu ---", i);
+        LOG_INFO("CascadeTest", buffer);
+        snprintf(buffer, sizeof(buffer), "  裁剪区域: %dx%d", cropped_images[i].cols, cropped_images[i].rows);
+        LOG_INFO("CascadeTest", buffer);
 
         // 保存裁剪图像 (BGR 格式)
         if (!benchmark_mode) {  // 性能测试模式下不保存图像
@@ -524,32 +583,39 @@ int main(int argc, char** argv) {
             char crop_filename[256];
             snprintf(crop_filename, sizeof(crop_filename), "output_crop_%zu.jpg", i);
             cv::imwrite(crop_filename, cropped_bgr);
-            printf("  已保存裁剪图像: %s\n", crop_filename);
+            snprintf(buffer, sizeof(buffer), "  已保存裁剪图像: %s", crop_filename);
+            LOG_INFO("CascadeTest", buffer);
         }
 
         // EfficientNet 推理
         C_EfficientNetResult eff_result = {0};
         if (!c_efficientnet_infer_single(eff_pipeline, &crop_inputs[i], &eff_result)) {
-            printf("  错误: EfficientNet 推理失败: %s\n",
+            snprintf(buffer, sizeof(buffer), "  错误: EfficientNet 推理失败: %s",
                    c_efficientnet_pipeline_get_last_error(eff_pipeline));
+            LOG_ERROR("CascadeTest", buffer);
             continue;
         }
 
         // 输出分类结果
-        printf("  分类结果:\n");
-        printf("    预测类别: %d\n", eff_result.class_id);
-        printf("    置信度: %.4f\n", eff_result.confidence);
+        LOG_INFO("CascadeTest", "  分类结果:");
+        snprintf(buffer, sizeof(buffer), "    预测类别: %d", eff_result.class_id);
+        LOG_INFO("CascadeTest", buffer);
+        snprintf(buffer, sizeof(buffer), "    置信度: %.4f", eff_result.confidence);
+        LOG_INFO("CascadeTest", buffer);
 
         if (!benchmark_mode) {  // 详细信息只在非性能测试模式下显示
-            printf("    Logits: ");
+            std::string logits_str = "    Logits: ";
             for (size_t j = 0; j < eff_result.num_classes; j++) {
-                printf("%.4f ", eff_result.logits[j]);
+                char val_buf[32];
+                snprintf(val_buf, sizeof(val_buf), "%.4f ", eff_result.logits[j]);
+                logits_str += val_buf;
             }
-            printf("\n");
+            LOG_INFO("CascadeTest", logits_str.c_str());
 
             // 输出特征向量信息
-            printf("  特征向量信息:\n");
-            printf("    维度: %zu\n", eff_result.feature_size);
+            LOG_INFO("CascadeTest", "  特征向量信息:");
+            snprintf(buffer, sizeof(buffer), "    维度: %zu", eff_result.feature_size);
+            LOG_INFO("CascadeTest", buffer);
 
             // 计算 L2 范数
             float l2_norm = 0.0f;
@@ -557,14 +623,18 @@ int main(int argc, char** argv) {
                 l2_norm += eff_result.features[j] * eff_result.features[j];
             }
             l2_norm = sqrtf(l2_norm);
-            printf("    L2 范数: %.4f\n", l2_norm);
+            snprintf(buffer, sizeof(buffer), "    L2 范数: %.4f", l2_norm);
+            LOG_INFO("CascadeTest", buffer);
 
             // 输出前 10 个特征值
-            printf("    前 10 个特征值: ");
+            std::string features_str = "    前 10 个特征值: ";
             for (size_t j = 0; j < 10 && j < eff_result.feature_size; j++) {
-                printf("%.4f ", eff_result.features[j]);
+                char feat_buf[32];
+                snprintf(feat_buf, sizeof(feat_buf), "%.4f ", eff_result.features[j]);
+                features_str += feat_buf;
             }
-            printf("...\n");
+            features_str += "...";
+            LOG_INFO("CascadeTest", features_str.c_str());
         }
 
         // 清理结果
@@ -574,19 +644,21 @@ int main(int argc, char** argv) {
     // ========================================================================
     // [6/6] 清理资源
     // ========================================================================
-    printf("\n[6/6] 清理资源...\n");
+    LOG_INFO("CascadeTest", "");
+    LOG_INFO("CascadeTest", "[6/6] 清理资源...");
     c_yolopose_image_result_free(&pose_result);
     c_yolopose_pipeline_destroy(pose_pipeline);
     c_efficientnet_pipeline_destroy(eff_pipeline);
-    printf("  完成\n");
+    LOG_INFO("CascadeTest", "  完成");
 
-    printf("\n========================================\n");
-    printf("处理完成！\n");
-    printf("========================================\n");
-    printf("输出文件:\n");
-    printf("  - output_pose.jpg       : 带关键点和骨架的图像\n");
-    printf("  - output_crop_*.jpg     : 裁剪的人物区域\n");
-    printf("========================================\n");
+    LOG_INFO("CascadeTest", "");
+    LOG_INFO("CascadeTest", "========================================");
+    LOG_INFO("CascadeTest", "处理完成！");
+    LOG_INFO("CascadeTest", "========================================");
+    LOG_INFO("CascadeTest", "输出文件:");
+    LOG_INFO("CascadeTest", "  - output_pose.jpg       : 带关键点和骨架的图像");
+    LOG_INFO("CascadeTest", "  - output_crop_*.jpg     : 裁剪的人物区域");
+    LOG_INFO("CascadeTest", "========================================");
 
     return 0;
 }

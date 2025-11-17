@@ -200,7 +200,7 @@ class MQTTClient:
 if __name__ == "__main__":
 
     def message_handler(topic, payload):
-        print(f"Received message on topic '{topic}': {payload.decode('utf-8')}")
+        logger.info("MQTTClient", f"Received message on topic '{topic}': {payload.decode('utf-8')}")
 
 
     mqtt_client = MQTTClient(host="localhost", port=1883, client_id="test_client_sync")
@@ -208,7 +208,7 @@ if __name__ == "__main__":
 
     # connect() 现在会阻塞，直到连接成功或超时
     if mqtt_client.connect():
-        print("Connection successful!")
+        logger.info("MQTTClient", "Connection successful!")
         mqtt_client.subscribe("test/topic")
         mqtt_client.publish("test/topic", b"Hello, Synchronous MQTT!")
         try:
@@ -217,4 +217,4 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             mqtt_client.disconnect()
     else:
-        print("Connection failed!")
+        logger.error("MQTTClient", "Connection failed!")

@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple
 from dataclasses import dataclass
 
 from pyengine.visualization.color_utils import bgr_to_hex, hex_to_bgr
+from pyengine.utils.logger import logger
 @dataclass
 class KeyPointSchema:
     """数据类，用于存储关键点的名称和 BGR 颜色。"""
@@ -32,7 +33,7 @@ class SchemeLoader:
         self.highlight_colors: Dict[str, Tuple[Tuple[int, int, int], Tuple[int, int, int]]] = {}
 
         self.load_external_schema(schema_file)
-        print(f"✅ Successfully loaded and processed schema from '{schema_file}'.")
+        logger.info("SchemeLoader", f"Successfully loaded and processed schema from '{schema_file}'")
 
     def load_external_schema(self, schema_file: str):
         if not os.path.isfile(schema_file):
@@ -57,11 +58,11 @@ class SchemeLoader:
                         bgr_color = hex_to_bgr(hex_color)
                         self.kpt_color_map[key_int] = KeyPointSchema(name=name, color=bgr_color)
                     else:
-                        print(f"⚠️ Warning: Skipping invalid kpt_color_map item: key='{key_str}', data={item_data}")
+                        logger.warning("SchemeLoader", f"Skipping invalid kpt_color_map item: key='{key_str}', data={item_data}")
                 except (ValueError, TypeError) as e:
-                    print(f"⚠️ Warning: Error parsing kpt_color_map item: key='{key_str}', {e}")
+                    logger.warning("SchemeLoader", f"Error parsing kpt_color_map item: key='{key_str}', {e}")
         else:
-            print("⚠️ Warning: JSON file does not contain a valid 'kpt_color_map'.")
+            logger.warning("SchemeLoader", "JSON file does not contain a valid 'kpt_color_map'")
 
         # --- [MODIFIED] Parse skeleton_map ---
         skeleton_map_data = json_data.get("skeleton_map")
@@ -77,11 +78,11 @@ class SchemeLoader:
                             srt_kpt_id=srt_id, dst_kpt_id=dst_id, color=bgr_color
                         ))
                     else:
-                        print(f"⚠️ Warning: Skipping invalid skeleton_map item: {item_data}")
+                        logger.warning("SchemeLoader", f"Skipping invalid skeleton_map item: {item_data}")
                 except (TypeError, KeyError) as e:
-                    print(f"⚠️ Warning: Error parsing skeleton_map item: {item_data}, {e}")
+                    logger.warning("SchemeLoader", f"Error parsing skeleton_map item: {item_data}, {e}")
         else:
-            print("⚠️ Warning: JSON file does not contain a valid 'skeleton_map'.")
+            logger.warning("SchemeLoader", "JSON file does not contain a valid 'skeleton_map'")
 
         # --- [MODIFIED] Parse bbox_color ---
         bbox_color_data = json_data.get("bbox_color")
@@ -93,11 +94,11 @@ class SchemeLoader:
                         bgr_color = hex_to_bgr(hex_color)
                         self.bbox_colors.append(bgr_color)
                     else:
-                        print(f"⚠️ Warning: Skipping invalid bbox_color item: {item_data}")
+                        logger.warning("SchemeLoader", f"Skipping invalid bbox_color item: {item_data}")
                 except (TypeError, KeyError) as e:
-                    print(f"⚠️ Warning: Error parsing bbox_color item: {item_data}, {e}")
+                    logger.warning("SchemeLoader", f"Error parsing bbox_color item: {item_data}, {e}")
         else:
-            print("⚠️ Warning: JSON file does not contain a valid 'bbox_color'.")
+            logger.warning("SchemeLoader", "JSON file does not contain a valid 'bbox_color'")
 
         # --- [MODIFIED] Parse highlight_classes ---
         highlight_data = json_data.get("highlight_classes")
@@ -112,13 +113,13 @@ class SchemeLoader:
                             bgr_color2 = hex_to_bgr(key_vals[1])
                             self.highlight_colors[key_name] = (bgr_color1, bgr_color2)
                         else:
-                            print(f"⚠️ Warning: Skipping invalid highlight_classes item, format error: key='{key_name}'")
+                            logger.warning("SchemeLoader", f"Skipping invalid highlight_classes item, format error: key='{key_name}'")
                     else:
-                        print(f"⚠️ Warning: Skipping invalid highlight_classes item, format error: key='{key_name}'")
+                        logger.warning("SchemeLoader", f"Skipping invalid highlight_classes item, format error: key='{key_name}'")
                 except (TypeError, IndexError, ValueError) as e:
-                    print(f"⚠️ Warning: Error parsing highlight_classes item: data='{item_data}', {e}")
+                    logger.warning("SchemeLoader", f"Error parsing highlight_classes item: data='{item_data}', {e}")
         else:
-            print("⚠️ Warning: JSON file does not contain a valid 'highlight_classes'.")
+            logger.warning("SchemeLoader", "JSON file does not contain a valid 'highlight_classes'")
 
 
 # --- [MODIFIED] Example Usage ---
@@ -147,36 +148,36 @@ if __name__ == '__main__':
     with open(dummy_schema_file, "w", encoding='utf-8') as f:
         f.write(schema_content)
 
-    print("--- Loading with dummy schema file ---")
+    logger.info("SchemeLoader", "--- Loading with dummy schema file ---")
     try:
         loader = SchemeLoader(dummy_schema_file)
-        
-        print("\n🎨 Loaded Keypoints (BGR format):")
+
+        logger.info("SchemeLoader", "\nLoaded Keypoints (BGR format):")
         for idx, kp in loader.kpt_color_map.items():
             hex_color = bgr_to_hex(kp.color)
-            print(f"  {idx}: Name={kp.name}, Hex={hex_color} -> BGR={kp.color}")
+            logger.info("SchemeLoader", f"  {idx}: Name={kp.name}, Hex={hex_color} -> BGR={kp.color}")
 
-        print("\n🦴 Loaded Skeletons (BGR format):")
+        logger.info("SchemeLoader", "\nLoaded Skeletons (BGR format):")
         for sk in loader.skeleton_map:
             hex_color = bgr_to_hex(sk.color)
-            print(f"  {sk.srt_kpt_id} -> {sk.dst_kpt_id}, Hex={hex_color} -> BGR={sk.color}")
+            logger.info("SchemeLoader", f"  {sk.srt_kpt_id} -> {sk.dst_kpt_id}, Hex={hex_color} -> BGR={sk.color}")
 
-        print("\n🔲 Loaded Bbox Colors (BGR format):")
+        logger.info("SchemeLoader", "\nLoaded Bbox Colors (BGR format):")
         for i, color in enumerate(loader.bbox_colors):
             hex_color = bgr_to_hex(color)
-            print(f"  {i}: Hex={hex_color} -> BGR={color}")
-        
-        print("\n✨ Loaded Highlight Colors (BGR format):")
+            logger.info("SchemeLoader", f"  {i}: Hex={hex_color} -> BGR={color}")
+
+        logger.info("SchemeLoader", "\nLoaded Highlight Colors (BGR format):")
         for key, (color1, color2) in loader.highlight_colors.items():
             hex1 = bgr_to_hex(color1)
             hex2 = bgr_to_hex(color2)
-            print(f"  '{key}':")
-            print(f"    Color 1: Hex={hex1} -> BGR={color1}")
-            print(f"    Color 2: Hex={hex2} -> BGR={color2}")
+            logger.info("SchemeLoader", f"  '{key}':")
+            logger.info("SchemeLoader", f"    Color 1: Hex={hex1} -> BGR={color1}")
+            logger.info("SchemeLoader", f"    Color 2: Hex={hex2} -> BGR={color2}")
 
     except Exception as e:
-        print(f"❌ Error during loading test: {e}")
+        logger.error("SchemeLoader", f"Error during loading test: {e}")
     finally:
         if os.path.exists(dummy_schema_file):
             os.remove(dummy_schema_file)
-            print(f"\n--- Dummy file '{dummy_schema_file}' removed ---")
+            logger.info("SchemeLoader", f"\n--- Dummy file '{dummy_schema_file}' removed ---")

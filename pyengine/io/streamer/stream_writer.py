@@ -1,6 +1,7 @@
 import cv2
 import datetime
 import os
+from pyengine.utils.logger import logger
 
 
 class StreamWriter:
@@ -61,17 +62,17 @@ class StreamWriter:
                 try:
                     fourcc = cv2.VideoWriter_fourcc(*codec)
                     video = cv2.VideoWriter(filename, fourcc, self.fps, (self.width, self.height))
-                    print(f"⚠️ Testing Codec {codec}...")
+                    logger.warning("StreamWriter", f"Testing Codec {codec}...")
 
                     if video.isOpened():
-                        print(f"✅ Using codec: {codec}, saved as: {filename}")
+                        logger.info("StreamWriter", f"Using codec: {codec}, saved as: {filename}")
                         success = True
                         return video, codec, filename
                     else:
-                        print(f"❌ Codec failed: {codec}")
+                        logger.error("StreamWriter", f"Codec failed: {codec}")
 
                 except Exception as e:
-                    print(f"❌ Error initializing writer with codec {codec}: {e}")
+                    logger.error("StreamWriter", f"Error initializing writer with codec {codec}: {e}")
 
                 finally:
                     # 只在失败时清理
@@ -81,7 +82,7 @@ class StreamWriter:
                             try:
                                 video.release()
                             except Exception as e:
-                                print(f"⚠️ Error releasing video writer: {e}")
+                                logger.warning("StreamWriter", f"Error releasing video writer: {e}")
 
                         # 安全删除空文件
                         if os.path.exists(filename):
@@ -90,12 +91,13 @@ class StreamWriter:
                                 file_size = os.path.getsize(filename)
                                 if file_size < 1024:  # Less than 1KB
                                     os.remove(filename)
-                                    print(f"🗑️ Removed empty/small file: {filename} ({file_size} bytes)")
+                                    logger.debug("StreamWriter", f"Removed empty/small file: {filename} ({file_size} bytes)")
                             except OSError as e:
-                                print(f"⚠️ Warning: Failed to remove file {filename}: {e}")
+                                logger.warning("StreamWriter", f"Failed to remove file {filename}: {e}")
                                 # 不抛出异常，继续尝试下一个编码器
 
-            raise ValueError("❌ Failed to initialize VideoWriter with any known codec.")
+            logger.error("StreamWriter", "Failed to initialize VideoWriter with any known codec.")
+            raise ValueError("Failed to initialize VideoWriter with any known codec.")
 
     def add_frame(self, frame):
         if frame.shape[1] != self.width or frame.shape[0] != self.height:
@@ -105,9 +107,9 @@ class StreamWriter:
     def release(self):
         self.video.release()
         if os.path.exists(self.filename):
-            print(f"✅ Video saved as {self.filename}")
+            logger.info("StreamWriter", f"Video saved as {self.filename}")
         else:
-            print("❌ Failed to save video")
+            logger.error("StreamWriter", "Failed to save video")
 
 
 if __name__ == "__main__":
