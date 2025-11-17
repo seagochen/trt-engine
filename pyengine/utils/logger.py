@@ -70,15 +70,39 @@ class Logger:
         def format(self, record):
             log_color = LOG_LEVEL_COLORS.get(record.levelname, RESET)
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            formatted_message = f"{log_color}[{record.levelname}] <{timestamp}> {record.msg}{RESET}"
+
+            # 支持 module::topic 格式，与 C++ 保持一致
+            module_topic = getattr(record, 'module_topic', record.msg.split(' - ', 1)[0] if ' - ' in record.msg else '')
+            message = getattr(record, 'log_message', record.msg.split(' - ', 1)[1] if ' - ' in record.msg else record.msg)
+
+            # 如果 module_topic 已经包含在 msg 中（向后兼容），直接使用 msg
+            if ' - ' in record.msg and record.msg.startswith('['):
+                formatted_message = f"{log_color}[{record.levelname}] <{timestamp}> {record.msg}{RESET}"
+            else:
+                # 新格式：使用 module_topic 和 message 属性
+                formatted_message = f"{log_color}[{record.levelname}] <{timestamp}> {record.msg}{RESET}"
 
             if record.exc_info:
                 traceback_str = self.formatException(record.exc_info)
                 formatted_message += f"\n{log_color}{traceback_str}{RESET}"
             return formatted_message
 
-    def log(self, level, module, message, exc_info=False):
-        log_message = f"[{module}] - {message}"
+    def log(self, level, module, message, topic=None, exc_info=False):
+        """
+        记录日志消息
+        :param level: 日志级别
+        :param module: 模块名
+        :param message: 日志消息
+        :param topic: 可选的主题/子模块名，用于更细粒度的分类
+        :param exc_info: 是否包含异常堆栈信息
+        """
+        # 构建模块::主题格式，与 C++ 保持一致
+        if topic:
+            module_topic = f"{module}::{topic}"
+        else:
+            module_topic = module
+
+        log_message = f"[{module_topic}] - {message}"
         level_upper = level.upper()
 
         # 使用 getattr 动态调用，简化代码
@@ -89,26 +113,26 @@ class Logger:
             # self.logger.log 会处理级别过滤
             self.logger.log(logging.getLevelName(level_upper), log_message, exc_info=exc_info)
 
-    def verbose(self, module, message):
-        self.log("VERBOSE", module, message)
+    def verbose(self, module, message, topic=None):
+        self.log("VERBOSE", module, message, topic=topic)
 
-    def info(self, module, message):
-        self.log("INFO", module, message)
+    def info(self, module, message, topic=None):
+        self.log("INFO", module, message, topic=topic)
 
-    def warning(self, module, message):
-        self.log("WARNING", module, message)
+    def warning(self, module, message, topic=None):
+        self.log("WARNING", module, message, topic=topic)
 
-    def error_trace(self, module, message):
-        self.log("ERROR", module, message, exc_info=True)
+    def error_trace(self, module, message, topic=None):
+        self.log("ERROR", module, message, topic=topic, exc_info=True)
 
-    def error(self, module, message):
-        self.log("ERROR", module, message, exc_info=False)
+    def error(self, module, message, topic=None):
+        self.log("ERROR", module, message, topic=topic, exc_info=False)
 
-    def debug(self, module, message):
-        self.log("DEBUG", module, message)
+    def debug(self, module, message, topic=None):
+        self.log("DEBUG", module, message, topic=topic)
 
-    def critical(self, module, message):
-        self.log("CRITICAL", module, message)
+    def critical(self, module, message, topic=None):
+        self.log("CRITICAL", module, message, topic=topic)
 
 
 # 定义一个 logger 实例
