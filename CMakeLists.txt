@@ -66,6 +66,10 @@ endif()
 # ------------------ 查找 OpenCV ------------------
 find_package(OpenCV REQUIRED)
 
+# ------------------ Eigen3 设置 (使用本地头文件) ------------------
+set(EIGEN3_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/include/thirds")
+message(STATUS "Using local Eigen3: ${EIGEN3_INCLUDE_DIR}")
+
 # ------------------ 查找多线程库 ------------------
 find_package(Threads REQUIRED)
 

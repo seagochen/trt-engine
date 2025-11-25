@@ -1,6 +1,10 @@
 import logging
 import sys
+import atexit
+import queue
+import threading
 from datetime import datetime
+from logging.handlers import QueueHandler, QueueListener
 
 # ANSI 转义码定义颜色 (保持不变)
 RESET = "\033[0m"
@@ -27,6 +31,7 @@ logging.addLevelName(VERBOSE_LEVEL, "VERBOSE")
 
 
 class Logger:
+    """异步非阻塞日志系统"""
     _instance = None
 
     def __new__(cls, *args, **kwargs):
@@ -41,9 +46,38 @@ class Logger:
         self.logger.setLevel(logging.DEBUG)
 
         if not self.logger.hasHandlers():
-            handler = logging.StreamHandler(sys.stdout)
-            handler.setFormatter(self.CustomFormatter())
-            self.logger.addHandler(handler)
+            # 创建异步日志队列
+            self._log_queue = queue.Queue(-1)  # 无限制队列大小
+
+            # 创建实际的输出处理器
+            stream_handler = logging.StreamHandler(sys.stdout)
+            stream_handler.setFormatter(self.CustomFormatter())
+
+            # 创建队列处理器（非阻塞，只是把日志放入队列）
+            queue_handler = QueueHandler(self._log_queue)
+            self.logger.addHandler(queue_handler)
+
+            # 创建队列监听器（后台线程处理队列中的日志）
+            self._queue_listener = QueueListener(
+                self._log_queue,
+                stream_handler,
+                respect_handler_level=True
+            )
+            self._queue_listener.start()
+
+            # 注册退出时的清理函数
+            atexit.register(self._shutdown)
+
+    def _shutdown(self):
+        """关闭异步日志系统，确保所有日志都被写入"""
+        if hasattr(self, '_queue_listener') and self._queue_listener is not None:
+            self._queue_listener.stop()
+            self._queue_listener = None
+
+    def flush(self):
+        """刷新所有待处理的日志（阻塞直到队列清空）"""
+        if hasattr(self, '_log_queue'):
+            self._log_queue.join()
 
     # --- 新增方法: set_level ---
     def set_level(self, level_name: str):
@@ -176,3 +210,6 @@ if __name__ == "__main__":
     logger.info("Main", "将日志级别恢复为 DEBUG")
     logger.set_level("DEBUG")
     logger.debug("Main", "这条 DEBUG 信息现在又可以显示了。")
+
+    # 确保所有日志都被写入
+    logger.flush()

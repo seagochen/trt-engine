@@ -6,6 +6,11 @@
 #define COMBINEDPROJECT_INFER_LOGGER_H
 
 #include <string>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
+#include <atomic>
 
 // 日志级别枚举类型
 enum LogLevel {
@@ -20,7 +25,7 @@ enum LogLevel {
     DEBUG_LV5,
 };
 
-// Logger 类声明
+// Logger 类声明 - 异步非阻塞日志系统
 class Logger {
 public:
     // 处理 module 和 message 的日志输出
@@ -28,6 +33,15 @@ public:
 
     // 处理 module, topic 和 message 的日志输出
     static void log(LogLevel level, const std::string& module, const std::string& topic, const std::string& message);
+
+    // 初始化异步日志系统（可选，首次调用 log 时会自动初始化）
+    static void init();
+
+    // 关闭异步日志系统，确保所有日志都被写入
+    static void shutdown();
+
+    // 刷新所有待处理的日志（阻塞直到队列清空）
+    static void flush();
 
 private:
     static std::string formatLogMessage(LogLevel level, const std::string& module, const std::string& topic, const std::string& message);
@@ -37,6 +51,17 @@ private:
     static std::string getLogLevelColor(LogLevel level);
 
     static std::string getCurrentTimestamp();
+
+    // 异步日志相关
+    static void ensureInitialized();
+    static void workerThread();
+
+    static std::queue<std::string> logQueue_;
+    static std::mutex queueMutex_;
+    static std::condition_variable queueCondition_;
+    static std::thread workerThread_;
+    static std::atomic<bool> running_;
+    static std::atomic<bool> initialized_;
 };
 
 // 宏用于简化日志输出

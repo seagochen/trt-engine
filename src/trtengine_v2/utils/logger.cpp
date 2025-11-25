@@ -9,17 +9,110 @@
 #include "trtengine_v2/utils/logger.h"
 #include "trtengine_v2/utils/console_schema.h"
 
+// 静态成员变量定义
+std::queue<std::string> Logger::logQueue_;
+std::mutex Logger::queueMutex_;
+std::condition_variable Logger::queueCondition_;
+std::thread Logger::workerThread_;
+std::atomic<bool> Logger::running_{false};
+std::atomic<bool> Logger::initialized_{false};
+
+// 确保日志系统已初始化
+void Logger::ensureInitialized() {
+    if (!initialized_.load()) {
+        init();
+    }
+}
+
+// 初始化异步日志系统
+void Logger::init() {
+    bool expected = false;
+    if (initialized_.compare_exchange_strong(expected, true)) {
+        running_.store(true);
+        workerThread_ = std::thread(workerThread);
+    }
+}
+
+// 关闭异步日志系统
+void Logger::shutdown() {
+    if (initialized_.load()) {
+        running_.store(false);
+        queueCondition_.notify_one();
+        if (workerThread_.joinable()) {
+            workerThread_.join();
+        }
+        initialized_.store(false);
+    }
+}
+
+// 刷新所有待处理的日志
+void Logger::flush() {
+    if (!initialized_.load()) {
+        return;
+    }
+
+    std::unique_lock<std::mutex> lock(queueMutex_);
+    // 等待队列清空
+    queueCondition_.wait(lock, []() {
+        return logQueue_.empty();
+    });
+}
+
+// 后台工作线程
+void Logger::workerThread() {
+    while (running_.load() || !logQueue_.empty()) {
+        std::string logMessage;
+        {
+            std::unique_lock<std::mutex> lock(queueMutex_);
+
+            // 等待有日志消息或停止信号
+            queueCondition_.wait(lock, []() {
+                return !logQueue_.empty() || !running_.load();
+            });
+
+            if (!logQueue_.empty()) {
+                logMessage = std::move(logQueue_.front());
+                logQueue_.pop();
+            }
+
+            // 如果队列为空，通知可能正在等待 flush 的线程
+            if (logQueue_.empty()) {
+                queueCondition_.notify_all();
+            }
+        }
+
+        // 在锁外执行 I/O 操作
+        if (!logMessage.empty()) {
+            std::cout << logMessage;
+        }
+    }
+
+    // 确保剩余的日志都被写入
+    std::cout.flush();
+}
 
 // 处理 module 和 message 的日志输出
 void Logger::log(LogLevel level, const std::string& module, const std::string& message) {
+    ensureInitialized();
     std::string logMessage = formatLogMessage(level, module, "", message);
-    std::cout << logMessage;
+
+    {
+        std::lock_guard<std::mutex> lock(queueMutex_);
+        logQueue_.push(std::move(logMessage));
+    }
+    queueCondition_.notify_one();
 }
 
 // 处理 module, topic 和 message 的日志输出
 void Logger::log(LogLevel level, const std::string& module, const std::string& topic, const std::string& message) {
+    ensureInitialized();
     std::string logMessage = formatLogMessage(level, module, topic, message);
-    std::cout << logMessage;
+
+    {
+        std::lock_guard<std::mutex> lock(queueMutex_);
+        logQueue_.push(std::move(logMessage));
+    }
+    queueCondition_.notify_one();
 }
 
 // 格式化日志信息
@@ -34,7 +127,7 @@ std::string Logger::formatLogMessage(LogLevel level, const std::string& module, 
     logStream << color;                         // 设置颜色
     logStream << "[" << logLevelStr << "] ";    // 输出日志级别
     logStream << "<" << timestamp << "> ";      // 输出时间戳
-    
+
     logStream << "[" << module;                 // 输出模块名
     if (!topic.empty()) {
         logStream << "::" << topic;
@@ -87,4 +180,14 @@ std::string Logger::getCurrentTimestamp() {
     char buf[100];
     std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", std::localtime(&now));
     return buf;
+}
+
+// 自动清理类，确保程序退出时日志被正确刷新
+namespace {
+    struct LoggerCleanup {
+        ~LoggerCleanup() {
+            Logger::shutdown();
+        }
+    };
+    static LoggerCleanup loggerCleanup;
 }
