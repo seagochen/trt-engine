@@ -80,3 +80,7 @@ __pycache__/
 
 # Ignore the tar.gz files
 *.tar.gz
+
+# Ignore Python egg-info directories
+pyengine.egg-info/
+*.egg-info/
