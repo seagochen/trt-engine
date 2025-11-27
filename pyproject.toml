@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyengine"
+version = "0.1.0"
+description = "Internal utility toolkit for TrtEngine projects"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "opencv-python",
+    "Pillow",
+    "paho-mqtt",
+    "scipy",
+    "filterpy",
+    "numba",
+]
+
+[tool.setuptools.packages.find]
+include = ["pyengine*"]
