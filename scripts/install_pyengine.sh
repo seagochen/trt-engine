@@ -384,53 +384,51 @@ upgrade_pyengine() {
 # Help
 # ----------------------------
 show_usage() {
-    cat << EOF
-${GREEN}PyEngine Installer${RESET}
-
-${BLUE}Usage:${RESET}
-  $0                     Install pyengine in editable mode (default)
-  $0 --editable, -e      Install in editable/development mode
-  $0 --release, -r       Install in standard/release mode
-  $0 --upgrade, -u       Upgrade existing installation
-  $0 --uninstall         Uninstall pyengine
-  $0 --check, -c         Check installation status
-  $0 --help, -h          Show this help message
-
-${BLUE}Installation Modes:${RESET}
-  ${GREEN}Editable mode${RESET} (recommended for development):
-    - Source files are linked, not copied
-    - Changes to .py files take effect immediately
-    - No need to reinstall after code changes
-    - Use: $0 --editable
-
-  ${GREEN}Release mode${RESET} (for production):
-    - Package is copied to site-packages
-    - More stable, isolated from source changes
-    - Requires reinstall to update
-    - Use: $0 --release
-
-${BLUE}Examples:${RESET}
-  $0                     # Install for development
-  $0 --editable          # Same as above
-  $0 --release           # Install for production
-  $0 --check             # Check if installed
-  $0 --upgrade           # Update to latest
-  $0 --uninstall         # Remove pyengine
-
-${BLUE}Requirements:${RESET}
-  - Python >= 3.8
-  - pip
-
-${BLUE}Dependencies${RESET} (installed automatically):
-  - numpy
-  - opencv-python
-  - Pillow
-  - paho-mqtt
-  - scipy
-  - filterpy
-  - numba
-
-EOF
+    echo -e "${GREEN}PyEngine Installer${RESET}"
+    echo ""
+    echo -e "${BLUE}Usage:${RESET}"
+    echo "  $0                     Install pyengine in editable mode (default)"
+    echo "  $0 --editable, -e      Install in editable/development mode"
+    echo "  $0 --release, -r       Install in standard/release mode"
+    echo "  $0 --upgrade, -u       Upgrade existing installation"
+    echo "  $0 --uninstall         Uninstall pyengine"
+    echo "  $0 --check, -c         Check installation status"
+    echo "  $0 --help, -h          Show this help message"
+    echo ""
+    echo -e "${BLUE}Installation Modes:${RESET}"
+    echo -e "  ${GREEN}Editable mode${RESET} (recommended for development):"
+    echo "    - Source files are linked, not copied"
+    echo "    - Changes to .py files take effect immediately"
+    echo "    - No need to reinstall after code changes"
+    echo "    - Use: $0 --editable"
+    echo ""
+    echo -e "  ${GREEN}Release mode${RESET} (for production):"
+    echo "    - Package is copied to site-packages"
+    echo "    - More stable, isolated from source changes"
+    echo "    - Requires reinstall to update"
+    echo "    - Use: $0 --release"
+    echo ""
+    echo -e "${BLUE}Examples:${RESET}"
+    echo "  $0                     # Install for development"
+    echo "  $0 --editable          # Same as above"
+    echo "  $0 --release           # Install for production"
+    echo "  $0 --check             # Check if installed"
+    echo "  $0 --upgrade           # Update to latest"
+    echo "  $0 --uninstall         # Remove pyengine"
+    echo ""
+    echo -e "${BLUE}Requirements:${RESET}"
+    echo "  - Python >= 3.8"
+    echo "  - pip"
+    echo ""
+    echo -e "${BLUE}Dependencies${RESET} (installed automatically):"
+    echo "  - numpy"
+    echo "  - opencv-python"
+    echo "  - Pillow"
+    echo "  - paho-mqtt"
+    echo "  - scipy"
+    echo "  - filterpy"
+    echo "  - numba"
+    echo ""
 }
 
 # ----------------------------
