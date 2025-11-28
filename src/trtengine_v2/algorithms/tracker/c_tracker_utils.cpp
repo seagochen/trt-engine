@@ -8,7 +8,7 @@
 
 #include "trtengine_v2/algorithms/tracker/c_tracker_structures.h"
 
-#include <eigen/Eigen/Dense>
+#include <Eigen/Dense>
 #include <vector>
 #include <cmath>
 #include <algorithm>

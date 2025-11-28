@@ -1,8 +1,0 @@
-syntax = "proto3";
-
-message RawFrame {
-    int32 frame_width = 1;         // 数据帧的宽度
-    int32 frame_height = 2;        // 数据帧的高度
-    int32 frame_channels = 3;      // 数据帧的通道数
-    bytes frame_raw_data = 4;      // 数据帧数据
-}

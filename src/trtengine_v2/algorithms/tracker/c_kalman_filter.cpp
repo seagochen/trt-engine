@@ -10,7 +10,7 @@
 
 #include "trtengine_v2/algorithms/tracker/c_kalman_filter.h"
 
-#include <eigen/Eigen/Dense>
+#include <Eigen/Dense>
 #include <cmath>
 #include <algorithm>
 

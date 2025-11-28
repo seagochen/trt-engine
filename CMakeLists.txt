@@ -66,9 +66,9 @@ endif()
 # ------------------ 查找 OpenCV ------------------
 find_package(OpenCV REQUIRED)
 
-# ------------------ Eigen3 设置 (使用本地头文件) ------------------
-set(EIGEN3_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/include/thirds")
-message(STATUS "Using local Eigen3: ${EIGEN3_INCLUDE_DIR}")
+# ------------------ Eigen3 设置 (使用系统安装的 Eigen3) ------------------
+find_package(Eigen3 REQUIRED)
+message(STATUS "Using system Eigen3: ${EIGEN3_INCLUDE_DIR}")
 
 # ------------------ 查找多线程库 ------------------
 find_package(Threads REQUIRED)
@@ -127,6 +127,7 @@ target_include_directories(jetson_shared PRIVATE
         ${SIMPLE_CUDA_TOOLKITS_INC}
         ${TENSORRT_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
+        ${EIGEN3_INCLUDE_DIR}
         "${PROJECT_SOURCE_DIR}/include"
 )
 
@@ -163,6 +164,7 @@ target_include_directories(jetson_static PRIVATE
         ${SIMPLE_CUDA_TOOLKITS_INC}
         ${TENSORRT_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
+        ${EIGEN3_INCLUDE_DIR}
         "${PROJECT_SOURCE_DIR}/include"
 )
 
@@ -287,11 +289,5 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/scripts/"
 # 安装资源文件
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/resources/"
         DESTINATION "${CMAKE_INSTALL_PREFIX}/resources"
-        OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
-)
-
-# 安装protobufs
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/protobufs/"
-        DESTINATION "${CMAKE_INSTALL_PREFIX}/protobufs"
         OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
 )

@@ -15,6 +15,9 @@
 #include <sstream>
 #include <cstring>
 #include <cstdio>
+#include <string>
+
+#define SCHEME_LOADER_MODULE "SchemeLoader"
 
 // Simple JSON parsing (using a lightweight approach without external dependencies)
 // For production use, consider using nlohmann/json or rapidjson
@@ -133,7 +136,7 @@ bool c_scheme_load_from_json(const char* json_path, C_DrawingScheme* scheme) {
     // Read file
     std::ifstream file(json_path);
     if (!file.is_open()) {
-        LOG_ERROR("Failed to open schema file: %s", json_path);
+        LOG_ERROR(SCHEME_LOADER_MODULE, std::string("Failed to open schema file: ") + json_path);
         return false;
     }
 
@@ -259,8 +262,10 @@ bool c_scheme_load_from_json(const char* json_path, C_DrawingScheme* scheme) {
         }
     }
 
-    LOG_INFO("Loaded schema: %zu keypoints, %zu skeleton links, %zu bbox colors",
+    char log_buf[256];
+    snprintf(log_buf, sizeof(log_buf), "Loaded schema: %zu keypoints, %zu skeleton links, %zu bbox colors",
              scheme->keypoint_count, scheme->skeleton_link_count, scheme->bbox_color_count);
+    LOG_INFO(SCHEME_LOADER_MODULE, log_buf);
 
     return true;
 }
@@ -364,28 +369,35 @@ void c_scheme_get_simple(C_DrawingScheme* scheme) {
 void c_scheme_print(const C_DrawingScheme* scheme) {
     if (!scheme) return;
 
-    LOG_INFO("Drawing Scheme:");
-    LOG_INFO("  Keypoints: %zu", scheme->keypoint_count);
+    char buf[256];
+
+    LOG_INFO(SCHEME_LOADER_MODULE, "Drawing Scheme:");
+    snprintf(buf, sizeof(buf), "  Keypoints: %zu", scheme->keypoint_count);
+    LOG_INFO(SCHEME_LOADER_MODULE, buf);
     for (size_t i = 0; i < scheme->keypoint_count; ++i) {
-        LOG_INFO("    [%d] %s: BGR(%d, %d, %d)",
+        snprintf(buf, sizeof(buf), "    [%d] %s: BGR(%d, %d, %d)",
                  scheme->keypoints[i].id,
                  scheme->keypoints[i].name,
                  scheme->keypoints[i].color.b,
                  scheme->keypoints[i].color.g,
                  scheme->keypoints[i].color.r);
+        LOG_INFO(SCHEME_LOADER_MODULE, buf);
     }
 
-    LOG_INFO("  Skeleton Links: %zu", scheme->skeleton_link_count);
+    snprintf(buf, sizeof(buf), "  Skeleton Links: %zu", scheme->skeleton_link_count);
+    LOG_INFO(SCHEME_LOADER_MODULE, buf);
     for (size_t i = 0; i < scheme->skeleton_link_count; ++i) {
-        LOG_INFO("    %d -> %d: BGR(%d, %d, %d)",
+        snprintf(buf, sizeof(buf), "    %d -> %d: BGR(%d, %d, %d)",
                  scheme->skeleton_links[i].src_kpt_id,
                  scheme->skeleton_links[i].dst_kpt_id,
                  scheme->skeleton_links[i].color.b,
                  scheme->skeleton_links[i].color.g,
                  scheme->skeleton_links[i].color.r);
+        LOG_INFO(SCHEME_LOADER_MODULE, buf);
     }
 
-    LOG_INFO("  BBox Colors: %zu", scheme->bbox_color_count);
+    snprintf(buf, sizeof(buf), "  BBox Colors: %zu", scheme->bbox_color_count);
+    LOG_INFO(SCHEME_LOADER_MODULE, buf);
 }
 
 } // extern "C"
