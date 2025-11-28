@@ -53,9 +53,32 @@ print_header() {
 # Get project root directory
 # ----------------------------
 get_project_root() {
+    # Default installation path (highest priority)
+    local default_path="/opt/TrtEngineToolkits"
+    if [[ -d "$default_path/pyengine" ]] && [[ -f "$default_path/pyproject.toml" ]]; then
+        echo "$default_path"
+        return 0
+    fi
+
+    # Try script's parent directory (scripts/../)
     local script_dir
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    echo "$(cd "$script_dir/.." && pwd)"
+    local parent_dir
+    parent_dir="$(cd "$script_dir/.." && pwd)"
+
+    if [[ -f "$parent_dir/pyproject.toml" ]]; then
+        echo "$parent_dir"
+        return 0
+    fi
+
+    # Try current working directory
+    if [[ -f "$(pwd)/pyproject.toml" ]]; then
+        echo "$(pwd)"
+        return 0
+    fi
+
+    # Fallback to default path even if not found (will show error later)
+    echo "$default_path"
 }
 
 # ----------------------------

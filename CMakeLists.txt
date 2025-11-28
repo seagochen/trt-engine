@@ -274,15 +274,21 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/pyengine/"
         OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
 )
 
+# 安装 pyproject.toml (用于 pip install)
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/pyproject.toml"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}"
+)
+
 # 安装配置文件 (configs 文件夹)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/configs/"
         DESTINATION "${CMAKE_INSTALL_PREFIX}/configs"
         OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
 )
 
-# 安装脚本文件
+# 安装脚本文件 (保留可执行权限)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/scripts/"
         DESTINATION "${CMAKE_INSTALL_PREFIX}/scripts"
+        FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
         OPTIONAL # Use OPTIONAL if this directory might not always exist or is for specific builds
 )
 
